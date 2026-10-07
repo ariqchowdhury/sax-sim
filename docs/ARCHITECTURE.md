@@ -38,6 +38,7 @@ All functions `#[no_mangle] pub extern "C"`. Single engine instance per worklet.
 | `sax_telemetry_ptr() -> *const f32` / `sax_telemetry_len() -> u32` | telemetry block (layout below), updated every `sax_process` |
 | `sax_pad_openness_ptr() -> *const f32` | one f32 per tone hole (0 closed … 1 fully open), for graphics |
 | `sax_compute_impedance(n: u32, fmin: f32, fmax: f32) -> *const f32` | input impedance at the reed end (rigid reed) for the current fingering/geometry/params on the log grid `f_i = fmin·(fmax/fmin)^(i/(n−1))`; returns `2n` f32 = `[|Z_i| (Pa·s/m³) …, arg Z_i (rad) …]`, valid until the next call. **Not real-time safe** (allocates, ~0.1–0.3 s) and snaps params/pads to their targets — the web app calls it on a *separate* engine instance in a Web Worker (`web/src/engine/impedance.worker.ts`), never on the audio instance. |
+| `sax_compute_tract_impedance(n: u32, fmin: f32, fmax: f32) -> *const f32` | vocal-tract input impedance **as seen from the reed** (mouth end) for the current tongue/jaw/glottis (incl. player-model offsets): the engine's tract tube (`tract.rs`) driven by a volume impulse at the mouth node, glottis end terminated by ρc/A_sub (A_sub = 2.5 cm²) + viscous glottal resistance. Same grid and `[|Z_i| …, arg Z_i …]` layout as `sax_compute_impedance`, so the two add (complex) to the series load Z_bore + Z_tract the reed works against. Not real-time safe (~20–50 ms); snaps params — impedance worker only. |
 
 ## Params (`id` = index; identical order in Rust `Param` enum and TS `PARAMS` array)
 
@@ -147,5 +148,5 @@ driven purely by the `keys` / `linkages` / `octave_logic` data so they cannot dr
   the counter is odd or changed during the copy. No allocation on either side. Without cross-origin
   isolation the worklet falls back to the `postMessage` telemetry above.
 * **Impedance worker**: `web/src/engine/impedance.worker.ts` owns a second engine instance (same
-  wasm, same geometry, mirrored params/keys) and calls `sax_compute_impedance` on demand
-  (debounced after key/geometry-relevant param changes), so the audio thread never stalls.
+  wasm, same geometry, mirrored params/keys) and calls `sax_compute_impedance` / `sax_compute_tract_impedance` on demand
+  (debounced: bore after key/geometry-relevant param changes, tract ~100 ms after tongue/jaw/glottis changes), so the audio thread never stalls.

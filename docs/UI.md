@@ -83,7 +83,7 @@ C♯5 fingering. <kbd>Esc</kbd> lifts the fingers.
 |---|---|---|
 | lower | <kbd>Z S X D C V G B H N J M</kbd> (+ <kbd>, L . ;</kbd>) | C4 C♯4 D4 E♭4 E4 F4 F♯4 G4 G♯4 A4 B♭4 B4 (+ C5 C♯5 D5 E♭5) |
 | upper | <kbd>Q 2 W 3 E R 5 T 6 Y 7 U</kbd> | C5 … B5 |
-| top | <kbd>I 9 O 0 P [ =</kbd> | C6 C♯6 D6 E♭6 E6 F6 F♯6 |
+| top | <kbd>I 9 O 0 P [ = ] ⌫ \</kbd> | C6 C♯6 D6 E♭6 E6 F6 F♯6 G6 G♯6 A6 (altissimo from G6) |
 | | <kbd>↑</kbd> / <kbd>↓</kbd> | octave shift (−1 … +1); at −1, <kbd>J</kbd>/<kbd>M</kbd> give B♭3/B3 |
 
 **Direct-key mode** (hold to press the key on the instrument):
@@ -103,6 +103,24 @@ C♯5 fingering. <kbd>Esc</kbd> lifts the fingers.
 
 Sources combine: a key is down if it is latched by a click, held by the mouse, held on the
 keyboard or part of the current note-mode fingering.
+
+## Altissimo & the vocal tract
+
+* **Altissimo notes**: every `alternate_fingerings` entry with `register: 3` in the data (currently
+  G6, G♯6, A6) becomes playable in note mode (top row `] ⌫ \`, or octave shift ↑ and `T 6 Y`) and
+  over MIDI; the fingering chart recognises them. With *Player assist* > 0 the engine's player
+  model voices the note; with assist = 0 the UI applies the entry's `tract` settings plus its
+  `embouchure` (or the *Altissimo* preset's) and blows at ≥ the preset's pressure, and restores your
+  previous settings when you play a normal note again.
+* **Why it works — series impedance**: the reed sees Z_bore + Z_tract. The impedance plot's
+  *tract overlay* (checkbox in the Observation header) adds Z_tract seen from the reed (cyan,
+  `sax_compute_tract_impedance` on the worker's engine instance, recomputed ~100 ms after a tongue /
+  jaw / glottis change so it follows live drags) and |Z_bore + Z_tract| (white), with a marker at the
+  dominant tract resonance.
+* **3D cue**: the *vocal-tract resonance* label in the head shows the resonance, its strength and
+  its distance in cents from the note (playing pitch, else the fingering's target); label and airway
+  turn **green** when a strong (≥ 10 MPa·s/m³) tract resonance lies between 150 ¢ below and 450 ¢
+  above the note (the series peak of Z_bore + Z_tract falls between them), amber within −500…+900 ¢. A *tract-supported* chip appears in the pitch card when it is.
 
 ## MIDI, vibrato
 

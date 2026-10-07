@@ -60,7 +60,7 @@
       <section id="fchart" title="Fingering chart — click a key to hold it"></section>
 
       <section id="viz">
-        <div class="viz-head"><span>Observation</span><button id="viz-toggle" title="collapse">▾</button></div>
+        <div class="viz-head"><span>Observation</span><label class="viz-opt" title="Overlay the vocal-tract impedance seen from the reed and the series sum Z_bore + Z_tract on the impedance plot"><input type="checkbox" id="tract-overlay" checked /> tract overlay</label><button id="viz-toggle" title="collapse">▾</button></div>
         <div class="viz-body">
           <canvas id="scope"></canvas>
           <canvas id="spectrum"></canvas>
@@ -121,7 +121,7 @@
               <ul>
                 <li><kbd>Space</kbd> blow (attack/release envelope) · <kbd>/</kbd> tongue on reed</li>
                 <li><kbd>`</kbd> toggle Note ↔ Direct-key mode · <kbd>Esc</kbd> release all</li>
-                <li><b>Note mode</b>: <kbd>Z S X D C V G B H N J M</kbd> = C4…B4, <kbd>Q 2 W 3 E R 5 T 6 Y 7 U</kbd> = C5…B5, <kbd>I 9 O 0 P [ =</kbd> = C6…F#6 (written); <kbd>↑</kbd>/<kbd>↓</kbd> octave shift (↓ gives B♭3/B3 on <kbd>J</kbd>/<kbd>M</kbd>)</li>
+                <li><b>Note mode</b>: <kbd>Z S X D C V G B H N J M</kbd> = C4…B4, <kbd>Q 2 W 3 E R 5 T 6 Y 7 U</kbd> = C5…B5, <kbd>I 9 O 0 P [ = ] ⌫ \</kbd> = C6…A6 (written; G6+ use the altissimo fingerings); <kbd>↑</kbd>/<kbd>↓</kbd> octave shift (↓ gives B♭3/B3 on <kbd>J</kbd>/<kbd>M</kbd>)</li>
                 <li><b>Direct keys</b>: <kbd>Q</kbd> octave · <kbd>A S D</kbd> LH1-3 · <kbd>G</kbd> bis · <kbd>J K L</kbd> RH1-3 · <kbd>W E R</kbd> palm D/E♭/F · <kbd>T</kbd> front F · <kbd>Z X C V</kbd> LH pinky G♯/C♯/B/B♭ · <kbd>;</kbd> <kbd>'</kbd> RH pinky E♭/C · <kbd>U I O</kbd> side E/C/B♭ · <kbd>P</kbd> high F♯</li>
                 <li><b>MIDI</b> (panel → MIDI &amp; vibrato): notes finger + blow, CC2/CC11 breath, mod wheel = vibrato</li>
                 <li><b>● Rec</b> records a WAV; panel → Presets &amp; export for CSV telemetry and preset files</li>

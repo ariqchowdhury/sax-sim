@@ -613,7 +613,10 @@ default embouchure the reed's compliance/damping (Y_reed, V_r ≈ 1.1 cm³) shun
 no tract resonance can win; with an altissimo embouchure (firm lip → strain-stiffened lip halves V_r,
 low lip/reed damping, slightly less mouthpiece), a narrowed glottis (reflective glottal end) and a high
 front tongue, G6/G#6/A6 sound from their published fingerings at 4–5 kPa and do not sound with a neutral
-tract. Details, numbers and the tuning tool (`tools/altissimo_tune.py`) in VALIDATION.md §5.
+tract. Round 5: G6–C7 play within ±21 cents over 4–5 kPa when the fingering's bore resonance lies just
+above the target and the tract is tuned slightly above it (pitch anchored to the bore, not the tongue);
+C#7/D7 not reachable (tract resonance tops out near 1.35–1.4 kHz with the tip raised). Load analysis:
+`tools/altissimo_load.py`. Details, numbers and the tuning tool (`tools/altissimo_tune.py`) in VALIDATION.md §5.
 
 **Flow characteristic and the hard onset**: replacing the Bernoulli characteristic (1−x)√x by plausible
 measured-like shapes ((1−x)x^0.3…x^0.7, (1−x)^0.7…1.5 √x) leaves the bifurcation inverse in the harmonic-

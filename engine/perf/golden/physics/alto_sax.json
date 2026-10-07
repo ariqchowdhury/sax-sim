@@ -3911,18 +3911,19 @@
   },
   {
    "note": "G6",
-   "name": "altissimo G (8va, front F, LH1, LH3)",
+   "name": "altissimo G (OCT, LH1, LH3, LH_Gs)",
    "keys": [
     "OCT",
-    "LH_front_F",
     "LH1",
-    "LH3"
+    "LH3",
+    "LH_Gs"
    ],
    "register": 3,
    "f_target": 932.328,
    "tract": {
     "tongue_y": 0.96,
-    "tongue_x": 0.06,
+    "tongue_x": 0.09,
+    "tongue_tip": 0.8,
     "jaw_open": 0.15
    },
    "embouchure": {
@@ -3935,19 +3936,20 @@
   },
   {
    "note": "G#6",
-   "name": "altissimo G# (8va, front F, LH1, LH3, G#)",
+   "name": "altissimo G# (OCT, LH1, RH_side_C, RH1, RH3)",
    "keys": [
     "OCT",
-    "LH_front_F",
     "LH1",
-    "LH3",
-    "LH_Gs"
+    "RH_side_C",
+    "RH1",
+    "RH3"
    ],
    "register": 3,
    "f_target": 987.767,
    "tract": {
-    "tongue_y": 0.96,
-    "tongue_x": 0.02,
+    "tongue_y": 0.93,
+    "tongue_x": 0.09,
+    "tongue_tip": 0.8,
     "jaw_open": 0.15
    },
    "embouchure": {
@@ -3960,17 +3962,93 @@
   },
   {
    "note": "A6",
-   "name": "altissimo A (8va, LH2, RH1)",
+   "name": "altissimo A (OCT, LH1, LH2, LH3, RH_side_C)",
    "keys": [
     "OCT",
+    "LH1",
     "LH2",
-    "RH1"
+    "LH3",
+    "RH_side_C"
    ],
    "register": 3,
    "f_target": 1046.502,
    "tract": {
     "tongue_y": 0.93,
-    "tongue_x": 0.03,
+    "tongue_x": 0.0,
+    "tongue_tip": 0.3,
+    "jaw_open": 0.15
+   },
+   "embouchure": {
+    "lip_force": 1.8,
+    "lip_position": 11,
+    "lip_damping": 0.2,
+    "reed_damping": 0.1,
+    "glottis_open": 0.05
+   }
+  },
+  {
+   "note": "Bb6",
+   "name": "altissimo Bb (OCT, LH_Gs)",
+   "keys": [
+    "OCT",
+    "LH_Gs"
+   ],
+   "register": 3,
+   "f_target": 1108.731,
+   "tract": {
+    "tongue_y": 0.9,
+    "tongue_x": 0.0,
+    "tongue_tip": 0.3,
+    "jaw_open": 0.15
+   },
+   "embouchure": {
+    "lip_force": 1.8,
+    "lip_position": 11,
+    "lip_damping": 0.2,
+    "reed_damping": 0.1,
+    "glottis_open": 0.05
+   }
+  },
+  {
+   "note": "B6",
+   "name": "altissimo B (OCT, LH_palm_D, RH_side_C, RH3)",
+   "keys": [
+    "OCT",
+    "LH_palm_D",
+    "RH_side_C",
+    "RH3"
+   ],
+   "register": 3,
+   "f_target": 1174.659,
+   "tract": {
+    "tongue_y": 0.9,
+    "tongue_x": 0.0,
+    "tongue_tip": 0.8,
+    "jaw_open": 0.15
+   },
+   "embouchure": {
+    "lip_force": 1.8,
+    "lip_position": 11,
+    "lip_damping": 0.2,
+    "reed_damping": 0.1,
+    "glottis_open": 0.05
+   }
+  },
+  {
+   "note": "C7",
+   "name": "altissimo C (OCT, LH_palm_Eb, RH_side_C, RH3)",
+   "keys": [
+    "OCT",
+    "LH_palm_Eb",
+    "RH_side_C",
+    "RH3"
+   ],
+   "register": 3,
+   "f_target": 1244.508,
+   "tract": {
+    "tongue_y": 0.7,
+    "tongue_x": 0.0,
+    "tongue_tip": 0.8,
     "jaw_open": 0.15
    },
    "embouchure": {
@@ -4032,8 +4110,9 @@
     "lip_damping": 0.2,
     "reed_damping": 0.1,
     "glottis_open": 0.05,
-    "tongue_y": 0.96,
-    "tongue_x": 0.02,
+    "tongue_y": 0.93,
+    "tongue_x": 0.09,
+    "tongue_tip": 0.8,
     "jaw_open": 0.15
    }
   }

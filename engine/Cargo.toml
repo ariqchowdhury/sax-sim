@@ -15,16 +15,22 @@ path = "src/bin/render.rs"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# Native release (render, examples, `cargo test --release`): unwinding panics so
+# the test harness links (panic="abort" + lto collided with it).
 [profile.release]
 opt-level = 3
 lto = true
 codegen-units = 1
-panic = "abort"
 debug = false
 
-# `cargo test` uses the dev/test profile (the release profile's panic="abort"
-# collides with the unwinding test harness); keep it optimised so the
-# engine-level tests run quickly.
+# The AudioWorklet build (engine/build_wasm.sh: `--profile wasm`): release +
+# panic="abort" — no unwinding tables in the .wasm.
+[profile.wasm]
+inherits = "release"
+panic = "abort"
+
+# `cargo test` uses the dev/test profile; keep it optimised so the engine-level
+# tests run quickly.
 [profile.dev]
 opt-level = 3
 debug-assertions = true

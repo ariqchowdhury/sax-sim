@@ -61,6 +61,17 @@ export class FingeringChart {
     this.refresh();
   }
 
+  /** recognised fingering entry (name + sounding f_target if the data has it), or null */
+  recognisedEntry(): { name: string; f_target?: number; register?: number } | null {
+    const down = new Set<string>();
+    this.geo.keys.forEach((k, i) => { if (this.state.keyDown[i] > 0.5) down.add(k.id); });
+    const all = [
+      ...this.geo.fingerings.map((f) => ({ name: f.note, keys: f.keys, f_target: f.f_target as number | undefined, register: f.register as number | undefined })),
+      ...(this.geo.alternate_fingerings ?? []).map((a) => ({ name: `${a.note} (${a.name ?? 'alt'})`, keys: a.keys, f_target: a.f_target as number | undefined, register: a.register as number | undefined })),
+    ];
+    return all.find((f) => f.keys.length === down.size && f.keys.every((k) => down.has(k))) ?? null;
+  }
+
   /** recognised fingering name (written) for the current key set, or '' */
   recognised(): string {
     const down = new Set<string>();
@@ -80,6 +91,8 @@ export class FingeringChart {
     });
     const r = this.recognised();
     const any = this.state.keyDown.some((v) => v > 0.5);
-    this.noteEl.textContent = r ? `${r}` : any ? '—' : 'C♯5 (open)';
+    const e = this.recognisedEntry();
+    this.noteEl.textContent = r ? `${r.split(' (')[0]}${e?.register === 3 ? ' · altissimo' : r.includes('(') ? ' · alt' : ''}` : any ? '—' : 'C♯5 (open)';
+    this.noteEl.title = r;
   }
 }

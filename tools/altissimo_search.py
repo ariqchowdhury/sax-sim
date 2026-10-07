@@ -19,6 +19,7 @@ NAMES = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]
 
 
 def sounding_freq(note):
+    note = note.replace("A#", "Bb").replace("D#", "Eb")
     m = 12 * (int(note[-1]) + 1) + NAMES.index(note[:-1]) - 9
     return 440 * 2 ** ((m - 69) / 12)
 
@@ -28,6 +29,8 @@ def main():
     ap.add_argument("notes", nargs="+")
     ap.add_argument("--top", type=int, default=8)
     ap.add_argument("--maxkeys", type=int, default=5)
+    ap.add_argument("--lo", type=float, default=-60, help="accepted peak offset window (cents)")
+    ap.add_argument("--hi", type=float, default=60)
     ap.add_argument("--tract", action="store_true", help="score |Z_bore + Z_tract| with a tract tuned near the target")
     a = ap.parse_args()
     g = tmm.Geometry(); A = tmm.air(22)
@@ -60,7 +63,7 @@ def main():
                 seen.add(sig)
                 Z = tmm.input_impedance(g, fr, op, A) + Zt
                 pk = tmm.find_peaks(fr, Z)
-                near = [p for p in pk if abs(1200 * math.log2(p[0] / ft)) < 60]
+                near = [p for p in pk if a.lo < 1200 * math.log2(p[0] / ft) < a.hi]
                 if not near:
                     continue
                 zt = max(near, key=lambda p: p[1])

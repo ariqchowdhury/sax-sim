@@ -23,6 +23,59 @@ pub struct PlayerOffsets {
     pub jaw: f64,
     /// added to lip_damping
     pub lip_damping: f64,
+    /// altissimo voicing: weight 0…1 (ramped) of the absolute targets `alt`,
+    /// plus a pitch-holding trim added to tongue_x after blending
+    pub alt_w: f64,
+    pub alt: AltVoicing,
+    pub tx_trim: f64,
+    /// player's own tongue on the reed (re-articulation), 0…1
+    pub tongue: f64,
+}
+
+/// Absolute voicing targets of an altissimo fingering (NaN = not specified).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AltVoicing {
+    pub lip_force: f64,
+    pub lip_position: f64,
+    pub lip_damping: f64,
+    pub reed_damping: f64,
+    pub glottis_open: f64,
+    pub tongue_x: f64,
+    pub tongue_y: f64,
+    pub tongue_tip: f64,
+    pub jaw_open: f64,
+}
+
+impl Default for AltVoicing {
+    fn default() -> Self {
+        let n = f64::NAN;
+        AltVoicing { lip_force: n, lip_position: n, lip_damping: n, reed_damping: n, glottis_open: n, tongue_x: n, tongue_y: n, tongue_tip: n, jaw_open: n }
+    }
+}
+
+/// Blend `base` toward the voicing target `t` with weight `w` (NaN target = keep).
+#[inline]
+pub fn blend(base: f64, t: f64, w: f64) -> f64 {
+    if t.is_nan() || w <= 0.0 {
+        base
+    } else {
+        base + w * (t - base)
+    }
+}
+
+impl PlayerOffsets {
+    /// True when the offsets leave every control untouched (pure physics).
+    pub fn is_neutral(&self) -> bool {
+        self.lip == 0.0
+            && self.pressure_scale == 1.0
+            && self.tongue_y == 0.0
+            && self.tongue_x == 0.0
+            && self.jaw == 0.0
+            && self.lip_damping == 0.0
+            && self.alt_w == 0.0
+            && self.tx_trim == 0.0
+            && self.tongue == 0.0
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -30,6 +83,7 @@ struct NoteInfo {
     mask: u64,
     f_target: f64,
     register: i32,
+    alt: Option<AltVoicing>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -43,6 +97,13 @@ pub struct Player {
     /// onset pressure boost (pp notes start above threshold, then the player
     /// relaxes onto the soft, hysteretic branch)
     boost: f64,
+    /// altissimo voicing ramp state, the voicing being ramped, pitch trim
+    alt_w: f64,
+    alt_cur: AltVoicing,
+    tx_trim: f64,
+    lip_trim: f64,
+    wrong_t: f64,
+    dip_t: f64,
     pub out: PlayerOffsets,
 }
 
@@ -60,6 +121,25 @@ pub const DYN_FF_PRESSURE_LOW: f64 = 1.25;
 /// pp pressure factor for those low notes
 pub const DYN_PP_PRESSURE_LOW: f64 = 0.6;
 
+/// altissimo voicing ramp time (s), tongue_x pitch-trim gain (1/(cent·s)),
+/// register-seek rate (1/s) and trim limit
+pub const ALT_RAMP: f64 = 0.12;
+pub const ALT_TRIM_GAIN: f64 = 0.001;
+/// tongue trim acts only beyond this pitch error (cents)
+pub const ALT_COARSE_CENTS: f64 = 20.0;
+pub const ALT_SEEK_RATE: f64 = 0.1;
+pub const ALT_TRIM_MAX: f64 = 0.1;
+/// re-articulation when stuck below an altissimo target: after this long in
+/// the wrong regime (s), the player touches the reed with the tongue for
+/// ALT_DIP_TIME (s) — a light re-tongue — so the note restarts voiced
+pub const ALT_REARTIC_AFTER: f64 = 0.12;
+pub const ALT_DIP_TIME: f64 = 0.08;
+/// lip-force pitch-trim gain (N/(cent·s)) and limit (N)
+pub const ALT_LIP_GAIN: f64 = 0.006;
+pub const ALT_LIP_MAX: f64 = 0.6;
+/// the lip may relax by at most this much (a looser lip loses the altissimo regime)
+pub const ALT_LIP_MIN: f64 = -0.25;
+
 /// rate of the register-locking integrator (1/s)
 const ADAPT_RATE: f64 = 2.5;
 
@@ -76,13 +156,53 @@ impl Player {
                 }
             }
             if let Some(f) = f {
-                notes.push(NoteInfo { mask, f_target: f, register: reg.unwrap_or(if f > 340.0 { 2 } else { 1 }) });
+                notes.push(NoteInfo { mask, f_target: f, register: reg.unwrap_or(if f > 340.0 { 2 } else { 1 }), alt: None });
             }
         };
         for f in &g.fingerings {
             add(&f.keys, f.f_target, f.register);
         }
         Player { notes, out: PlayerOffsets { pressure_scale: 1.0, ..Default::default() }, ..Default::default() }
+    }
+
+    /// Read `alternate_fingerings` entries with `register: 3` (altissimo) and
+    /// their per-note `tract` / `embouchure` voicing from the geometry JSON.
+    pub fn load_alternates(&mut self, json: &str, kw: &Keywork) {
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(json) else { return };
+        let Some(arr) = v.get("alternate_fingerings").and_then(|a| a.as_array()) else { return };
+        for a in arr {
+            if a.get("register").and_then(|r| r.as_i64()) != Some(3) {
+                continue;
+            }
+            let Some(f) = a.get("f_target").and_then(|x| x.as_f64()) else { continue };
+            let mut mask = 0u64;
+            let mut ok = true;
+            for k in a.get("keys").and_then(|k| k.as_array()).into_iter().flatten() {
+                match k.as_str().and_then(|n| kw.key_index(n)) {
+                    Some(i) if i < 64 => mask |= 1 << i,
+                    _ => ok = false,
+                }
+            }
+            if !ok {
+                continue;
+            }
+            let get = |sec: &str, key: &str| a.get(sec).and_then(|s| s.get(key)).and_then(|x| x.as_f64()).unwrap_or(f64::NAN);
+            let alt = AltVoicing {
+                lip_force: get("embouchure", "lip_force"),
+                lip_position: get("embouchure", "lip_position"),
+                lip_damping: get("embouchure", "lip_damping"),
+                reed_damping: get("embouchure", "reed_damping"),
+                glottis_open: get("embouchure", "glottis_open"),
+                tongue_x: get("tract", "tongue_x"),
+                tongue_y: get("tract", "tongue_y"),
+                tongue_tip: get("tract", "tongue_tip"),
+                jaw_open: get("tract", "jaw_open"),
+            };
+            // standard fingerings take precedence on identical key sets
+            if !self.notes.iter().any(|n| n.mask == mask) {
+                self.notes.push(NoteInfo { mask, f_target: f, register: 3, alt: Some(alt) });
+            }
+        }
     }
 
     /// Recognise the fingering from key press amounts.
@@ -211,7 +331,69 @@ impl Player {
                 o.jaw += f.jaw * (a - 1.0) - 0.15 * x;
             }
         }
-        let changed = (o.lip - self.out.lip).abs() > 1e-3
+        // --- altissimo voicing (register-3 alternate fingerings): ramp toward the
+        // per-note absolute embouchure/tract targets like a player setting the
+        // throat (~ALT_RAMP), and trim tongue_x from the pitch tracker.
+        let alt_target = if a > 0.0 { self.current.and_then(|i| self.notes[i].alt) } else { None };
+        if let Some(v) = alt_target {
+            self.alt_cur = v;
+        }
+        let want = if alt_target.is_some() { (2.0 * a).min(1.0) } else { 0.0 };
+        let stp = dt / ALT_RAMP;
+        self.alt_w += (want - self.alt_w).clamp(-stp, stp);
+        if let (Some(i), Some(_)) = (self.current, alt_target) {
+            if freq > 0.0 && tongue < 0.2 {
+                let c = 1200.0 * (freq / self.notes[i].f_target).log2();
+                // fine pitch: lip force (continuous lever: more lip → sharper);
+                // coarse: tongue_x (tract resonance; flat → tongue further
+                // front), only for large errors because the tract-locked regime
+                // is hysteretic in tongue_x; outside ±300 c seek the register.
+                if c.abs() < 300.0 {
+                    self.lip_trim = (self.lip_trim - ALT_LIP_GAIN * c * dt).clamp(ALT_LIP_MIN, ALT_LIP_MAX);
+                    if c.abs() > ALT_COARSE_CENTS {
+                        self.tx_trim = (self.tx_trim + ALT_TRIM_GAIN * c * dt).clamp(-ALT_TRIM_MAX, ALT_TRIM_MAX);
+                    }
+                } else {
+                    let rate = if c < 0.0 { -ALT_SEEK_RATE } else { ALT_SEEK_RATE };
+                    self.tx_trim = (self.tx_trim + rate * dt).clamp(-ALT_TRIM_MAX, ALT_TRIM_MAX);
+                    // stuck in a lower regime (typical when slurring up from a
+                    // palm note): once voiced, re-articulate with a short breath
+                    // dip so the note restarts on the tract-supported regime
+                    if c < 0.0 && self.alt_w >= 0.99 {
+                        self.wrong_t += dt;
+                        if self.wrong_t > ALT_REARTIC_AFTER {
+                            self.dip_t = ALT_DIP_TIME;
+                            self.wrong_t = -0.3;
+                            // restart from the notated voicing
+                            self.tx_trim = 0.0;
+                            self.lip_trim = 0.0;
+                        }
+                    }
+                }
+            }
+        } else if self.alt_w <= 0.0 {
+            self.tx_trim = 0.0;
+            self.lip_trim = 0.0;
+        }
+        if self.dip_t > 0.0 {
+            self.dip_t -= dt;
+            o.tongue = 1.0;
+        }
+        if alt_target.is_none() {
+            self.wrong_t = 0.0;
+        }
+        o.alt_w = self.alt_w;
+        o.alt = self.alt_cur;
+        o.tx_trim = self.tx_trim * self.alt_w;
+        if !o.alt.lip_force.is_nan() {
+            o.alt.lip_force += self.lip_trim;
+        }
+        let changed = (o.alt_w - self.out.alt_w).abs() > 1e-4
+            || (o.tx_trim - self.out.tx_trim).abs() > 1e-4
+            || o.tongue != self.out.tongue
+            || (o.alt.lip_force - self.out.alt.lip_force).abs() > 1e-3
+            || o.alt.lip_force.is_nan() != self.out.alt.lip_force.is_nan()
+            || (o.lip - self.out.lip).abs() > 1e-3
             || (o.pressure_scale - self.out.pressure_scale).abs() > 1e-4
             || (o.tongue_y - self.out.tongue_y).abs() > 1e-3
             || (o.tongue_x - self.out.tongue_x).abs() > 1e-3
@@ -230,18 +412,18 @@ mod tests {
 
     #[test]
     fn zero_assist_is_pure_physics() {
-        let mut p = Player { notes: vec![NoteInfo { mask: 1, f_target: 140.0, register: 1 }], ..Default::default() };
+        let mut p = Player { notes: vec![NoteInfo { mask: 1, f_target: 140.0, register: 1, alt: None }], ..Default::default() };
         p.on_keys(&[1.0]);
         assert_eq!(p.current, Some(0));
         for _ in 0..10000 {
             p.tick(0.0, 0.0, 280.0, 4000.0, 0.0, 1e-3);
         }
-        assert_eq!(p.out, PlayerOffsets { pressure_scale: 1.0, ..Default::default() });
+        assert!(p.out.is_neutral(), "{:?}", p.out);
     }
 
     #[test]
     fn overblown_note_is_pulled_down() {
-        let mut p = Player { notes: vec![NoteInfo { mask: 1, f_target: 140.0, register: 1 }], ..Default::default() };
+        let mut p = Player { notes: vec![NoteInfo { mask: 1, f_target: 140.0, register: 1, alt: None }], ..Default::default() };
         p.on_keys(&[1.0]);
         for _ in 0..2000 {
             p.tick(1.0, 0.5, 280.0, 4000.0, 0.0, 1e-3); // sounding the octave
@@ -252,7 +434,7 @@ mod tests {
     #[test]
     fn dynamic_mapping() {
         let mk = || {
-            let mut p = Player { notes: vec![NoteInfo { mask: 1, f_target: 440.0, register: 2 }], ..Default::default() };
+            let mut p = Player { notes: vec![NoteInfo { mask: 1, f_target: 440.0, register: 2, alt: None }], ..Default::default() };
             p.on_keys(&[1.0]);
             p
         };
@@ -277,6 +459,31 @@ mod tests {
         // assist 0: dynamic ignored
         let mut p = mk();
         p.tick(0.0, 0.0, 440.0, 3500.0, 0.0, 1e-3);
-        assert_eq!(p.out, PlayerOffsets { pressure_scale: 1.0, ..Default::default() });
+        assert!(p.out.is_neutral(), "{:?}", p.out);
+    }
+
+    #[test]
+    fn altissimo_voicing_ramps_and_releases() {
+        let v = AltVoicing { lip_force: 1.8, tongue_x: 0.06, tongue_y: 0.96, ..Default::default() };
+        let mut p = Player { notes: vec![NoteInfo { mask: 1, f_target: 932.0, register: 3, alt: Some(v) }], ..Default::default() };
+        p.on_keys(&[1.0]);
+        p.tick(0.5, 0.5, 0.0, 4500.0, 0.0, 0.03);
+        assert!(p.out.alt_w > 0.0 && p.out.alt_w < 0.5, "ramp starts gradually: {}", p.out.alt_w);
+        for _ in 0..20 {
+            p.tick(0.5, 0.5, 932.0, 4500.0, 0.0, 0.01);
+        }
+        assert!((p.out.alt_w - 1.0).abs() < 1e-9 && p.out.alt.tongue_y == 0.96);
+        assert_eq!(blend(0.4, p.out.alt.tongue_y, p.out.alt_w), 0.96);
+        // releasing the fingering ramps the voicing out
+        p.on_keys(&[0.0]);
+        for _ in 0..20 {
+            p.tick(0.5, 0.5, 0.0, 4500.0, 0.0, 0.01);
+        }
+        assert_eq!(p.out.alt_w, 0.0);
+        // assist 0: never voiced
+        let mut q = Player { notes: vec![NoteInfo { mask: 1, f_target: 932.0, register: 3, alt: Some(v) }], ..Default::default() };
+        q.on_keys(&[1.0]);
+        q.tick(0.0, 0.5, 0.0, 4500.0, 0.0, 1.0);
+        assert_eq!(q.out.alt_w, 0.0);
     }
 }

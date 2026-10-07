@@ -218,37 +218,63 @@ the tip stiffness, strain-stiffening with lip force): lip force 0.6 → 1.4 N mo
 −16…+14 c, C#6 −32…+18 c (jaw-vibrato range ✔); lip position 12 → 20 mm −15…−66 c; tract bends C#6 by
 −145…−248 c and C#5 by −52 c ✔. Low-register lipping (A4) is still on the small side.
 
-## 5. Altissimo — G6, G#6, A6 sound with a tuned tract (round 4)
+## 5. Altissimo — G6 … C7 (round 5)
 
-Fingerings (common published alto charts, in `alternate_fingerings` with `register: 3` and the per-note
-`tract` setting): G6 = 8va + front F + LH1 + LH3; G#6 = same + G#; A6 = 8va + LH2 + RH1.
 Altissimo embouchure: lip_force 1.8 N, lip_position 11 mm, lip_damping 0.2, reed_damping 0.1,
-glottis_open 0.05 (A_g ≈ 0.15 cm²), jaw 0.15, high front tongue. Tract settings found by
-`tools/altissimo_tune.py` (engine in the loop):
+glottis_open 0.05 (A_g ≈ 0.15 cm²), jaw 0.15. Fingerings and per-note tract settings come from
+`tools/altissimo_tune.py`: candidates = common chart patterns + fingerings whose **bore** resonance lies
+0…+90 cents above the target (`tools/altissimo_search.py --lo 0 --hi 90`); scored on the worst error over
+4–5 kPa, with a robustness check (tongue_x ± 0.015 must stay in the same regime). Stored in
+`alternate_fingerings[]` (register 3, `tract` incl. new `tongue_tip`, `embouchure`). Pure physics (assist 0):
 
 ```
-G6 (932.3 Hz) keys OCT,LH_front_F,LH1,LH3: tract tongue_y=0.96 tongue_x=0.06 jaw=0.15
-   tuned  : 3.0 kPa 384 Hz (-1534 c, 3078 Pa)  3.5 kPa 386 Hz (-1527 c, 3641 Pa)  4.0 kPa 893 Hz (-74 c, 847 Pa)  5.0 kPa 962 Hz (+54 c, 437 Pa)
-   neutral tract, altissimo embouchure: 3.5 kPa 2179 Hz  5.0 kPa 388 Hz
-   neutral tract, default embouchure  : 3.5 kPa 382 Hz  5.0 kPa 383 Hz
-G#6 (987.8 Hz) keys OCT,LH_front_F,LH1,LH3,LH_Gs: tract tongue_y=0.96 tongue_x=0.02 jaw=0.15
-   tuned  : 3.0 kPa 386 Hz (-1625 c, 3061 Pa)  3.5 kPa 949 Hz (-69 c, 525 Pa)  4.0 kPa 953 Hz (-63 c, 742 Pa)  5.0 kPa 1027 Hz (+68 c, 367 Pa)
-   neutral tract, altissimo embouchure: 3.5 kPa 2184 Hz  5.0 kPa 388 Hz
-   neutral tract, default embouchure  : 3.5 kPa 383 Hz  5.0 kPa 384 Hz
-A6 (1046.5 Hz) keys OCT,LH2,RH1: tract tongue_y=0.93 tongue_x=0.03 jaw=0.15
-   tuned  : 3.0 kPa 374 Hz (-1784 c, 1328 Pa)  3.5 kPa 378 Hz (-1763 c, 766 Pa)  4.0 kPa 1063 Hz (+27 c, 288 Pa)  5.0 kPa 1075 Hz (+47 c, 319 Pa)
-   neutral tract, altissimo embouchure: 3.5 kPa 2160 Hz  5.0 kPa 629 Hz
-   neutral tract, default embouchure  : 3.5 kPa 612 Hz  5.0 kPa 617 Hz
+G6 (932.3 Hz) keys OCT,LH1,LH3,LH_Gs  tongue_y=0.96 tongue_x=0.09 tongue_tip=0.8
+   tuned  : 3.5 kPa -1883 c  4.0 kPa -9 c  4.5 kPa +2 c  5.0 kPa +8 c
+   neutral tract, altissimo embouchure: 3.5 kPa +1478 c  4.5 kPa -1871 c  5.0 kPa -1905 c   default embouchure: 300 / 301 Hz
+G#6 (987.8 Hz) keys OCT,LH1,RH_side_C,RH1,RH3  tongue_y=0.93 tongue_x=0.09 tongue_tip=0.8
+   tuned  : 3.5 kPa -10 c  4.0 kPa +1 c  4.5 kPa +8 c  5.0 kPa +13 c
+   neutral tract, altissimo embouchure: 3.5 kPa +1348 c  4.5 kPa -793 c  5.0 kPa -794 c   default embouchure: 603 / 606 Hz
+A6 (1046.5 Hz) keys OCT,LH1,LH2,LH3,RH_side_C  tongue_y=0.93 tongue_x=0.0 tongue_tip=0.3
+   tuned  : 3.5 kPa -2104 c  4.0 kPa -10 c  4.5 kPa -4 c  5.0 kPa -0 c
+   neutral tract, altissimo embouchure: 3.5 kPa +1278 c  4.5 kPa -2066 c  5.0 kPa -2090 c   default embouchure: 302 / 307 Hz
+Bb6 (1108.7 Hz) keys OCT,LH_Gs  tongue_y=0.9 tongue_x=0.0 tongue_tip=0.3
+   tuned  : 3.5 kPa -6 c  4.0 kPa +5 c  4.5 kPa +11 c  5.0 kPa +15 c
+   neutral tract, altissimo embouchure: 3.5 kPa +1165 c  4.5 kPa -858 c  5.0 kPa -858 c   default embouchure: 657 / 661 Hz
+B6 (1174.7 Hz) keys OCT,LH_palm_D,RH_side_C,RH3  tongue_y=0.9 tongue_x=0.0 tongue_tip=0.8
+   tuned  : 3.5 kPa -888 c  4.0 kPa -21 c  4.5 kPa -6 c  5.0 kPa +3 c
+   neutral tract, altissimo embouchure: 3.5 kPa +1087 c  4.5 kPa -857 c  5.0 kPa -856 c   default embouchure: 698 / 703 Hz
+C7 (1244.5 Hz) keys OCT,LH_palm_Eb,RH_side_C,RH3  tongue_y=0.7 tongue_x=0.0 tongue_tip=0.8
+   tuned  : 3.5 kPa -13 c  4.0 kPa -3 c  4.5 kPa +1 c  5.0 kPa +4 c
+   neutral tract, altissimo embouchure: 3.5 kPa +981 c  4.5 kPa -893 c  5.0 kPa -891 c   default embouchure: 727 / 731 Hz
+C#7 (1319 Hz): no robust altissimo voicing found (best score 88)
+D7 (1397 Hz): no robust altissimo voicing found (best score 201)
 ```
 
-* **Met**: G6, G#6 and A6 sound in the altissimo regime at 4–5 kPa with the tuned tract, and do **not**
-  sound with a neutral tract (same fingering plays its low bore regime, 383–630 Hz) — the real-world
-  contrast. A6 also sounds at 4 kPa (+27 c).
-* **Not met**: they do not sound at 3–3.5 kPa (low regime or reed squeal at 2.2 kHz with the low-damping
-  embouchure); intonation is pressure-dependent (≈ ±60 c between 4 and 5 kPa; +40…+55 c at 4.5 kPa with the
-  best tongue setting on a 0.01 grid). The regime is tract-dominated: its pitch follows the tongue more
-  than the fingering (fingering changes move it by < 50 c).
-* "Altissimo" preset added to `presets` (tract set for G#6).
+| note | fingering | 3.5 kPa | 4.0 | 4.5 | 5.0 | assist 0.5 from rest / slur from F#6 |
+|---|---|---|---|---|---|---|
+| G6 932 Hz | 8va, LH1, LH3, G# | ✗ (low) | −9 | +2 | +8 | 934.3 / 938.2 Hz |
+| G#6 988 Hz | 8va, LH1, side C, RH1, RH3 | −10 | +1 | +8 | +13 | 991.6 / 996.2 Hz |
+| A6 1047 Hz | 8va, LH1, LH2, LH3, side C | ✗ (low) | −10 | −4 | 0 | 1045.1 / 1053.2 Hz |
+| Bb6 1109 Hz | 8va, G# | −6 | +5 | +11 | +15 | 1114.0 / 1117.7 Hz |
+| B6 1175 Hz | 8va, palm D, side C, RH3 | ✗ (low) | −21 | −6 | +3 | 1168.9 / 1175.6 Hz |
+| C7 1245 Hz | 8va, palm Eb, side C, RH3 | −13 | −3 | +1 | +4 | 1245.9 / 1247.4 Hz |
+| C#7, D7 | — | not found (best worst-case error 88 / 201 c) | | | | |
+
+* **Pitch** within ±21 cents over 4–5 kPa for all six notes (target ±25 ✔); drift 4→5 kPa ≤ 25 c (was ±60).
+* **Onset**: G#6, Bb6, C7 already speak at 3.5 kPa; G6, A6, B6 need ~4 kPa (partly ✔).
+* **Contrast**: with a neutral tract every fingering plays its low (bore) regime (300–730 Hz), or squeals
+  at the reed resonance (~2.2 kHz) with the low-damping embouchure at 3.5 kPa ✔.
+* **Fingering vs tongue**: with the chosen voicing the pitch sits on the fingering's bore resonance
+  (played 0…−20 c below it). G#6: tongue_x 0.075 → 0.12 moves the pitch only −16…+11 c (within the
+  regime); with one common voicing the four lower fingerings give four different pitches (992–1057 Hz).
+  The tongue still has to be in the right window (outside it the regime jumps to a tract branch).
+* **Slurs** (assist 0.5, DSP player voicing from data): F#6 → each altissimo note locks directly.
+* Load analysis (`tools/altissimo_load.py`): bore peaks at the targets 8–18 MPa·s/m³, tract peaks with the
+  glottis narrowed 70–135 MPa·s/m³, reed shunt (altissimo embouchure) V_r ≈ 0.58 cm³, f_r ≈ 2.45 kHz, q ≈ 0.22.
+  The tract is probably stronger than in most measured players (Chen, Smith & Wolfe report tract peaks of
+  tens of MPa·s/m³), but with an open glottis (tract 40–65) no altissimo regime speaks in the engine;
+  the remaining gap is most likely on the reed/lip side. The bore model at 0.8–1.4 kHz (TMM ≡ engine)
+  showed no error to fix.
 
 ### What altissimo physics turned out to matter (for docs/ALTISSIMO.md)
 
@@ -269,6 +295,11 @@ strong 380–640 Hz resonances:
 3. **Tract tuning range.** A high front tongue (tongue_y 0.93–0.97, constriction ≈ 0.1 cm² near the hard
    palate, small jaw opening) places the resonance between ~0.9 and 1.2 kHz; tongue_x fine-tunes it.
    Soft-wall losses at ×3 the boundary-layer value (round 3) keep formant-like bandwidths.
+4. **(round 5) Fingering choice for pitch.** Intonation and pressure stability came from choosing fingerings
+   whose bore resonance lies just above the target (0…+20 c) and voicing the tract slightly above that:
+   the playing frequency then locks 0–20 c below the bore peak and drifts ≤ 25 c over 4–5 kPa, instead of
+   following the (broad, pressure-sensitive) tract branch. Upper notes need the tongue body lower and the tip
+   raised (smaller front cavity) to put the tract resonance at 1.1–1.3 kHz.
 Bore-side changes mattered little: the nonlinear (jet) losses at open holes and vents (§7) damp the
 low regime by < 1 dB and do not change which regime starts; fingerings mainly need to keep the low bore
 resonances from being far stronger than ~60 MPa·s/m³.

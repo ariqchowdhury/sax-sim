@@ -246,28 +246,160 @@
   },
   "notes": {
    "G6": {
+    "keys": [
+     "OCT",
+     "LH1",
+     "LH3",
+     "LH_Gs"
+    ],
     "tract": {
      "tongue_y": 0.96,
-     "tongue_x": 0.06,
+     "tongue_x": 0.09,
+     "tongue_tip": 0.8,
      "jaw_open": 0.15
     },
-    "cents_4p5": 41.7
+    "cents": [
+     -1883.0,
+     -9.0,
+     1.7,
+     8.0
+    ],
+    "pressures": [
+     3.5,
+     4.0,
+     4.5,
+     5.0
+    ]
    },
    "G#6": {
-    "tract": {
-     "tongue_y": 0.96,
-     "tongue_x": 0.02,
-     "jaw_open": 0.15
-    },
-    "cents_4p5": 55.1
-   },
-   "A6": {
+    "keys": [
+     "OCT",
+     "LH1",
+     "RH_side_C",
+     "RH1",
+     "RH3"
+    ],
     "tract": {
      "tongue_y": 0.93,
-     "tongue_x": 0.03,
+     "tongue_x": 0.09,
+     "tongue_tip": 0.8,
      "jaw_open": 0.15
     },
-    "cents_4p5": 39.3
+    "cents": [
+     -9.6,
+     0.7,
+     7.8,
+     12.6
+    ],
+    "pressures": [
+     3.5,
+     4.0,
+     4.5,
+     5.0
+    ]
+   },
+   "A6": {
+    "keys": [
+     "OCT",
+     "LH1",
+     "LH2",
+     "LH3",
+     "RH_side_C"
+    ],
+    "tract": {
+     "tongue_y": 0.93,
+     "tongue_x": 0.0,
+     "tongue_tip": 0.3,
+     "jaw_open": 0.15
+    },
+    "cents": [
+     -2104.5,
+     -10.0,
+     -4.0,
+     -0.1
+    ],
+    "pressures": [
+     3.5,
+     4.0,
+     4.5,
+     5.0
+    ]
+   },
+   "Bb6": {
+    "keys": [
+     "OCT",
+     "LH_Gs"
+    ],
+    "tract": {
+     "tongue_y": 0.9,
+     "tongue_x": 0.0,
+     "tongue_tip": 0.3,
+     "jaw_open": 0.15
+    },
+    "cents": [
+     -5.9,
+     5.1,
+     11.5,
+     15.1
+    ],
+    "pressures": [
+     3.5,
+     4.0,
+     4.5,
+     5.0
+    ]
+   },
+   "B6": {
+    "keys": [
+     "OCT",
+     "LH_palm_D",
+     "RH_side_C",
+     "RH3"
+    ],
+    "tract": {
+     "tongue_y": 0.9,
+     "tongue_x": 0.0,
+     "tongue_tip": 0.8,
+     "jaw_open": 0.15
+    },
+    "cents": [
+     -888.5,
+     -20.7,
+     -5.7,
+     3.3
+    ],
+    "pressures": [
+     3.5,
+     4.0,
+     4.5,
+     5.0
+    ]
+   },
+   "C7": {
+    "keys": [
+     "OCT",
+     "LH_palm_Eb",
+     "RH_side_C",
+     "RH3"
+    ],
+    "tract": {
+     "tongue_y": 0.7,
+     "tongue_x": 0.0,
+     "tongue_tip": 0.8,
+     "jaw_open": 0.15
+    },
+    "cents": [
+     -12.7,
+     -3.0,
+     0.9,
+     3.7
+    ],
+    "pressures": [
+     3.5,
+     4.0,
+     4.5,
+     5.0
+    ]
    }
   }
  }

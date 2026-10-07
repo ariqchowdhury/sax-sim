@@ -185,15 +185,47 @@ export interface ImpedanceData {
   fmin: number;
   fmax: number;
   mag: Float32Array;
+  phase?: Float32Array;
   ms: number;
 }
 
-/** Input-impedance magnitude on a log-f axis with peak labels and playing-frequency markers. */
+/** local maxima with ≥ `minProm` dB prominence, sub-bin interpolated: [freqs, mags] */
+function findPeaks(d: { n: number; fmin: number; fmax: number }, mag: Float32Array, minProm = 3): [number[], number[]] {
+  const fs: number[] = [], ms: number[] = [];
+  const n = d.n;
+  for (let i = 2; i < n - 2; i++) {
+    if (!(mag[i] > mag[i - 1] && mag[i] >= mag[i + 1])) continue;
+    let lo = i, hi = i;
+    while (lo > 0 && mag[lo - 1] <= mag[lo]) lo--;
+    while (hi < n - 1 && mag[hi + 1] <= mag[hi]) hi++;
+    const prom = 20 * Math.log10(mag[i] / Math.max(mag[lo], mag[hi], 1e-9));
+    if (prom < minProm) continue;
+    const a = Math.log(mag[i - 1]), b = Math.log(mag[i]), c = Math.log(mag[i + 1]);
+    const off = Math.max(-0.5, Math.min(0.5, (0.5 * (a - c)) / (a - 2 * b + c || 1)));
+    fs.push(d.fmin * Math.pow(d.fmax / d.fmin, (i + off) / (n - 1)));
+    ms.push(mag[i]);
+  }
+  return [fs, ms];
+}
+
+/**
+ * Input impedance on a log-f axis: Z_bore (purple, peaks numbered), optional overlays of the vocal
+ * tract seen from the reed Z_tract (cyan) and the series sum |Z_bore + Z_tract| (white) that the
+ * reed actually works against, with the tract-resonance marker and the playing frequency.
+ */
 export class ImpedancePlot extends CanvasView {
-  /** detected resonance peaks (Hz), ascending — recomputed per result */
+  /** bore resonance peaks (Hz), ascending */
   peaks: number[] = [];
   private peakMag: number[] = [];
   private data: ImpedanceData | null = null;
+  private tract: ImpedanceData | null = null;
+  private sum: Float32Array | null = null;
+  /** dominant tract resonance (Hz) in 400–2500 Hz, 0 if none; and its |Z| (Pa·s/m³) */
+  tractRes = 0;
+  tractResMag = 0;
+  /** peaks of |Z_bore + Z_tract| */
+  sumPeaks: number[] = [];
+  showTract = true;
   private lastF0 = -1;
   private dirty = true;
   status = 'computing…';
@@ -202,31 +234,48 @@ export class ImpedancePlot extends CanvasView {
 
   setData(d: ImpedanceData): void {
     this.data = d;
-    this.peaks = [];
-    this.peakMag = [];
-    const { n, mag } = d;
+    [this.peaks, this.peakMag] = findPeaks(d, d.mag);
+    this.combine();
+  }
+
+  setTract(d: ImpedanceData): void {
+    this.tract = d;
+    const [fs, ms] = findPeaks(d, d.mag, 1);
+    this.tractRes = 0;
+    this.tractResMag = 0;
+    for (let k = 0; k < fs.length; k++) if (fs[k] > 400 && fs[k] < 2500 && ms[k] > this.tractResMag) { this.tractRes = fs[k]; this.tractResMag = ms[k]; }
+    this.combine();
+  }
+
+  private combine(): void {
+    const b = this.data, t = this.tract;
+    this.sum = null;
+    this.sumPeaks = [];
+    if (b && t && b.phase && t.phase && b.n === t.n && b.fmin === t.fmin && b.fmax === t.fmax) {
+      const s = new Float32Array(b.n);
+      for (let i = 0; i < b.n; i++) {
+        const re = b.mag[i] * Math.cos(b.phase[i]) + t.mag[i] * Math.cos(t.phase[i]);
+        const im = b.mag[i] * Math.sin(b.phase[i]) + t.mag[i] * Math.sin(t.phase[i]);
+        s[i] = Math.hypot(re, im);
+      }
+      this.sum = s;
+      this.sumPeaks = findPeaks(b, s)[0];
+    }
     let mx = 1;
-    for (let i = 0; i < n; i++) mx = Math.max(mx, mag[i]);
+    const scan = (a: Float32Array | null | undefined): void => { if (a) for (let i = 0; i < a.length; i++) mx = Math.max(mx, a[i]); };
+    scan(b?.mag);
+    if (this.showTract) { scan(t?.mag); scan(this.sum); }
     this.dbMax = Math.ceil((20 * Math.log10(mx / 1e6) + 4) / 5) * 5;
     this.dbMin = this.dbMax - 55;
-    // local maxima with ≥ 3 dB prominence over both neighbouring minima
-    for (let i = 2; i < n - 2; i++) {
-      if (!(mag[i] > mag[i - 1] && mag[i] >= mag[i + 1])) continue;
-      let lo = i, hi = i;
-      while (lo > 0 && mag[lo - 1] <= mag[lo]) lo--;
-      while (hi < n - 1 && mag[hi + 1] <= mag[hi]) hi++;
-      const prom = 20 * Math.log10(mag[i] / Math.max(mag[lo], mag[hi], 1e-9));
-      if (prom < 3) continue;
-      // parabolic interpolation on log-magnitude for a sub-bin peak frequency
-      const a = Math.log(mag[i - 1]), b = Math.log(mag[i]), c = Math.log(mag[i + 1]);
-      const off = Math.max(-0.5, Math.min(0.5, (0.5 * (a - c)) / (a - 2 * b + c || 1)));
-      this.peaks.push(d.fmin * Math.pow(d.fmax / d.fmin, (i + off) / (n - 1)));
-      this.peakMag.push(mag[i]);
-    }
     this.dirty = true;
   }
 
-  /** 1-based index of the impedance peak the note is playing on (within ±120 cents), else 0 */
+  setShowTract(on: boolean): void {
+    this.showTract = on;
+    this.combine();
+  }
+
+  /** 1-based index of the bore impedance peak the note is playing on (within ±120 cents), else 0 */
   peakIndexFor(f0: number): number {
     let best = 0, bc = 120;
     for (let k = 0; k < this.peaks.length; k++) {
@@ -270,14 +319,20 @@ export class ImpedancePlot extends CanvasView {
       g.moveTo(lx(f0), 14); g.lineTo(lx(f0), h);
       g.stroke();
     }
-    g.strokeStyle = C.c;
-    g.lineWidth = 1.5;
-    g.beginPath();
-    for (let i = 0; i < d.n; i++) {
-      const x = (w * i) / (d.n - 1), y = ly(d.mag[i]);
-      if (i) g.lineTo(x, y); else g.moveTo(x, y);
-    }
-    g.stroke();
+    const curve = (a: Float32Array, color: string, width: number): void => {
+      g.strokeStyle = color;
+      g.lineWidth = width;
+      g.beginPath();
+      for (let i = 0; i < a.length; i++) {
+        const x = (w * i) / (a.length - 1), y = ly(a[i]);
+        if (i) g.lineTo(x, y); else g.moveTo(x, y);
+      }
+      g.stroke();
+    };
+    const t = this.showTract ? this.tract : null;
+    if (t) curve(t.mag, 'rgba(94,200,255,0.85)', 1.2);
+    curve(d.mag, C.c, 1.5);
+    if (t && this.sum) curve(this.sum, 'rgba(255,255,255,0.75)', 1.1);
     g.font = '10px ui-monospace, SFMono-Regular, Menlo, monospace';
     for (let k = 0; k < this.peaks.length && k < 7; k++) {
       const x = lx(this.peaks[k]), y = ly(this.peakMag[k]);
@@ -285,6 +340,28 @@ export class ImpedancePlot extends CanvasView {
       g.beginPath(); g.arc(x, y, 2.5, 0, Math.PI * 2); g.fill();
       if (k < 5) g.fillText(`${k + 1}:${Math.round(this.peaks[k])}`, Math.min(w - 48, x + 3), Math.max(24, y - 4));
     }
-    this.label(`|Z_in| (purple) · ${d.ms.toFixed(0)} ms in worker`, 8, 14, C.c);
+    if (t && this.tractRes > 0) {
+      const x = lx(this.tractRes);
+      g.strokeStyle = 'rgba(94,200,255,0.9)';
+      g.setLineDash([2, 3]);
+      g.beginPath(); g.moveTo(x, 14); g.lineTo(x, h - 12); g.stroke();
+      g.setLineDash([]);
+      g.fillStyle = '#9fdcff';
+      g.fillText(`tract ${Math.round(this.tractRes)} Hz`, Math.max(2, Math.min(w - 84, x - 40)), h - 14);
+    }
+    // legend
+    const items: [string, string][] = [['Z_bore', C.c]];
+    if (t) items.push(['Z_tract', '#5ec8ff'], ['|Z_bore+Z_tract|', '#ffffff']);
+    let lxp = w - 6;
+    for (let k = items.length - 1; k >= 0; k--) {
+      const [txt, col] = items[k];
+      const tw = g.measureText(txt).width;
+      lxp -= tw;
+      g.fillStyle = col;
+      g.fillText(txt, lxp, 12);
+      g.fillRect(lxp - 9, 8, 6, 2);
+      lxp -= 16;
+    }
+    this.label(`|Z_in| · ${d.ms.toFixed(0)} ms`, 8, 24, C.text);
   }
 }

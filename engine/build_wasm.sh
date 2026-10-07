@@ -8,14 +8,14 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$HERE"
-cargo build --release --target wasm32-unknown-unknown --lib
+cargo build --profile wasm --target wasm32-unknown-unknown --lib
 # RUSTFLAGS replaces .cargo/config.toml's rustflags, so restate +simd128; separate target dir
 # so the two builds don't invalidate each other.
 RUSTFLAGS="-C target-feature=+simd128,+relaxed-simd" \
-  cargo build --release --target wasm32-unknown-unknown --lib --target-dir "$HERE/target/relaxed"
+  cargo build --profile wasm --target wasm32-unknown-unknown --lib --target-dir "$HERE/target/relaxed"
 mkdir -p "$ROOT/web/public"
-cp "$HERE/target/wasm32-unknown-unknown/release/sax_engine.wasm" "$ROOT/web/public/engine.wasm"
-cp "$HERE/target/relaxed/wasm32-unknown-unknown/release/sax_engine.wasm" "$ROOT/web/public/engine_relaxed.wasm"
+cp "$HERE/target/wasm32-unknown-unknown/wasm/sax_engine.wasm" "$ROOT/web/public/engine.wasm"
+cp "$HERE/target/relaxed/wasm32-unknown-unknown/wasm/sax_engine.wasm" "$ROOT/web/public/engine_relaxed.wasm"
 # Sanity check: exports present, no imports, identical ABI (needs node; skipped if absent).
 if command -v node >/dev/null 2>&1; then
   node -e '

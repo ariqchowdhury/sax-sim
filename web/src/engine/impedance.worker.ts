@@ -6,12 +6,14 @@ export type ToImpedanceWorker =
   | { type: 'init'; wasmUrl: string; geometry: string; params: number[]; keys: number[] }
   | { type: 'param'; id: number; value: number }
   | { type: 'key'; index: number; value: number }
-  | { type: 'compute'; id: number; n: number; fmin: number; fmax: number };
+  | { type: 'compute'; kind: ImpedanceKind; id: number; n: number; fmin: number; fmax: number };
+
+export type ImpedanceKind = 'bore' | 'tract';
 
 export type FromImpedanceWorker =
   | { type: 'ready' }
   | { type: 'error'; message: string }
-  | { type: 'result'; id: number; n: number; fmin: number; fmax: number; mag: Float32Array; phase: Float32Array; ms: number };
+  | { type: 'result'; kind: ImpedanceKind; id: number; n: number; fmin: number; fmax: number; mag: Float32Array; phase: Float32Array; ms: number };
 
 interface Ex {
   memory: WebAssembly.Memory;
@@ -22,6 +24,7 @@ interface Ex {
   sax_set_param(id: number, v: number): void;
   sax_set_key(i: number, v: number): void;
   sax_compute_impedance?(n: number, fmin: number, fmax: number): number;
+  sax_compute_tract_impedance?(n: number, fmin: number, fmax: number): number;
 }
 
 const ctx = self as unknown as { onmessage: ((e: MessageEvent<ToImpedanceWorker>) => void) | null; postMessage(m: FromImpedanceWorker, t?: Transferable[]): void };
@@ -59,10 +62,15 @@ function handle(m: ToImpedanceWorker): void {
   else if (m.type === 'key') ex.sax_set_key(m.index, m.value);
   else if (m.type === 'compute') {
     const t0 = performance.now();
-    const ptr = ex.sax_compute_impedance!(m.n, m.fmin, m.fmax);
-    const all = new Float32Array(ex.memory.buffer, ptr, 2 * m.n);
+    const fn = m.kind === 'tract' ? ex.sax_compute_tract_impedance : ex.sax_compute_impedance;
+    if (typeof fn !== 'function') {
+      ctx.postMessage({ type: 'error', message: `engine.wasm lacks the ${m.kind} impedance export (rebuild the engine)` });
+      return;
+    }
+    const ptr = fn.call(ex, m.n, m.fmin, m.fmax);
+    const all = new Float32Array(ex.memory.buffer, ptr, 2 * m.n); // view after the call (memory may grow)
     const mag = all.slice(0, m.n), phase = all.slice(m.n);
-    ctx.postMessage({ type: 'result', id: m.id, n: m.n, fmin: m.fmin, fmax: m.fmax, mag, phase, ms: performance.now() - t0 }, [mag.buffer, phase.buffer]);
+    ctx.postMessage({ type: 'result', kind: m.kind, id: m.id, n: m.n, fmin: m.fmin, fmax: m.fmax, mag, phase, ms: performance.now() - t0 }, [mag.buffer, phase.buffer]);
   }
 }
 

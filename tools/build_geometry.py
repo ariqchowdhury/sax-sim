@@ -443,13 +443,21 @@ ALTERNATES = [
 
 # ----------------------------------------------------------------------------------------
 def altissimo_entries(tbl):
+    """Altissimo alternate fingerings: notes/fingerings/tract from hole_table.json["altissimo"]
+    (written by tools/altissimo_tune.py); falls back to the chart fingerings in ALTISSIMO."""
     out = []
     info = (tbl or {}).get("altissimo", {})
-    for a in ALTISSIMO:
-        e = dict(a)
-        m = note_midi(a["note"]) - 9
-        e["f_target"] = round(440.0 * 2 ** ((m - 69) / 12), 3)
-        n = info.get("notes", {}).get(a["note"])
+    notes = info.get("notes", {})
+    order = ["G6", "G#6", "A6", "Bb6", "B6", "C7", "C#7", "D7"]
+    chart = {x["note"]: x for x in ALTISSIMO}
+    for note in order:
+        n = notes.get(note)
+        if n is None and note not in chart:
+            continue
+        keys = n["keys"] if n and "keys" in n else chart[note]["keys"]
+        m = note_midi(note) - 9
+        e = dict(note=note, name=f"altissimo {note[:-1]} ({', '.join(k for k in keys)})", keys=keys, register=3,
+                 f_target=round(440.0 * 2 ** ((m - 69) / 12), 3))
         if n:
             e["tract"] = n["tract"]
             e["embouchure"] = info.get("embouchure")

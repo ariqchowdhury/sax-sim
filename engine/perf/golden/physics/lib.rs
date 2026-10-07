@@ -154,21 +154,34 @@ pub extern "C" fn sax_compute_impedance(n: u32, fmin: f32, fmax: f32) -> *const 
         let x = (k - t0) as f64 / (steps - t0).max(1) as f64;
         *v *= 0.5 * (1.0 + (core::f64::consts::PI * x).cos());
     }
+    dft_log_grid(&z, dt, n, fmin, fmax, out);
+    out.as_ptr()
+}
+
+// ---------------------------------------------------------------------------------------------
+// Vocal-tract input impedance seen from the reed (web observation; additive, no physics change)
+// ---------------------------------------------------------------------------------------------
+
+static mut TRACT_IMPEDANCE: Vec<f32> = Vec::new();
+
+/// Direct DFT of an impulse response `z` (sample step `dt`) onto the log grid; writes
+/// `[|Z_i| …, arg Z_i …]` into `out` (len 2n). Same convention as `sax_compute_impedance`.
+fn dft_log_grid(z_full: &[f64], dt_full: f64, n: usize, fmin: f64, fmax: f64, out: &mut [f32]) {
+    // boxcar-decimate to ≥ 16 samples per period of fmax (droop < 1 % at fmax) to cut the DFT cost
+    let d = ((1.0 / (dt_full * fmax * 16.0)).floor() as usize).max(1);
+    let z: Vec<f64> = z_full.chunks(d).map(|c| c.iter().sum::<f64>() / d as f64).collect();
+    let dt = dt_full * d as f64;
     let ratio = fmax / fmin;
     for i in 0..n {
         let f = fmin * ratio.powf(i as f64 / (n - 1) as f64);
-        let w = 2.0 * core::f64::consts::PI * f * dt;
-        let (s, c) = w.sin_cos();
-        // rotating phasor e^{-jωt}
-        let (mut pr, mut pi) = (1.0f64, 0.0f64);
-        let (mut re, mut im) = (0.0f64, 0.0f64);
+        let (s, c) = (2.0 * core::f64::consts::PI * f * dt).sin_cos();
+        let (mut pr, mut pi, mut re, mut im) = (1.0f64, 0.0f64, 0.0f64, 0.0f64);
         for (k, &v) in z.iter().enumerate() {
             re += v * pr;
             im += v * pi;
             let nr = pr * c + pi * s;
-            let ni = pi * c - pr * s;
+            pi = pi * c - pr * s;
             pr = nr;
-            pi = ni;
             if k & 1023 == 1023 {
                 let m = 1.0 / (pr * pr + pi * pi).sqrt();
                 pr *= m;
@@ -180,5 +193,58 @@ pub extern "C" fn sax_compute_impedance(n: u32, fmin: f32, fmax: f32) -> *const 
         out[i] = (re * re + im * im).sqrt() as f32;
         out[n + i] = im.atan2(re) as f32;
     }
+}
+
+/// Input impedance of the player's vocal tract **as seen from the reed** (mouth end), for the
+/// current tongue / jaw / glottis (incl. any player-model offsets): the engine's own tract tube
+/// (area function, wall losses, glottal section — `tract.rs`) driven by a volume impulse at the
+/// mouth node, with the glottis end terminated by the subglottal resistance ρc/A_sub (anechoic
+/// trachea, A_sub = 2.5 cm²) plus the viscous glottal duct resistance. The reed sees this in
+/// series with the bore impedance (`sax_compute_impedance`): Z_bore + Z_tract.
+/// Returns `2n` f32 `[|Z_i| (Pa·s/m³) …, arg Z_i (rad) …]` on `f_i = fmin·(fmax/fmin)^(i/(n−1))`.
+/// **Not real-time safe** and snaps params to their targets — call on a separate engine
+/// instance (the web app's impedance worker), never on the audio instance.
+#[no_mangle]
+#[allow(static_mut_refs)]
+pub extern "C" fn sax_compute_tract_impedance(n: u32, fmin: f32, fmax: f32) -> *const f32 {
+    let n = (n.clamp(2, 4096)) as usize;
+    let out = unsafe { &mut TRACT_IMPEDANCE };
+    out.clear();
+    out.resize(2 * n, 0.0);
+    let Some(e) = engine() else { return out.as_ptr() };
+    let fmin = (fmin as f64).max(1.0);
+    let fmax = (fmax as f64).max(fmin * 1.0001);
+    e.snap_params();
+    let dt = e.dt;
+    let mut t = e.tract.tube.clone();
+    t.clear_state();
+    let m = t.n - 1;
+    let air = air::Air::breath();
+    let ag = tract::tract_area(0.0, &e.tract.ctrl);
+    let dg = ag / 0.018;
+    let r_glot = air.rho * air.c / 2.5e-4 + 12.0 * air.eta * 0.003 / (ag * dg * dg);
+    // tract resonances are well damped (≈ 60–100 Hz bandwidth): 0.1 s of response is plenty
+    let steps = ((0.1f64).max(20.0 / fmin) / dt) as usize;
+    let mut z = Vec::with_capacity(steps);
+    for s in 0..steps {
+        t.step_u();
+        let p0 = t.p[0] as f64;
+        let pm = t.p[m] as f64;
+        t.step_p_interior();
+        // glottis node: inflow −p₀/R_g (implicit)
+        let k0 = t.kp[0] as f64;
+        t.p[0] = ((p0 - k0 * t.u[0] as f64) / (1.0 + k0 / r_glot)) as f32;
+        // mouth node: volume impulse injected (1e-9 m³)
+        let km = t.kp[m] as f64;
+        let uin = if s == 0 { 1e-9 / dt } else { 0.0 };
+        t.p[m] = (pm + km * (t.u[m - 1] as f64 + uin)) as f32;
+        z.push(t.p[m] as f64 * 1e9);
+    }
+    let t0 = (steps as f64 * 0.75) as usize;
+    for (k, v) in z.iter_mut().enumerate().skip(t0) {
+        let x = (k - t0) as f64 / (steps - t0).max(1) as f64;
+        *v *= 0.5 * (1.0 + (core::f64::consts::PI * x).cos());
+    }
+    dft_log_grid(&z, dt, n, fmin, fmax, out);
     out.as_ptr()
 }

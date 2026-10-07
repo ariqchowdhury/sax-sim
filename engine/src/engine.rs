@@ -261,6 +261,8 @@ impl Engine {
             return Err(format!("too many tone holes ({} > {MAX_HOLES})", g.tone_holes.len()));
         }
         self.load_instrument(g);
+        self.player.load_alternates(json, &self.keywork);
+        self.player.on_keys(&self.keys);
         Ok(())
     }
 
@@ -387,15 +389,17 @@ impl Engine {
 
     fn reed_controls(&self) -> ReedControls {
         let v = |p: Param| self.smooth[p as usize].value;
+        let (po, w) = (&self.player.out, self.player.out.alt_w);
+        use crate::player::blend;
         ReedControls {
             reed_strength: v(Param::ReedStrength),
-            reed_damping: v(Param::ReedDamping),
-            lip_position_mm: v(Param::LipPosition),
-            lip_force: (v(Param::LipForce) + self.player.out.lip).clamp(0.0, 3.0),
-            lip_damping: (v(Param::LipDamping) + self.player.out.lip_damping).clamp(0.0, 1.0),
+            reed_damping: blend(v(Param::ReedDamping), po.alt.reed_damping, w),
+            lip_position_mm: blend(v(Param::LipPosition), po.alt.lip_position, w),
+            lip_force: blend(v(Param::LipForce) + po.lip, po.alt.lip_force, w).clamp(0.0, 3.0),
+            lip_damping: blend(v(Param::LipDamping) + po.lip_damping, po.alt.lip_damping, w).clamp(0.0, 1.0),
             tip_opening_mm: v(Param::TipOpening),
             facing_length_mm: v(Param::FacingLength),
-            tongue_contact: v(Param::TongueReedContact),
+            tongue_contact: v(Param::TongueReedContact).max(po.tongue),
             reed_width: self.inst.reed_width,
         }
     }
@@ -467,17 +471,20 @@ impl Engine {
         }
         if self.tract_dirty || force {
             let v = |p: Param| self.smooth[p as usize].value;
+            let (po, w) = (self.player.out, self.player.out.alt_w);
+            use crate::player::blend;
+            let glottis = blend(v(Param::GlottisOpen), po.alt.glottis_open, w).clamp(0.0, 1.0);
             self.tract.ctrl = TractControls {
-                tongue_x: (v(Param::TongueX) + self.player.out.tongue_x).clamp(0.0, 1.0),
-                tongue_y: (v(Param::TongueY) + self.player.out.tongue_y).clamp(0.0, 1.0),
-                tongue_tip: v(Param::TongueTip),
-                jaw_open: (v(Param::JawOpen) + self.player.out.jaw).clamp(0.0, 1.0),
-                glottis_area: GLOTTIS_MIN_AREA + v(Param::GlottisOpen).clamp(0.0, 1.0) * (GLOTTIS_MAX_AREA - GLOTTIS_MIN_AREA),
+                tongue_x: (blend(v(Param::TongueX) + po.tongue_x, po.alt.tongue_x, w) + po.tx_trim).clamp(0.0, 1.0),
+                tongue_y: blend(v(Param::TongueY) + po.tongue_y, po.alt.tongue_y, w).clamp(0.0, 1.0),
+                tongue_tip: blend(v(Param::TongueTip), po.alt.tongue_tip, w).clamp(0.0, 1.0),
+                jaw_open: blend(v(Param::JawOpen) + po.jaw, po.alt.jaw_open, w).clamp(0.0, 1.0),
+                glottis_area: GLOTTIS_MIN_AREA + glottis * (GLOTTIS_MAX_AREA - GLOTTIS_MIN_AREA),
             };
             let breath = Air::breath();
             self.tract.update_coeffs(self.dt, &breath);
             // glottis (PHYSICS.md §7): Bernoulli + viscous duct, d_g = A_g / 1.8 cm
-            let g = self.smooth[Param::GlottisOpen as usize].value.clamp(0.0, 1.0);
+            let g = glottis;
             let ag = GLOTTIS_MIN_AREA + g * (GLOTTIS_MAX_AREA - GLOTTIS_MIN_AREA);
             let dg = ag / 0.018;
             self.glot_a = breath.rho / (2.0 * ag * ag);
@@ -488,7 +495,7 @@ impl Engine {
         if self.reed_dirty || force {
             let rc = self.reed_controls();
             self.reed.set_controls(&rc);
-            self.tongue_inlet = 1.0 - 0.9 * self.smooth[Param::TongueReedContact as usize].value.clamp(0.0, 1.0);
+            self.tongue_inlet = 1.0 - 0.9 * self.smooth[Param::TongueReedContact as usize].value.max(self.player.out.tongue).clamp(0.0, 1.0);
             self.reed_dirty = false;
         }
     }

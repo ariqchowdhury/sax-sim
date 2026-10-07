@@ -187,7 +187,9 @@ export class PlayerModel {
   readonly contactPt = new THREE.Vector2();
   readonly glottisPt = new THREE.Vector2(-0.082, -0.09);
   breath = 0;
-  readonly anchors = { mouth: new THREE.Object3D(), glottis: new THREE.Object3D(), lungs: new THREE.Object3D() };
+  readonly anchors = { mouth: new THREE.Object3D(), glottis: new THREE.Object3D(), lungs: new THREE.Object3D(), tract: new THREE.Object3D() };
+  /** tract-resonance cue: 0 none, 1 near the note, 2 aligned */
+  tractCue = 0;
   private lastGeom = new Float64Array(GEOM_IDS.length).fill(NaN);
   mouthPressure = 0;
 
@@ -327,7 +329,8 @@ export class PlayerModel {
     // anchors for 3D readout labels
     this.anchors.mouth.position.set(-0.045, 0.045, 0);
     this.anchors.glottis.position.set(-0.13, -0.09, 0);
-    this.head.add(this.anchors.mouth, this.anchors.glottis);
+    this.anchors.tract.position.set(-0.075, 0.075, 0);
+    this.head.add(this.anchors.mouth, this.anchors.glottis, this.anchors.tract);
     this.anchors.lungs.position.set(0, -0.06, 0.1);
     this.torso.add(this.anchors.lungs);
     for (let i = 0; i < 64; i++) this.airPath.push(new THREE.Vector3());
@@ -447,7 +450,13 @@ export class PlayerModel {
     }
     this.mouthPressure = mouthPressure;
     const mpk = Math.max(-1, Math.min(1, mouthPressure / 4000));
-    this.airMat.color.setRGB(0.37 + 0.6 * Math.max(0, mpk), 0.78 - 0.3 * Math.abs(mpk), 1 - 0.7 * Math.max(0, mpk));
+    if (this.tractCue === 2) { this.airMat.color.setRGB(0.35, 1.0, 0.5); this.airMat.emissive.setRGB(0.05, 0.35, 0.12); this.airMat.opacity = 0.38; }
+    else if (this.tractCue === 1) { this.airMat.color.setRGB(1.0, 0.8, 0.3); this.airMat.emissive.setRGB(0.25, 0.15, 0.02); this.airMat.opacity = 0.3; }
+    else {
+      this.airMat.color.setRGB(0.37 + 0.6 * Math.max(0, mpk), 0.78 - 0.3 * Math.abs(mpk), 1 - 0.7 * Math.max(0, mpk));
+      this.airMat.emissive.setHex(0x0b3350);
+      this.airMat.opacity = 0.22;
+    }
 
     // ---- torso ----------------------------------------------------------------------------------
     this.head.updateWorldMatrix(true, false);

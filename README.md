@@ -62,6 +62,9 @@ Other scripts
   pressure, mod wheel → jaw vibrato depth (or tongue height); legato keeps the air on.
 * **Panel**: every parameter, presets (incl. your own, saved locally and exportable as JSON),
   jaw vibrato, WAV recording and telemetry CSV capture.
+* **Altissimo** (G6 and up): played with the data's `register: 3` fingerings and a tuned vocal
+  tract; the impedance plot's *tract overlay* shows Z_tract and Z_bore + Z_tract (the series load
+  the reed works against), and the 3D tract label turns green when the tract is tuned to the note.
 * **Tour** button: a guided first-run walkthrough.
 
 Full reference: **[docs/UI.md](docs/UI.md)**.

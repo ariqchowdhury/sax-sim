@@ -109,7 +109,7 @@ function main(): void {
     }
     // second engine instance in a Web Worker computes |Z_in| on demand (never on the audio thread)
     imp = new ImpedanceClient(`${import.meta.env.BASE_URL}engine.wasm`, json, state.values, state.keyDown);
-    imp.onResult = (res) => impPlot.setData(res);
+    imp.onResult = (res) => (res.kind === 'tract' ? impPlot.setTract(res) : impPlot.setData(res));
     state.onParam((id, v) => imp?.setParam(id, v));
     state.onKeys(() => imp?.setKeys(state.keyDown));
   });
@@ -168,6 +168,8 @@ function main(): void {
     else if (cmd === 'help') help.hidden = !help.hidden;
     syncToggles();
   };
+  const tractToggle = $<HTMLInputElement>('tract-overlay');
+  tractToggle.addEventListener('change', () => impPlot.setShowTract(tractToggle.checked));
   $('viz-toggle').addEventListener('click', () => {
     const v = $('viz');
     v.classList.toggle('collapsed');
@@ -191,6 +193,7 @@ function main(): void {
     glottis: labels.add(scene.player.anchors.glottis, 'glottis', '#b48cff', 80, 0),
     mouth: labels.add(scene.player.anchors.mouth, 'mouth / tract', '#5ec8ff', 40, -30),
     reed: labels.add(scene.mp.reedAnchor, 'reed channel', '#ffa94d', -60, 30),
+    tract: labels.add(scene.player.anchors.tract, 'vocal-tract resonance', '#5ec8ff', -40, -40),
   };
 
   // ---- "what changed": Δ pitch since the start of the current param gesture -------------------
@@ -286,6 +289,7 @@ function main(): void {
       else if (k === 2) chips.push('<span class="chip r2">2nd register · Z peak 2</span>');
       else if (k >= 3) chips.push(`<span class="chip r3">altissimo · Z peak ${k}</span>`);
       else chips.push('<span class="chip warn">off-resonance (squeak / multiphonic?)</span>');
+      if (impPlot.tractRes > 0 && impPlot.tractResMag >= 10e6 && (() => { const c = 1200 * Math.log2(impPlot.tractRes / f); return c > -150 && c < 450; })()) chips.push('<span class="chip r3">tract-supported</span>');
       chips.push(rmax >= 0.92 * tip ? '<span class="chip">beating reed</span>' : '<span class="chip">non-beating</span>');
     }
     const html = chips.join('');
@@ -309,6 +313,31 @@ function main(): void {
       set(lb.glottis, `open ${(state.get(P.glottis_open) * 100).toFixed(0)}%`);
       set(lb.mouth, '—');
       set(lb.reed, '—');
+    }
+    // vocal-tract resonance vs the note (series impedance: strong tract peak near the note supports it)
+    {
+      const entry = chart.recognisedEntry();
+      const target = live && f > 20 ? smoothedFreq : entry?.f_target ?? 0;
+      const tr = impPlot.tractRes, trMag = impPlot.tractResMag;
+      let cue = 0, txt = 'computing…';
+      if (tr > 0) {
+        const strong = trMag >= 10e6;
+        txt = `≈ ${Math.round(tr)} Hz · ${(trMag / 1e6).toFixed(0)} MPa·s/m³`;
+        if (target > 20) {
+          const c = 1200 * Math.log2(tr / target);
+          txt += ` · note ${Math.round(target)} Hz (${c >= 0 ? '+' : ''}${c.toFixed(0)}¢)`;
+          // a tract resonance supports a note from slightly below to a few hundred cents above it
+          // (the series peak of Z_bore + Z_tract sits between the two)
+          if (strong && c > -150 && c < 450) cue = 2;
+          else if (strong && c > -500 && c < 900) cue = 1;
+        }
+        if (!strong) txt += ' · weak (neutral tongue)';
+      } else if (impPlot.status !== 'computing…') txt = impPlot.status;
+      set(lb.tract, txt);
+      const el = lb.tract.parentElement!;
+      el.classList.toggle('cue-aligned', cue === 2);
+      el.classList.toggle('cue-near', cue === 1);
+      scene.player.tractCue = cue;
     }
     if (imp?.error) impPlot.status = imp.error;
     const cpu = t.cpuUs > 0 ? ` · engine ${t.cpuUs.toFixed(0)} µs/block` : '';

@@ -3,6 +3,25 @@
 import { P } from '../engine/params';
 import type { Fingering, SaxGeometry } from '../scene/geometry';
 import { KEY_SRC, type AppState } from '../state';
+import { PARAMS, type ParamName } from '../engine/params';
+import { PRESETS } from './presets';
+
+/** written MIDI number from a note name like "G#6", "Bb3", "C♯5" */
+export function noteNameToMidi(name: string): number | null {
+  const m = /^([A-Ga-g])([#♯b♭]?)(-?\d)/.exec(name.trim());
+  if (!m) return null;
+  const base = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 }[m[1].toLowerCase() as 'c'];
+  const acc = m[2] === '#' || m[2] === '♯' ? 1 : m[2] === 'b' || m[2] === '♭' ? -1 : 0;
+  return 12 * (Number(m[3]) + 1) + base + acc;
+}
+
+/** a playable fingering: the standard chart plus altissimo (`register: 3`) alternates */
+export interface PlayFingering extends Fingering {
+  register?: number;
+  /** altissimo voicing from the data (applied by the UI only when player_assist = 0) */
+  tract?: Record<string, number>;
+  embouchure?: Record<string, number>;
+}
 
 export type KeyboardMode = 'note' | 'keys';
 
@@ -21,7 +40,7 @@ export const NOTE_MAP: Record<string, number> = {
   KeyZ: 0, KeyS: 1, KeyX: 2, KeyD: 3, KeyC: 4, KeyV: 5, KeyG: 6, KeyB: 7, KeyH: 8, KeyN: 9, KeyJ: 10, KeyM: 11,
   Comma: 12, KeyL: 13, Period: 14, Semicolon: 15,
   KeyQ: 12, Digit2: 13, KeyW: 14, Digit3: 15, KeyE: 16, KeyR: 17, Digit5: 18, KeyT: 19, Digit6: 20, KeyY: 21, Digit7: 22, KeyU: 23,
-  KeyI: 24, Digit9: 25, KeyO: 26, Digit0: 27, KeyP: 28, BracketLeft: 29, Equal: 30,
+  KeyI: 24, Digit9: 25, KeyO: 26, Digit0: 27, KeyP: 28, BracketLeft: 29, Equal: 30, BracketRight: 31, Backspace: 32, Backslash: 33,
 };
 
 export interface KeyboardOptions {
@@ -35,19 +54,23 @@ export interface KeyboardOptions {
   velocitySensitive: boolean;
   /** lung pressure at full breath-controller value (CC2/CC11), kPa */
   breathMax: number;
+  /** with player_assist = 0, apply the data's altissimo tract/embouchure on register-3 notes */
+  autoVoicing: boolean;
 }
 
 export class KeyboardPlayer {
-  readonly opts: KeyboardOptions = { mode: 'note', blowPressure: 3, attackMs: 35, releaseMs: 70, autoBlow: true, octaveShift: 0, velocitySensitive: true, breathMax: 6 };
+  readonly opts: KeyboardOptions = { mode: 'note', blowPressure: 3, attackMs: 35, releaseMs: 70, autoBlow: true, octaveShift: 0, velocitySensitive: true, breathMax: 6, autoVoicing: true };
   private keyIndex = new Map<string, number>();
-  private byMidi = new Map<number, Fingering>();
+  private byMidi = new Map<number, PlayFingering>();
+  /** param values saved before an altissimo voicing was applied (restored afterwards) */
+  private voicingSaved: Map<number, number> | null = null;
   private notesDown: number[] = []; // midi stack (last = sounding)
   private codesDown = new Map<string, number>();
   private blowSpace = false;
   private blowing = false;
   private tongueHeld = false;
   private tongueRestore = 0;
-  currentNote: Fingering | null = null;
+  currentNote: PlayFingering | null = null;
   /** blow target for the current note (velocity-scaled), kPa */
   private noteBlow = -1;
   /** legato grace: air stays on this long after the last note is released (ms) */
@@ -62,6 +85,13 @@ export class KeyboardPlayer {
   constructor(private state: AppState, geo: SaxGeometry) {
     geo.keys.forEach((k, i) => this.keyIndex.set(k.id, i));
     for (const f of geo.fingerings) if (!this.byMidi.has(f.written_midi)) this.byMidi.set(f.written_midi, f);
+    // altissimo: `register: 3` alternates for notes the standard chart doesn't cover (G6, G#6, A6, …)
+    for (const a of geo.alternate_fingerings ?? []) {
+      if ((a as PlayFingering).register !== 3) continue;
+      const midi = typeof a.written_midi === 'number' ? a.written_midi : noteNameToMidi(a.note);
+      if (midi === null || this.byMidi.has(midi)) continue;
+      this.byMidi.set(midi, { ...(a as PlayFingering), written_midi: midi });
+    }
     window.addEventListener('keydown', this.onDown);
     window.addEventListener('keyup', this.onUp);
     window.addEventListener('blur', () => this.releaseAll());
@@ -174,8 +204,9 @@ export class KeyboardPlayer {
 
   private applyNote(): void {
     // last pressed note that has a fingering wins (legato: previous held notes resume)
-    let f: Fingering | null = null;
+    let f: PlayFingering | null = null;
     for (let i = this.notesDown.length - 1; i >= 0 && !f; i--) f = this.byMidi.get(this.notesDown[i]) ?? null;
+    if (f && f !== this.currentNote) this.applyVoicing(f);
     if (f) {
       // like a real player: fingers move to the new fingering, air stays on
       this.currentNote = f;
@@ -188,6 +219,51 @@ export class KeyboardPlayer {
       this.releaseAt = performance.now() + this.legatoGraceMs;
     }
     this.updateBlow();
+  }
+
+  /** written MIDI numbers that have a playable fingering (incl. altissimo) */
+  get playableNotes(): number[] {
+    return [...this.byMidi.keys()].sort((a, b) => a - b);
+  }
+
+  /**
+   * Altissimo voicing. With player_assist > 0 the engine's player model voices the note. With
+   * assist = 0 (pure physics) the UI applies the fingering's `tract` + embouchure (entry
+   * `embouchure`, else the Altissimo preset's) itself, and restores the previous values when a
+   * non-altissimo note follows.
+   */
+  private applyVoicing(f: PlayFingering): void {
+    const isAlt = f.register === 3;
+    if (isAlt && this.opts.autoVoicing && this.state.get(P.player_assist) === 0) {
+      const preset = PRESETS.find((p) => /altissimo/i.test(p.name));
+      const set: Record<string, number> = { ...(f.embouchure ?? preset?.params ?? {}), ...(f.tract ?? {}) };
+      if (!this.voicingSaved) this.voicingSaved = new Map();
+      for (const [name, v] of Object.entries(set)) {
+        const d = PARAMS.find((q) => q.name === (name as ParamName));
+        if (!d || typeof v !== 'number') continue;
+        if (!this.voicingSaved.has(d.id)) this.voicingSaved.set(d.id, this.state.get(d.id));
+        this.state.set(d.id, v, 'altissimo');
+      }
+      this.altBlow = Math.max(this.opts.blowPressure, preset?.blow ?? 4.5);
+    }
+    if (isAlt && this.state.get(P.lung_pressure) < 0.3) {
+      // set the embouchure/tongue *before* the air (as a player does): the attack decides which
+      // regime the reed locks into, and the engine smooths the voicing params over a few ms
+      this.voiceUntil = performance.now() + 250;
+    }
+    if (!isAlt) {
+      this.restoreVoicing();
+    }
+  }
+
+  private altBlow = 0;
+  private voiceUntil = 0;
+
+  restoreVoicing(): void {
+    this.altBlow = 0;
+    if (!this.voicingSaved) return;
+    for (const [id, v] of this.voicingSaved) this.state.set(id, v, 'altissimo');
+    this.voicingSaved = null;
   }
 
   private updateBlow(): void {
@@ -226,6 +302,7 @@ export class KeyboardPlayer {
     this.codesDown.clear();
     this.currentNote = null;
     this.releaseAt = 0;
+    this.restoreVoicing();
     this.state.setSourceKeys(KEY_SRC.note, []);
     this.state.setSourceKeys(KEY_SRC.keyboard, []);
     this.blowSpace = false;
@@ -244,7 +321,11 @@ export class KeyboardPlayer {
     }
     let target = 0;
     if (this.breathValue >= 0) target = this.breathValue * this.opts.breathMax;
-    else if (this.blowing) target = this.noteBlow > 0 && this.notesDown.length ? this.noteBlow : this.opts.blowPressure;
+    else if (this.blowing) {
+      target = this.noteBlow > 0 && this.notesDown.length ? this.noteBlow : this.opts.blowPressure;
+      if (this.altBlow > 0 && this.currentNote?.register === 3) target = Math.max(target, this.altBlow);
+      if (performance.now() < this.voiceUntil) target = 0; // pre-voicing before the attack
+    }
     if (target <= 0 && !this.controlling) return;
     this.controlling = true;
     const cur = this.state.get(P.lung_pressure);

@@ -95,6 +95,7 @@ export function buildPanel(container: HTMLElement, state: AppState, scene: Scene
   const play = gui.addFolder('Keyboard play');
   play.add(kb.opts, 'mode', { 'Notes (fingering chart)': 'note', 'Direct keys': 'keys' }).name('Mode [`]').onChange((m: 'note' | 'keys') => kb.setMode(m));
   play.add(kb.opts, 'autoBlow').name('Auto-blow on note');
+  play.add(kb.opts, 'autoVoicing').name('Auto altissimo voicing (assist 0)');
   play.add(kb.opts, 'octaveShift', -1, 1, 1).name('Octave shift [↑↓]');
   play.add(top, 'releaseKeys').name('Release all keys [Esc]');
 

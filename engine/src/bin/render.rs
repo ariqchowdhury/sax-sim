@@ -31,6 +31,8 @@ struct Opts {
     attack: f64,
     /// tongued attack: tongue on the reed from t = 0, released at this time (s)
     tongue_release: f64,
+    /// legato key changes during the render: (time s, keys)
+    switches: Vec<(f64, Vec<String>)>,
     quiet: bool,
 }
 
@@ -49,6 +51,7 @@ fn parse_args() -> Opts {
         fs: 48000.0,
         attack: 0.0,
         tongue_release: 0.0,
+        switches: vec![],
         quiet: false,
     };
     let a: Vec<String> = std::env::args().skip(1).collect();
@@ -69,6 +72,12 @@ fn parse_args() -> Opts {
             "--fs" => o.fs = next(&mut i).parse().expect("fs"),
             "--attack" => o.attack = next(&mut i).parse().expect("attack"),
             "--tongue-release" => o.tongue_release = next(&mut i).parse().expect("tongue release time"),
+            "--switch" => {
+                // --switch T:KEY1,KEY2,...  (or T:NOTE to use a fingering name)
+                let v = next(&mut i);
+                let (t, k) = v.split_once(':').expect("--switch T:keys");
+                o.switches.push((t.parse().expect("switch time"), k.split(',').filter(|s| !s.is_empty()).map(String::from).collect()));
+            }
             "--set" => {
                 let s = next(&mut i);
                 let (k, v) = s.split_once('=').expect("--set name=value");
@@ -137,15 +146,17 @@ fn make_engine(o: &Opts, geom: &str) -> Engine {
 }
 
 fn fingering_keys(e: &Engine, name: &str) -> Vec<String> {
-    let f = e
-        .inst
-        .json
-        .fingerings
-        .iter()
-        .chain(std::iter::empty())
-        .find(|f| f.note == name)
-        .unwrap_or_else(|| panic!("fingering {name} not in geometry"));
-    f.keys.clone()
+    fingering_keys_any(e, name).unwrap_or_else(|| panic!("fingering {name} not in geometry"))
+}
+
+/// Target frequency of a standard or alternate fingering.
+fn target_any(e: &Engine, name: &str) -> Option<f64> {
+    if let Some(f) = e.inst.json.fingerings.iter().find(|f| f.note == name) {
+        return f.f_target;
+    }
+    let txt = ALT_JSON.lock().unwrap();
+    let v: serde_json::Value = serde_json::from_str(&txt).ok()?;
+    v.get("alternate_fingerings")?.as_array()?.iter().find(|a| a.get("note").and_then(|n| n.as_str()) == Some(name))?.get("f_target")?.as_f64()
 }
 
 fn apply_keys(e: &mut Engine, keys: &[String]) {
@@ -183,6 +194,7 @@ fn run(e: &mut Engine, kpa: f64, seconds: f64, record_rows: bool) -> Run {
 
 static ATTACK: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 static TONGUE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static SWITCHES: std::sync::Mutex<Vec<(f64, Vec<String>)>> = std::sync::Mutex::new(Vec::new());
 
 /// Render in 128-sample blocks, capturing per-sample mouthpiece pressure & telemetry.
 /// The lung-pressure target ramps linearly from 0 over the `--attack` time.
@@ -202,6 +214,16 @@ fn run_attack(e: &mut Engine, kpa: f64, seconds: f64, record_rows: bool, attack:
     }
     while done < n_total {
         let n = 128.min(n_total - done);
+        {
+            let t = done as f64 / e.fs;
+            let sw = SWITCHES.lock().unwrap();
+            for (ts, keys) in sw.iter() {
+                if t >= *ts && t - (n as f64 / e.fs) < *ts {
+                    let keys = resolve_keys(e, keys);
+                    apply_keys(e, &keys);
+                }
+            }
+        }
         if tongue > 0.0 && done as f64 / e.fs >= tongue {
             e.set_param(Param::TongueReedContact as u32, 0.0);
         }
@@ -271,7 +293,9 @@ fn main() {
     let o = parse_args();
     ATTACK.store(o.attack.to_bits(), std::sync::atomic::Ordering::Relaxed);
     TONGUE.store(o.tongue_release.to_bits(), std::sync::atomic::Ordering::Relaxed);
+    *SWITCHES.lock().unwrap() = o.switches.clone();
     let geom = load_geometry_text(&o);
+    *ALT_JSON.lock().unwrap() = geom.clone();
     match o.mode.as_str() {
         "bench" => bench(&o, &geom),
         "table" => table(&o, &geom),
@@ -304,7 +328,7 @@ fn render(o: &Opts, geom: &str) {
     let n = r.pmp.len();
     let tail = &r.pmp[n.saturating_sub((0.5 * e.fs) as usize)..];
     let f0 = measure_f0(tail, e.fs);
-    let target = o.fingering.as_ref().and_then(|f| e.inst.json.fingerings.iter().find(|x| &x.note == f)).and_then(|f| f.f_target);
+    let target = o.fingering.as_ref().and_then(|f| target_any(&e, f));
     println!(
         "fingering={} pressure={} kPa os={} f0={:.2} Hz{} mp_rms={:.0} Pa out_rms={:.4} resets={} render_time={:.3}s ({:.1}x realtime incl. telemetry)",
         o.fingering.clone().unwrap_or_else(|| o.keys.join("+")),
@@ -599,3 +623,31 @@ fn search(o: &Opts, geom: &str) {
     }
     println!("worst |cents| among notes that sound: {:.1}", worst);
 }
+
+/// A single fingering name (standard or alternate) or an explicit key list.
+fn resolve_keys(e: &Engine, keys: &[String]) -> Vec<String> {
+    if keys.len() == 1 && e.keywork.key_index(&keys[0]).is_none() {
+        if let Some(k) = fingering_keys_any(e, &keys[0]) {
+            return k;
+        }
+    }
+    keys.to_vec()
+}
+
+/// Keys of a standard or alternate fingering by note name (alternates read
+/// from the raw geometry JSON; the first match wins).
+fn fingering_keys_any(e: &Engine, name: &str) -> Option<Vec<String>> {
+    if let Some(f) = e.inst.json.fingerings.iter().find(|f| f.note == name) {
+        return Some(f.keys.clone());
+    }
+    let txt = ALT_JSON.lock().unwrap();
+    let v: serde_json::Value = serde_json::from_str(&txt).ok()?;
+    for a in v.get("alternate_fingerings")?.as_array()? {
+        if a.get("note").and_then(|n| n.as_str()) == Some(name) {
+            return Some(a.get("keys")?.as_array()?.iter().filter_map(|k| k.as_str().map(String::from)).collect());
+        }
+    }
+    None
+}
+
+static ALT_JSON: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());

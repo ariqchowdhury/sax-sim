@@ -184,3 +184,8 @@ button.ghost { display: block; width: 100%; padding: 9px; background: none; bord
 button.small { width: auto; display: inline-block; padding: 6px 14px; font-size: 13px; }
 button.primary { border: none; border-radius: 8px; cursor: pointer; color: #1a1205; background: linear-gradient(180deg, #ffd27a, var(--brass)); font-weight: 650; }
 .cams button.rec { background: #5a1d1d; border-color: #ff6b6b; }
+
+.viz-opt { margin-left: auto; margin-right: 10px; text-transform: none; letter-spacing: 0; display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
+.label3d.cue-aligned { border-color: #5fd38d !important; background: rgba(20,60,35,0.85); }
+.label3d.cue-aligned span { color: #b9f5cf; }
+.label3d.cue-near { border-color: #ffb347 !important; }

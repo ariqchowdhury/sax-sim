@@ -53,6 +53,19 @@ const STEPS: Step[] = [
       <li><b>Scope</b>: mouthpiece pressure and reed motion; the reed itself moves in the cutaway.</li>
       <li>While you drag anything, the pitch card shows <b>what changed</b> and by how many cents.</li></ul>`,
   },
+  {
+    title: 'Altissimo: the tract in series',
+    cam: 'player',
+    cutaway: true,
+    body: `<p>The reed is driven by the pressure difference across it, so it works against the bore
+      <i>and</i> the vocal tract <b>in series</b>: Z<sub>bore</sub> + Z<sub>tract</sub>. Above the normal range the
+      bore resonances are weak, but a <b>high, front tongue</b> with a nearly closed glottis makes a strong tract
+      resonance. On the impedance plot (bottom right, “tract overlay”) the cyan curve is Z<sub>tract</sub> and the
+      white one the series sum — drag the tongue and watch the tract peak move onto the note. The 3D label turns
+      <b style="color:#5fd38d">green</b> when the tract is tuned to it.</p>
+      <p>Try: preset <b>Altissimo</b>, note mode <kbd>↑</kbd> then <kbd>T</kbd>/<kbd>6</kbd>/<kbd>Y</kbd> (G6/G♯6/A6),
+      or <kbd>]</kbd> <kbd>⌫</kbd> <kbd>\\</kbd>. Then flatten the tongue: the same fingering drops to a low note.</p>`,
+  },
 ];
 
 const LS = 'saxsim.tour.v1';

@@ -134,6 +134,63 @@ try {
   });
   check('high load → hint only; persistent overload → oversampling lowered', q.osAfterHint === 4 && q.os === 2 && /try oversampling 2/.test(q.hint), `"${q.hint}", os ${q.osAfterHint} → ${q.os}`);
 
+  // ---- altissimo: tract in series with the bore -------------------------------------------------
+  const altPreset = (geo.presets ?? []).find((p) => /altissimo/i.test(p.name));
+  const gs6 = (geo.alternate_fingerings ?? []).find((a) => a.register === 3 && a.note === 'G#6');
+  if (altPreset && gs6) {
+    await page.keyboard.press('Escape');
+    await page.evaluate((params) => {
+      const s = window.__sax;
+      s.state.set(21, 4, 'test'); // default oversampling (an earlier check may have lowered it)
+      s.state.set(23, 0, 'test'); // pure physics: the UI applies the altissimo voicing itself
+      for (const [k, v] of Object.entries(params)) {
+        const i = ['lung_pressure','breath_noise','lip_position','lip_force','lip_damping','tongue_x','tongue_y','tongue_tip','tongue_reed_contact','jaw_open','glottis_open','reed_strength','reed_damping'].indexOf(k);
+        if (i >= 0) s.state.set(i, v, 'test');
+      }
+    }, altPreset.params);
+    await page.keyboard.press('ArrowUp'); // octave shift +1: Digit6 = G#6
+    const pitchWhile = async (pred, ms) => {
+      let fr = 0;
+      for (let t = 0; t < ms / 100; t++) { await wait(100); fr = await page.evaluate(() => window.__sax.engine.telemetry.frequency); if (pred(fr) && t > 8) break; }
+      return fr;
+    };
+    // the attack decides which regime the reed locks into (as on a real sax, an altissimo note
+    // sometimes needs a second try): up to 3 attacks, each from silence
+    let fAlt = 0, attempts = 0;
+    for (; attempts < 3 && !(fAlt > 850); attempts++) {
+      if (attempts) {
+        await page.keyboard.up('Digit6');
+        await page.waitForFunction(() => window.__sax.state.get(0) === 0, { timeout: 3000 }).catch(() => {});
+        await wait(300);
+      }
+      await page.keyboard.down('Digit6');
+      fAlt = await pitchWhile((x) => x > 850, 4000);
+    }
+    const fing = await page.evaluate(() => window.__sax.chart.recognised());
+    check('altissimo G#6 (Altissimo voicing) sounds > 850 Hz', fAlt > 850, `${fAlt.toFixed(1)} Hz after ${attempts} attack(s), target ${gs6.f_target.toFixed(0)} Hz, chart: ${fing}`);
+    await page.waitForFunction(() => window.__sax.impPlot.tractResMag >= 10e6, { timeout: 5000 }).catch(() => {});
+    const tr = await page.evaluate(() => [window.__sax.impPlot.tractRes, window.__sax.impPlot.tractResMag, window.__sax.scene.player.tractCue]);
+    check('tract impedance overlay: strong resonance near the note', tr[1] >= 10e6 && tr[0] > 700 && tr[0] < 1600, `${tr[0].toFixed(0)} Hz, ${(tr[1] / 1e6).toFixed(0)} MPa·s/m³, 3D cue ${tr[2]}`);
+    const tAt = await page.evaluate(() => window.__sax.imp.tract.at);
+    // the real-world contrast: same fingering and embouchure, neutral tongue/jaw, a fresh attack
+    await page.keyboard.up('Digit6');
+    await page.evaluate(() => { const s = window.__sax; s.kb.opts.autoVoicing = false; s.state.set(5, 0.5, 'drag'); s.state.set(6, 0.4, 'drag'); s.state.set(7, 0.3, 'drag'); s.state.set(9, 0.3, 'drag'); });
+    await page.waitForFunction(() => window.__sax.state.get(0) === 0, { timeout: 3000 }).catch(() => {});
+    await wait(400);
+    await page.keyboard.down('Digit6');
+    const fLow = await pitchWhile((x) => x > 100 && x < 700, 4000);
+    check('same fingering, neutral tract → low regime < 700 Hz', fLow > 100 && fLow < 700, `${fLow.toFixed(1)} Hz`);
+    await page.evaluate(() => { window.__sax.kb.opts.autoVoicing = true; });
+    await page.waitForFunction((t) => window.__sax.imp.tract.at > t, { timeout: 5000 }, tAt).catch(() => {});
+    const tr2 = await page.evaluate(() => [window.__sax.impPlot.tractRes, window.__sax.impPlot.tractResMag]);
+    check('tract overlay follows the tongue', tr2[1] < tr[1] / 3, `peak ${(tr[1] / 1e6).toFixed(0)} → ${(tr2[1] / 1e6).toFixed(1)} MPa·s/m³`);
+    await page.keyboard.up('Digit6');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Escape');
+  } else {
+    console.log('SKIP altissimo checks: no Altissimo preset / G#6 register-3 fingering in the data');
+  }
+
   check('no page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   const failed = results.filter((r) => !r.ok).length;
   console.log(`\ne2e: ${results.length - failed}/${results.length} checks passed`);
