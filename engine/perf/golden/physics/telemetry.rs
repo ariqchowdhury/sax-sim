@@ -114,30 +114,38 @@ impl PitchTracker {
         let maxlag = Self::MAXLAG.min(n - w - 1);
         let minlag = ((self.rate / 2000.0) as usize).max(2);
         self.diff[0] = 1.0;
+        // Cumulative-mean-normalised difference, computed lazily in lag order
+        // and only as far as the search below needs it (the first dip under 0.2
+        // and its local minimum) — identical values, typically 2–5× fewer lags.
         let mut run = 0.0f32;
-        let mut best = 0usize;
-        for tau in 1..=maxlag {
-            let mut d = 0.0f32;
-            let a = &lin[..w];
-            let b = &lin[tau..tau + w];
-            for j in 0..w {
-                let e = a[j] - b[j];
-                d += e * e;
+        let mut done = 0usize; // diff[1..=done] valid
+        let mut ensure = |upto: usize, diff: &mut [f32; Self::MAXLAG + 1]| {
+            while done < upto {
+                let tau = done + 1;
+                let d = sq_diff(&lin[..w], &lin[tau..tau + w]);
+                run += d;
+                diff[tau] = if run > 0.0 { d * tau as f32 / run } else { 1.0 };
+                done = tau;
             }
-            run += d;
-            let cm = if run > 0.0 { d * tau as f32 / run } else { 1.0 };
-            self.diff[tau] = cm;
-        }
+        };
+        let mut best = 0usize;
         for tau in minlag..maxlag {
+            ensure(tau, &mut self.diff);
             if self.diff[tau] < 0.2 {
                 // descend to local minimum
                 let mut t = tau;
-                while t + 1 < maxlag && self.diff[t + 1] < self.diff[t] {
+                while t + 1 < maxlag && {
+                    ensure(t + 1, &mut self.diff);
+                    self.diff[t + 1] < self.diff[t]
+                } {
                     t += 1;
                 }
                 best = t;
                 break;
             }
+        }
+        if best > 0 {
+            ensure(best + 1, &mut self.diff);
         }
         if best == 0 {
             self.freq = 0.0;
@@ -149,6 +157,28 @@ impl PitchTracker {
         let lag = best as f64 + off.clamp(-1.0, 1.0);
         self.freq = self.rate / lag;
     }
+}
+
+/// Σ (a_j − b_j)² with 8 independent partial sums (vectorises to 2×4 lanes).
+#[inline]
+fn sq_diff(a: &[f32], b: &[f32]) -> f32 {
+    let n = a.len().min(b.len());
+    let (a, b) = (&a[..n], &b[..n]);
+    let mut acc = [0.0f32; 8];
+    let mut ca = a.chunks_exact(8);
+    let mut cb = b.chunks_exact(8);
+    for (x, y) in (&mut ca).zip(&mut cb) {
+        for k in 0..8 {
+            let e = x[k] - y[k];
+            acc[k] += e * e;
+        }
+    }
+    let mut d = ((acc[0] + acc[4]) + (acc[1] + acc[5])) + ((acc[2] + acc[6]) + (acc[3] + acc[7]));
+    for (x, y) in ca.remainder().iter().zip(cb.remainder()) {
+        let e = x - y;
+        d += e * e;
+    }
+    d
 }
 
 /// Accurate offline f0 estimate (native renderer / tests): YIN for the coarse

@@ -16,6 +16,8 @@ pub const TRACT_LEN: f64 = 0.17;
 pub const WALL_LOSS_MULT: f64 = 3.0;
 /// target spatial step (m)
 pub const TRACT_DX: f64 = 0.005;
+/// length of the glottal section at the start of the tract area function (m)
+pub const GLOTTIS_SECTION: f64 = 0.004;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TractControls {
@@ -23,16 +25,23 @@ pub struct TractControls {
     pub tongue_y: f64,
     pub tongue_tip: f64,
     pub jaw_open: f64,
+    /// glottal area (m²): the first tract section (≈ glottal slit + end corrections, one
+    /// grid cell ≈ 5 mm) — its inertance ρℓ/A_g makes the glottal end reflective when the
+    /// player narrows the glottis, which strengthens the tract resonances (altissimo).
+    pub glottis_area: f64,
 }
 
 impl Default for TractControls {
     fn default() -> Self {
-        TractControls { tongue_x: 0.5, tongue_y: 0.4, tongue_tip: 0.3, jaw_open: 0.3 }
+        TractControls { tongue_x: 0.5, tongue_y: 0.4, tongue_tip: 0.3, jaw_open: 0.3, glottis_area: 1.61e-4 }
     }
 }
 
 /// Cross-sectional area (m²) at distance x (m) from the glottis (PHYSICS.md §7).
 pub fn tract_area(x: f64, c: &TractControls) -> f64 {
+    if x < GLOTTIS_SECTION {
+        return c.glottis_area.clamp(0.02e-4, 1.8e-4);
+    }
     let jaw = c.jaw_open.clamp(0.0, 1.0);
     // neutral tract (cm²)
     let base = if x < 0.020 {

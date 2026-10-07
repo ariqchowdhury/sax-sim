@@ -9,12 +9,12 @@ use crate::geometry::{self, Instrument, MouthpieceControls};
 use crate::keywork::Keywork;
 use crate::lungs::Lungs;
 use crate::params::{clamp_param, default_values, Param, NUM_PARAMS, PARAM_DEFS};
-use crate::radiation::{radiation_rl, Termination};
+use crate::radiation::{radiation_rl, StepCoefs, Termination};
 use crate::reed::{ReedControls, ReedModel};
 use crate::resample::Decimator;
 use crate::smoothing::Smoother;
 use crate::telemetry::{self, idx, PitchTracker, N_PROFILE, SCOPE_LEN, SCOPE_STRIDE, TELEMETRY_LEN};
-use crate::toneholes::{solve_cluster, ToneHole};
+use crate::toneholes::{solve_cluster, HoleBank, ToneHole};
 use crate::tract::{Tract, TractControls};
 
 pub const MAX_BLOCK: usize = 512;
@@ -24,6 +24,8 @@ pub const MAX_OVERSAMPLE: usize = 8;
 pub const MAX_HOLES: usize = 64;
 /// output samples between control-rate updates
 const CTRL_PERIOD: usize = 32;
+/// output samples between updates of the standing-wave RMS profile (telemetry)
+const PROFILE_STRIDE: usize = 8;
 /// radiation delay line length (internal samples, power of two)
 const RAD_RING: usize = 4096;
 /// vena-contracta coefficient of the reed channel jet
@@ -60,7 +62,17 @@ pub struct Engine {
     /// per output sample), and clusters of holes sharing bore nodes
     open_holes: Vec<usize>,
     clusters: Vec<(usize, usize)>,
+    /// open single-hole branches with precomputed step constants (hot loop)
+    bank: HoleBank,
+    /// bank must be rebuilt from `holes` (its states are not live)
+    holes_dirty: bool,
+    /// bank's pⁿ must be re-read from the bore (after a rebuild / block start)
+    bank_capture: bool,
+    /// some pad is still slewing toward its target (or the open set / clusters
+    /// must be re-derived): run the per-sample pad pass
+    pads_moving: bool,
     pub bell: Termination,
+    bell_c: StepCoefs,
     bell_gain: f64,
     bell_delay: usize,
     pub tract: Tract,
@@ -174,7 +186,12 @@ impl Engine {
             hole_flow: Vec::with_capacity(MAX_HOLES),
             open_holes: Vec::with_capacity(MAX_HOLES),
             clusters: Vec::with_capacity(MAX_HOLES),
+            bank: HoleBank::with_capacity(MAX_HOLES),
+            holes_dirty: true,
+            bank_capture: true,
+            pads_moving: true,
             bell: Termination::default(),
+            bell_c: StepCoefs::default(),
             bell_gain: 1.0,
             bell_delay: 0,
             tract: Tract::new(Tract::nodes_for(1.0 / (fs * MAX_OVERSAMPLE as f64)) + 2),
@@ -334,6 +351,8 @@ impl Engine {
         self.pad_coef_open = 1.0 - (-1.0 / (0.010 * self.fs)).exp();
         self.ug_coef = 1.0 - (-1.0 / (0.02 * self.fs * self.os as f64)).exp();
         self.compute_radiation_geometry();
+        self.sync_holes();
+        self.pads_moving = true;
         for h in &mut self.holes {
             h.term.reset();
         }
@@ -373,7 +392,7 @@ impl Engine {
             reed_damping: v(Param::ReedDamping),
             lip_position_mm: v(Param::LipPosition),
             lip_force: (v(Param::LipForce) + self.player.out.lip).clamp(0.0, 3.0),
-            lip_damping: v(Param::LipDamping),
+            lip_damping: (v(Param::LipDamping) + self.player.out.lip_damping).clamp(0.0, 1.0),
             tip_opening_mm: v(Param::TipOpening),
             facing_length_mm: v(Param::FacingLength),
             tongue_contact: v(Param::TongueReedContact),
@@ -385,6 +404,8 @@ impl Engine {
     fn update_coeffs(&mut self, force: bool) {
         let temp = self.smooth[Param::Temperature as usize].value;
         if self.bore_dirty || force {
+            self.sync_holes();
+            self.pads_moving = true; // hole nodes may move → re-derive clusters
             self.air = Air::at(temp);
             let ctrl = self.mp_controls();
             self.mp_ctrl = ctrl;
@@ -436,6 +457,7 @@ impl Engine {
             let rb = if self.inst.bell_radius > 0.0 { self.inst.bell_radius } else { self.inst.radius_at(len - 0.5 * dx, &ctrl) };
             let (rr, lr) = radiation_rl(self.air.rho, self.air.c, rb, 0.6133, 0.25);
             self.bell.set(self.dt, 0.0, 0.0, rr, lr);
+            self.bell_c = self.bell.step_coefs(self.bore.kp[n - 1] as f64);
             // profile sample indices
             for j in 0..N_PROFILE {
                 self.prof_idx[j] = ((j as f64) * (n - 1) as f64 / (N_PROFILE - 1) as f64).round() as usize;
@@ -450,6 +472,7 @@ impl Engine {
                 tongue_y: (v(Param::TongueY) + self.player.out.tongue_y).clamp(0.0, 1.0),
                 tongue_tip: v(Param::TongueTip),
                 jaw_open: (v(Param::JawOpen) + self.player.out.jaw).clamp(0.0, 1.0),
+                glottis_area: GLOTTIS_MIN_AREA + v(Param::GlottisOpen).clamp(0.0, 1.0) * (GLOTTIS_MAX_AREA - GLOTTIS_MIN_AREA),
             };
             let breath = Air::breath();
             self.tract.update_coeffs(self.dt, &breath);
@@ -534,6 +557,8 @@ impl Engine {
 
     /// Jump pads to their targets (offline rendering setup).
     pub fn snap_pads(&mut self) {
+        self.sync_holes();
+        self.pads_moving = true;
         for h in self.holes.iter_mut() {
             h.openness = h.target;
         }
@@ -557,6 +582,16 @@ impl Engine {
         self.player.on_keys(&self.keys);
         for (h, t) in self.holes.iter_mut().zip(self.hole_targets.iter()) {
             h.target = *t as f64;
+        }
+        self.pads_moving = true;
+    }
+
+    /// Make `holes[..].term` authoritative again (copy the live bank states back)
+    /// and schedule a bank rebuild — call before touching hole configuration/state.
+    fn sync_holes(&mut self) {
+        if !self.holes_dirty {
+            self.bank.flush(&mut self.holes);
+            self.holes_dirty = true;
         }
     }
 
@@ -607,7 +642,7 @@ impl Engine {
         }
         // player model
         let assist = self.smooth[Param::PlayerAssist as usize].value;
-        if self.player.tick(assist, self.pitch.freq, self.lung_target_pa, self.smooth[Param::TongueReedContact as usize].value, CTRL_PERIOD as f64 / self.fs) {
+        if self.player.tick(assist, self.smooth[Param::Dynamic as usize].value, self.pitch.freq, self.lung_target_pa, self.smooth[Param::TongueReedContact as usize].value, CTRL_PERIOD as f64 / self.fs) {
             reed = true;
             tract = true;
             self.lungs.set_target_pa(self.lung_target_pa * self.player.out.pressure_scale);
@@ -628,30 +663,33 @@ impl Engine {
         // --- reed (driven by Δp of the previous step)
         self.reed.step(self.dp);
         let (h, u_sw) = (self.reed.opening(), self.reed.swept_flow());
-        // --- volume velocities
-        self.bore.step_u();
-        if self.use_tract {
-            self.tract.tube.step_u();
-        }
         let n = self.bore.n;
-        for &k in self.open_holes.iter() {
-            self.hole_flow[k] = self.holes[k].p_at(&self.bore.p); // pⁿ at the hole
+        // pⁿ at the open branches (the fast bank keeps it from its last solve)
+        if self.bank_capture {
+            self.bank.capture(&self.bore.p);
+            self.bank_capture = false;
+        }
+        for &(a, b) in self.bank.multi.iter() {
+            for &k in self.open_holes[a..b].iter() {
+                self.hole_flow[k] = self.holes[k].p_at(&self.bore.p);
+            }
         }
         let p_bell_old = self.bore.p[n - 1] as f64;
-        // --- pressures
-        self.bore.step_p_interior();
+        // --- volume velocities and interior pressures (fused sweep)
+        self.bore.step();
         if self.use_tract {
-            self.tract.tube.step_p_interior();
+            self.tract.tube.step();
         }
         // bell end node, solved jointly with the radiation load
         {
             let k = self.bore.kp[n - 1] as f64;
             let p_tmp = p_bell_old + k * self.bore.u[n - 2] as f64;
-            let ub = self.bell.step(p_bell_old, p_tmp, k, inv_dt);
+            let ub = self.bell.step_pre(&self.bell_c, p_bell_old, p_tmp, inv_dt);
             self.bore.p[n - 1] = (p_tmp - k * ub) as f32;
         }
-        // tone-hole branches, each solved jointly with its node
-        for &(a, b) in self.clusters.iter() {
+        // tone-hole branches, each solved jointly with its node(s)
+        self.bank.solve(&mut self.bore.p, inv_dt);
+        for &(a, b) in self.bank.multi.iter() {
             solve_cluster(&mut self.holes, &self.open_holes[a..b], &self.hole_flow, &mut self.bore.p, inv_dt);
         }
         // --- turbulence noise (PHYSICS.md §6): U_n = 0.1·bn·U_f·ξ, ξ band-passed
@@ -721,9 +759,17 @@ impl Engine {
             self.rad_ring[(pos + self.bell_delay) & mask] += now as f32;
             now = 0.0;
         }
-        for &k in self.open_holes.iter() {
-            let hole = &self.holes[k];
-            {
+        for f in self.bank.fast.iter() {
+            let v = f.term.dudt * f.gain;
+            if f.delay == 0 {
+                now += v;
+            } else {
+                self.rad_ring[(pos + f.delay) & mask] += v as f32;
+            }
+        }
+        for &(a, b) in self.bank.multi.iter() {
+            for &k in self.open_holes[a..b].iter() {
+                let hole = &self.holes[k];
                 let v = hole.term.dudt * hole.gain;
                 if hole.delay == 0 {
                     now += v;
@@ -763,6 +809,7 @@ impl Engine {
     }
 
     fn reset_state(&mut self) {
+        self.sync_holes();
         self.bore.clear_state();
         self.tract.tube.clear_state();
         for h in self.holes.iter_mut() {
@@ -804,28 +851,42 @@ impl Engine {
         }
         let gain = self.smooth[Param::MasterGain as usize].value;
         let mut out_ms_acc = 0.0;
+        // bore pressures may have been touched between blocks (state resets)
+        self.bank_capture = true;
         for s in 0..n {
             if self.ctrl_count == 0 {
                 self.control_tick();
             }
             self.ctrl_count = (self.ctrl_count + 1) % CTRL_PERIOD;
             self.p_lung = self.lungs.tick();
-            // pads
-            self.open_holes.clear();
-            for (k, h) in self.holes.iter_mut().enumerate() {
-                let was_closed = h.openness < crate::toneholes::OPEN_EPS;
-                h.slew(self.pad_coef, self.pad_coef_open);
-                if was_closed != (h.openness < crate::toneholes::OPEN_EPS) {
-                    // open/closed series correction changes → refresh bore coefficients
-                    self.bore_dirty = true;
+            // pads (skipped while every pad rests at its target: nothing changes)
+            if self.pads_moving {
+                self.sync_holes();
+                self.open_holes.clear();
+                let mut moving = false;
+                for (k, h) in self.holes.iter_mut().enumerate() {
+                    let was_closed = h.openness < crate::toneholes::OPEN_EPS;
+                    h.slew(self.pad_coef, self.pad_coef_open);
+                    if was_closed != (h.openness < crate::toneholes::OPEN_EPS) {
+                        // open/closed series correction changes → refresh bore coefficients
+                        self.bore_dirty = true;
+                    }
+                    h.configure(self.dt, &self.air, false);
+                    self.pad_openness[k] = h.openness as f32;
+                    if !h.term.closed {
+                        self.open_holes.push(k);
+                    }
+                    // `slew` leaves a pad alone within 1e-6 of its target
+                    moving |= (h.target - h.openness).abs() > 1e-6;
                 }
-                h.configure(self.dt, &self.air, false);
-                self.pad_openness[k] = h.openness as f32;
-                if !h.term.closed {
-                    self.open_holes.push(k);
-                }
+                self.build_clusters();
+                self.pads_moving = moving;
             }
-            self.build_clusters();
+            if self.holes_dirty {
+                self.bank.build(&self.holes, &self.open_holes, &self.clusters);
+                self.holes_dirty = false;
+                self.bank_capture = true;
+            }
             let mut y = 0.0f32;
             for _ in 0..self.os {
                 let r = self.step();
@@ -864,13 +925,19 @@ impl Engine {
                 self.scope_p[self.scope_pos] = pmp as f32;
                 self.scope_y[self.scope_pos] = self.reed_y() as f32;
                 self.scope_pos = (self.scope_pos + 1) % SCOPE_LEN;
-                // RMS profile (mean square, τ≈150 ms at fs/4)
-                let c = (SCOPE_STRIDE as f64 / (0.15 * self.fs)) as f32;
+            }
+            if self.sample_count % PROFILE_STRIDE as u64 == 0 {
+                // RMS profile (mean square, τ≈150 ms, sampled at fs/PROFILE_STRIDE)
+                let c = (PROFILE_STRIDE as f64 / (0.15 * self.fs)) as f32;
                 for j in 0..N_PROFILE {
                     let pv = self.bore.p[self.prof_idx[j]];
                     self.prof_ms[j] += c * (pv * pv - self.prof_ms[j]);
                 }
             }
+        }
+        // hole states back into `holes` (health check, observers)
+        if !self.holes_dirty {
+            self.bank.flush(&mut self.holes);
         }
         // health check
         let bad = if self.bore.is_bad() {
@@ -925,13 +992,12 @@ impl Engine {
         let mut pold = vec![0.0; holes.len()];
         let mut out = Vec::with_capacity(steps);
         for s in 0..steps {
-            bore.step_u();
             for (k, h) in holes.iter().enumerate() {
                 pold[k] = h.p_at(&bore.p);
             }
             let pb = bore.p[n - 1] as f64;
             let p0 = bore.p[0] as f64;
-            bore.step_p_interior();
+            bore.step();
             let k = bore.kp[n - 1] as f64;
             let pt = pb + k * bore.u[n - 2] as f64;
             let ub = bell.step(pb, pt, k, inv_dt);

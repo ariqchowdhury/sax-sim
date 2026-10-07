@@ -75,18 +75,18 @@ Runs in any modern browser: `npm run dev`.
 
 Status of each milestone is tracked at the bottom of this file.
 
-## Status (2026-10-06)
+## Status (2026-10-06, round 4)
 - M0 done: scaffold, contracts, geometry, PHYSICS.md, TMM reference.
-- M1 done: self-oscillation from lung pressure; onset 2.35–2.45 kPa.
-- M2 done: 23 tone holes, data-driven keywork (Rust + TS, 97/97 match); 33 fingerings. Engine pitch: register 1 ±7 cents, register 2 ±20 (F#6 −64, geometry limit). Right register 93/99 (pure physics), 98/99 (player_assist 0.5).
-- M3 mostly done: vocal tract, glottis, lungs, tonguing attacks, player_assist controller, 3D drags. Open: embouchure pitch bend too small in register 1.
-- M4 done: parametric mouthpiece; beam reed (reed_model=1) available, lumped reed default (beam locks registers worse, plays high notes sharp).
-- M5 done: scope, spectrum, standing wave on bore, impedance plot (worker), reed shape, readouts.
-- M6 partial: engine-in-the-loop tuning, VALIDATION.md tables. Open research: soft dynamics (onset is subcritical in this model), altissimo (see docs/ALTISSIMO.md).
-- M7 partial: SAB telemetry, fused SIMD FDTD; native 14× / wasm 11.6× real time at 4× worst case (targets 25× / 15× need physics trade-offs); regression harness engine/perf/regress.sh.
-- M8 done: MIDI + breath controller, jaw vibrato, legato, WAV/CSV recording, presets, tour, fingering chart, README, npm test (unit + e2e).
+- M1 done: self-oscillation from lung pressure; onset 2.34–2.45 kPa.
+- M2 done: 23 tone holes with Strouhal-scaled nonlinear jet losses, data-driven keywork (Rust + TS); 33 fingerings + alternates. Register 1 ±8 cents, register 2 ±20 (F#6 −60, geometry limit). Right register 94/99 (pure physics), 98/99 (player_assist 0.5).
+- M3 done: vocal tract with glottal section, lungs, tonguing attacks, tissue-stiffening lip model, player_assist, `dynamic` pp–ff control, 3D drags. Lip-force bends ±6–30 cents; tract bends up to −248 cents.
+- M4 done: parametric mouthpiece; beam reed optional (lumped default).
+- M5 done: scope, spectrum, standing wave, impedance plot, reed shape, readouts.
+- M6 mostly done: altissimo G6/G#6/A6 sound with tuned tract + altissimo embouchure at 4–5 kPa (25–75 cents off), not with neutral tract; see docs/ALTISSIMO.md. Open: pp–ff range ~12 dB (target 20; onset subcritical in the physics), altissimo pitch accuracy and 3–3.5 kPa onset.
+- M7 mostly done: native 13.8× / wasm 12.2× real time at 4× worst case (relaxed-SIMD build auto-selected), adaptive-quality hint/fallback. Cheaper loss models rejected by accuracy gate.
+- M8 done: MIDI (velocity → dynamic), breath controller, vibrato, recording, presets incl. Altissimo, tour, README, npm test.
 
 ## Next (proposed)
-1. Nonlinear (turbulent) vent/tone-hole losses + lip stiffness growing with force → altissimo, low-register bends.
-2. Dynamics via embouchure in the player model; reed–lip contact with distributed lip mass.
-3. Performance: fewer loss poles / smaller thermal region; relaxed-SIMD wasm build selection.
+1. Altissimo accuracy: pitch vs fingering (model is tract-dominated), onset at 3–3.5 kPa, more altissimo notes (A#6–C7).
+2. Dynamics: measured mouthpiece flow characteristic + embouchure-driven pp in pure physics.
+3. Fix `cargo test --release` link failure (lto + panic=abort profile).

@@ -50,6 +50,7 @@ export const PARAMS: readonly ParamDef[] = [
   // appended by the engine (engine/src/params.rs)
   { id: 22, name: 'reed_model', unit: '', min: 0, max: 1, default: 0, label: 'Reed model (0 lumped · 1 beam)', group: 'Reed', step: 1, description: '0 = lumped single-DOF reed, 1 = distributed beam reed (M4)' },
   { id: 23, name: 'player_assist', unit: '0–1', min: 0, max: 1, default: 0.5, label: 'Player assist', group: 'Embouchure', description: '0 = pure physics … 1 = full automatic embouchure assistance' },
+  { id: 24, name: 'dynamic', unit: '0–1', min: 0, max: 1, default: 0.5, label: 'Dynamic (pp–ff)', group: 'Air', description: 'pp (0) … mf (0.5) … ff (1): the player model maps it to pressure, lip force/damping and jaw (needs player_assist > 0)' },
 ];
 
 export const PARAM_COUNT = PARAMS.length;
@@ -80,6 +81,7 @@ export const P = {
   oversample: 21,
   reed_model: 22,
   player_assist: 23,
+  dynamic: 24,
 } as const;
 
 export type ParamName = keyof typeof P;

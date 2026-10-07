@@ -30,9 +30,12 @@ pub enum Param {
     ReedModel = 22,
     /// 0 = pure physics … 1 = full automatic embouchure assistance (player.rs)
     PlayerAssist = 23,
+    /// musical dynamic 0 (pp) … 0.5 (mf) … 1 (ff), realised by the player
+    /// model through pressure + embouchure (needs player_assist > 0)
+    Dynamic = 24,
 }
 
-pub const NUM_PARAMS: usize = 24;
+pub const NUM_PARAMS: usize = 25;
 
 pub struct ParamDef {
     pub name: &'static str,
@@ -72,6 +75,7 @@ pub const PARAM_DEFS: [ParamDef; NUM_PARAMS] = [
     p!("oversample", 1.0, 8.0, 4.0),
     p!("reed_model", 0.0, 1.0, 0.0),
     p!("player_assist", 0.0, 1.0, 0.5),
+    p!("dynamic", 0.0, 1.0, 0.5),
 ];
 
 impl Param {

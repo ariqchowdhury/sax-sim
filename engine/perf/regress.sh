@@ -1,21 +1,28 @@
 #!/usr/bin/env bash
 # Performance regression harness (result-preserving optimisation check).
 #
-#   bash engine/perf/regress.sh golden   # render golden set with the BASELINE hot-loop
-#                                        # sources (engine/perf/baseline/*) + current physics files
+#   bash engine/perf/regress.sh golden   # render the golden set with the perf-owned sources
+#                                        # (OWN below) taken from git $BASE_REF (default HEAD)
+#                                        # and every other file as in the working tree
 #   bash engine/perf/regress.sh check    # render with the current tree, compare to golden
 #   bash engine/perf/regress.sh check cs5   # only scenarios whose name contains "cs5"
 #
 # Tolerances (examples/regress.rs): RMS rel. error < 1e-4 on output and mouthpiece
 # pressure, pitch within 0.1 cent. Breath noise is off, so renders are deterministic.
-# The golden records hashes of the physics-owned files; `check` warns when they
-# changed since (re-run `golden` then).
+# The golden records hashes of all other files; `check` warns when they changed since
+# (others' edits change the physics: re-run `golden` then).
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENG="$(cd "$HERE/.." && pwd)"
 ROOT="$(cd "$ENG/.." && pwd)"
 GOLD="$HERE/golden"
-PHYS=(src/reed.rs src/reed_beam.rs src/flow.rs src/tract.rs src/lungs.rs src/player.rs src/air.rs src/geometry.rs src/keywork.rs src/params.rs)
+# files whose optimisations the harness guards (perf engineer); everything else is "physics"
+OWN=(src/fdtd.rs src/resample.rs)
+BASE_REF="${BASE_REF:-HEAD}"
+PHYS=()
+for f in "$ENG"/src/*.rs; do
+  r="src/$(basename "$f")"; [[ " ${OWN[*]} " == *" $r "* ]] || PHYS+=("$r")
+done
 phys_hash() { (cd "$ENG" && cat "${PHYS[@]}" "$ROOT/data/alto_sax.json") | shasum | cut -d' ' -f1; }
 mode="${1:-check}"; filt="${2:-}"
 case "$mode" in
@@ -23,9 +30,8 @@ case "$mode" in
     B="$ENG/target/regress_base"
     mkdir -p "$B"
     rsync -a --delete --exclude target --exclude perf "$ENG/" "$B/crate/"
-    for f in "$HERE"/baseline/*.rs; do cp "$f" "$B/crate/src/"; done
-    cp "$HERE/baseline/Cargo.toml" "$B/crate/Cargo.toml"
-    cp "$HERE/baseline/config.toml" "$B/crate/.cargo/config.toml"
+    for f in "${OWN[@]}"; do git -C "$ROOT" show "$BASE_REF:engine/$f" > "$B/crate/$f"; done
+    echo "golden: ${OWN[*]} from $BASE_REF ($(git -C "$ROOT" rev-parse --short "$BASE_REF")), rest from the working tree"
     (cd "$B/crate" && CARGO_TARGET_DIR="$B/target" cargo build --release --example regress -q)
     # the copied crate resolves data/ relative to its manifest: link it
     ln -sfn "$ROOT/data" "$B/data"

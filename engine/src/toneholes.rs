@@ -161,7 +161,7 @@ impl ToneHole {
         self.term.set(dt, l_ch + l_pad, r_pad + r_bl, rr, lr);
         // jet separation at the sharp outer edge / pad curtain: Δp = K ρ U|U| /(2 S_e²)
         let s_exit = s.min(a_curtain);
-        self.term.knl = NONLINEAR_K * rho / (2.0 * s_exit * s_exit);
+        self.term.set_nonlinear(NONLINEAR_K * rho / (2.0 * s_exit * s_exit), a, s_exit);
         if was_closed {
             self.term.reset();
         }

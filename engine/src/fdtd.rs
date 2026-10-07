@@ -243,6 +243,9 @@ pub struct Tube {
     /// additive inertance length per half node (m; tone-hole series
     /// corrections t_a, usually negative): L = ρ(Δx + dl)/S
     pub dl_half: Vec<f64>,
+    /// override of the √s fit (a_k, b_k) — loss-model studies only (a_k = 0
+    /// disables a section); None = LOSS_A / LOSS_B
+    pub loss_ab: Option<([f64; NPOLES], [f64; NPOLES])>,
     blk: Vec<Blk>,
     tblk: Vec<TBlk>,
     /// number of blocks in use (cover half nodes 0..n−2 and nodes 0..n−2)
@@ -329,11 +332,12 @@ impl Tube {
         // thermal shunt factor: ℓ_t = kp · kt · S Δx / r
         let kt = 2.0 * (air.gamma - 1.0) / (rc2) * (air.eta / rho).sqrt() / air.nu;
         let nth = self.thermal_nodes.min(n - 1);
-        let asum: f64 = LOSS_A.iter().sum();
+        let (la, lb) = self.loss_ab.unwrap_or((LOSS_A, LOSS_B));
+        let asum: f64 = la.iter().sum();
         for k in 0..NPOLES {
-            let beta = 1.0 - (-LOSS_B[k] * dt).exp();
+            let beta = 1.0 - (-lb[k] * dt).exp();
             self.dk[k] = (1.0 - beta) as f32;
-            self.ek[k] = (beta * LOSS_A[k]) as f32;
+            self.ek[k] = (beta * la[k]) as f32;
         }
         // padding half nodes / nodes: zero coefficients (U, p stay put)
         for b in self.blk.iter_mut() {

@@ -108,7 +108,7 @@ keyboard or part of the current note-mode fingering.
 
 Panel → **MIDI & vibrato** → *Connect MIDI input* (Web MIDI; Chrome/Edge).
 * Note-on/off → fingering of that note (MIDI numbers are *written* pitch by default; switch to
-  *concert* to add 9 semitones) and blow; *Velocity → blow* scales the blow target 0.7…1.3×.
+  *concert* to add 9 semitones) and blow; *Velocity → blow*: with Player assist > 0, velocity sets the **Dynamic (pp–ff)** control (the player model moves pressure, lip and jaw together); with assist = 0 (pure physics) it scales the blow target 0.7…1.3×.
 * CC2 (breath) / CC11 (expression) → lung pressure directly (0…*Breath max* kPa) — once a breath
   controller sends, it owns the air until *Release breath controller*. Notes then only finger.
 * CC1 (mod wheel) → jaw-vibrato depth (or tongue height), CC120/123 → release all.

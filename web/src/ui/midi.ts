@@ -55,7 +55,12 @@ export class MidiInput {
     const d1 = data[1], d2 = data.length > 2 ? data[2] : 0;
     const written = (n: number): number => (this.opts.notes === 'concert' ? n + 9 : n);
     if (st === 0x90 && d2 > 0) {
-      this.kb.noteOn(written(d1), d2);
+      // With the player model active, velocity sets the pp–ff dynamic (pressure + lip + jaw together);
+      // in pure physics (assist 0) the engine ignores `dynamic`, so velocity scales the blow pressure instead.
+      if (this.kb.opts.velocitySensitive && this.state.get(P.player_assist) > 0) {
+        this.state.set(P.dynamic, d2 / 127, 'midi');
+        this.kb.noteOn(written(d1), 64);
+      } else this.kb.noteOn(written(d1), d2);
       this.lastEvent = `note on ${d1} vel ${d2}`;
     } else if (st === 0x80 || (st === 0x90 && d2 === 0)) {
       this.kb.noteOff(written(d1));

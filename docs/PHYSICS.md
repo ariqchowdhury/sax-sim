@@ -149,7 +149,7 @@ Because `k(t + corrections) ≪ 1` below ~4 kHz, a lumped branch is accurate:
 | radiation `Z_rad` | parallel R_r ∥ L_r: `L_r = ρ·0.70 b/S_h`, `R_r = Z_ch·0.70²/κ`, κ = 1/3 | hole in a tube wall: between unflanged (0.6133, κ=¼) and flanged (0.8216, κ=½) |
 | `R_pad` (nearly closed) | `12 η w_rim / (2π b h³)`, `w_rim ≈ 1 mm` (lubrication flow under the pad) | |
 | `R_bl` | chimney boundary-layer resistance at 400 Hz, `(2√(ρη)(1+(γ−1)/ν)/(S_h b)) √(ω/2) (t+t_i)` | |
-| `R_nl` | `K ρ / (2 S_e²)`, K ≈ 1, `S_e = min(S_h, 2πbh)` (jet separation at high amplitude) | Dalmont et al. 2002, Atig et al. 2004 |
+| `R_nl` | `K ρ |U| / (2 S_e²) · 1/(1 + (St/St_c)²)`, K = 1, `S_e = min(S_h, 2πbh)`, St = ω b / v̂, St_c = 1 (jet separation / vortex shedding at the edge; quasi-steady only when the particle displacement v̂/ω exceeds the edge scale) | Ingard & Ising 1967, Disselhorst & van Wijngaarden 1980, Dalmont et al. 2002, Atig et al. 2004 |
 
 **Closed hole** (openness < 1e-3): the chimney is a closed cavity — add its volume
 `V_h = S_h t` (plus a pad-cup recess of ~0.5 mm·S_h if desired) to the compliance of the
@@ -387,6 +387,11 @@ load ρc/S_trachea (S ≈ 2.5 cm²) — accepted: the trachea/bronchial tree is 
 that a matched termination is a standard approximation (Story 2005); it removes spurious
 subglottal resonances without adding a state.
 
+**Glottal section of the tract (round 4)**: the first ~4–5 mm (one grid cell) of the tract area function
+is the glottal slit itself, area A_g from `glottis_open` (0.05–2.0 cm²). Its inertance ρℓ/A_g makes the
+glottal end reflective when the glottis is narrowed, which raises high-front-tongue tract peaks near
+1 kHz from ~55 to ~85 MPa·s/m³ at A_g ≈ 0.15 cm² — needed for altissimo (VALIDATION.md §5).
+
 **Glottis**: orifice between lungs and trachea/tract with area
 `A_g = A_g,min + glottis_open (A_g,max − A_g,min)`, A_g,min = 0.05 cm², A_g,max = 2.0 cm²
 (wind players keep the glottis wide; narrowing adds resistance and can couple):
@@ -603,9 +608,14 @@ C#6 −150…−250 c). Low-register lip sensitivity is below what players repor
 grows with lip force (soft-tissue strain stiffening, making k_lip a larger share of K) is the
 physically motivated fix, but it changes p_M, threshold and V_r together and needs a full retune.
 
-**Altissimo**: tract peaks of 15–55 MPa·s/m³ are now available near 0.9–1.25 kHz (high front tongue), but
-no altissimo fingering in this bore has its target resonance within a factor ~3 of the lower resonances
-(`tools/altissimo_search.py`), and the series |Z_b + Z_t| still favours the lower regime. Real
-altissimo relies on cross/vented fingerings whose lower resonances are much more damped than our linear,
-nearly lossless vents give — that, and reed-resonance assistance, are the open items.
+**Altissimo (round 4, works)**: the reed sees Z_load = 1/(1/(Z_bore + Z_tract) + Y_reed). With the
+default embouchure the reed's compliance/damping (Y_reed, V_r ≈ 1.1 cm³) shunts the ~1 kHz load so much that
+no tract resonance can win; with an altissimo embouchure (firm lip → strain-stiffened lip halves V_r,
+low lip/reed damping, slightly less mouthpiece), a narrowed glottis (reflective glottal end) and a high
+front tongue, G6/G#6/A6 sound from their published fingerings at 4–5 kPa and do not sound with a neutral
+tract. Details, numbers and the tuning tool (`tools/altissimo_tune.py`) in VALIDATION.md §5.
 
+**Flow characteristic and the hard onset**: replacing the Bernoulli characteristic (1−x)√x by plausible
+measured-like shapes ((1−x)x^0.3…x^0.7, (1−x)^0.7…1.5 √x) leaves the bifurcation inverse in the harmonic-
+balance analysis (C5, A4) — the 2nd-harmonic coupling through Z(2ω) dominates. A measured mouthpiece
+characteristic is still worth having, but it is unlikely on its own to make the onset supercritical.

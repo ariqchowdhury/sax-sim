@@ -79,6 +79,26 @@ function main(): void {
     if (s.state === 'no-engine' || s.state === 'error') $('overlay-msg').textContent = s.message;
   };
   engine.onStatus(showStatus);
+  // audio-thread CPU load (engine/worklet.ts monitor): hint when high; drop oversampling only when
+  // the audio has been overloaded (glitching) for seconds
+  engine.onPerf((p) => {
+    if (engine.status.state !== 'running') return;
+    const pct = `${Math.round(100 * p.load)}%`;
+    if (p.level === 'overload' && p.os > 1) {
+      state.set(P.oversample, p.recommendOs, 'auto-quality');
+      statusText.textContent = `CPU overload — oversampling lowered to ${p.recommendOs}×`;
+      statusEl.classList.add('warn');
+      statusEl.title = `audio thread at ${pct} of real time; oversampling reduced ${p.os}× → ${p.recommendOs}× to stop dropouts`;
+    } else if (p.level === 'high' && p.os > 1) {
+      statusText.textContent = `engine running · CPU ${pct} — try oversampling ${p.recommendOs}×`;
+      statusEl.classList.add('warn');
+      statusEl.title = `audio thread at ${pct} of real time (${engine.build}); lower Engine › Oversampling to ${p.recommendOs}× if you hear dropouts`;
+    } else {
+      statusText.textContent = 'engine running';
+      statusEl.classList.remove('warn');
+      statusEl.title = `audio thread at ${pct} of real time (${engine.build})`;
+    }
+  });
   const impPlot = new ImpedancePlot($<HTMLCanvasElement>('impedance'));
   let imp: ImpedanceClient | null = null;
   void engine.probe().then((ok) => {

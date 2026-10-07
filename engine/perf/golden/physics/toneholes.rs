@@ -14,7 +14,7 @@
 //! continuity equation (p_i −= K_i·U_branch).
 
 use crate::air::Air;
-use crate::radiation::{radiation_rl, Termination};
+use crate::radiation::{radiation_rl, StepCoefs, Termination};
 
 pub const OPEN_EPS: f64 = 1e-3;
 /// nonlinear jet-loss coefficient K (sharp-edged holes ≈ 0.6–1.4, Atig et al. 2004)
@@ -161,7 +161,7 @@ impl ToneHole {
         self.term.set(dt, l_ch + l_pad, r_pad + r_bl, rr, lr);
         // jet separation at the sharp outer edge / pad curtain: Δp = K ρ U|U| /(2 S_e²)
         let s_exit = s.min(a_curtain);
-        self.term.knl = NONLINEAR_K * rho / (2.0 * s_exit * s_exit);
+        self.term.set_nonlinear(NONLINEAR_K * rho / (2.0 * s_exit * s_exit), a, s_exit);
         if was_closed {
             self.term.reset();
         }
@@ -271,5 +271,179 @@ pub fn solve_cluster(holes: &mut [ToneHole], idx: &[usize], p_old: &[f64], p: &m
         let ptmp = h.p_at(p);
         let uu = h.term.step(p_old[hi], ptmp, h.k_eff(), inv_dt);
         h.apply(p, uu);
+    }
+}
+
+/// One open branch that shares no bore node with another open branch, with
+/// everything its per-step update needs precomputed (rebuilt only when pad
+/// openness, the open set or the bore coefficients change).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct FastHole {
+    /// index into the engine's hole list
+    pub hole: usize,
+    pub node: usize,
+    /// interpolation weights 1−α, α and flow-injection gains (1−α)K_i, αK_{i+1}
+    pub wa: f64,
+    pub wb: f64,
+    pub ka: f64,
+    pub kb: f64,
+    pub c: StepCoefs,
+    /// working copy of the branch's network state (authoritative while the
+    /// bank is live; copied back to the `ToneHole` by `HoleBank::flush`)
+    pub term: Termination,
+    /// pⁿ at the branch
+    pub p_old: f64,
+    pub gain: f64,
+    pub delay: usize,
+}
+
+/// Open single-hole branches in a flat array for the per-step loop (the
+/// generic `solve_cluster` path remains for holes that share bore nodes).
+#[derive(Clone, Debug, Default)]
+pub struct HoleBank {
+    pub fast: Vec<FastHole>,
+    /// (start, end) ranges into the engine's `open_holes` of clusters with ≥ 2 holes
+    pub multi: Vec<(usize, usize)>,
+}
+
+impl HoleBank {
+    pub fn with_capacity(n: usize) -> Self {
+        HoleBank { fast: Vec::with_capacity(n), multi: Vec::with_capacity(n) }
+    }
+
+    /// Rebuild from the current hole configuration and clusters (copies states in).
+    pub fn build(&mut self, holes: &[ToneHole], open: &[usize], clusters: &[(usize, usize)]) {
+        self.fast.clear();
+        self.multi.clear();
+        for &(a, b) in clusters {
+            if b - a == 1 {
+                let k = open[a];
+                let h = &holes[k];
+                let al = h.alpha;
+                self.fast.push(FastHole {
+                    hole: k,
+                    node: h.node,
+                    wa: 1.0 - al,
+                    wb: al,
+                    ka: (1.0 - al) * h.kp as f64,
+                    kb: al * h.kp1 as f64,
+                    c: h.term.step_coefs(h.k_eff()),
+                    term: h.term,
+                    p_old: 0.0,
+                    gain: h.gain,
+                    delay: h.delay,
+                });
+            } else {
+                self.multi.push((a, b));
+            }
+        }
+    }
+
+    /// Copy the live network states back to the holes.
+    pub fn flush(&self, holes: &mut [ToneHole]) {
+        for f in &self.fast {
+            holes[f.hole].term = f.term;
+        }
+    }
+
+    /// Record pⁿ at every fast branch (before the bore update). Needed only after
+    /// a rebuild or an external change of the bore pressures: `solve` leaves
+    /// the next step's value in place.
+    #[inline]
+    pub fn capture(&mut self, p: &[f32]) {
+        for f in self.fast.iter_mut() {
+            f.p_old = f.wa * p[f.node] as f64 + f.wb * p[f.node + 1] as f64;
+        }
+    }
+
+
+    /// Joint branch/node update of every fast branch (after the bore update).
+    #[inline]
+    pub fn solve(&mut self, p: &mut [f32], inv_dt: f64) {
+        // one check for the whole bank instead of four per branch
+        assert!(self.fast.iter().all(|f| f.node + 1 < p.len()));
+        for f in self.fast.iter_mut() {
+            let (i, j) = (f.node, f.node + 1);
+            // SAFETY: i < j < p.len() checked above
+            let (pi0, pj0) = unsafe { (*p.get_unchecked(i), *p.get_unchecked(j)) };
+            let p_tmp = f.wa * pi0 as f64 + f.wb * pj0 as f64;
+            let u = f.term.step_pre(&f.c, f.p_old, p_tmp, inv_dt);
+            let (pi, pj) = ((pi0 as f64 - f.ka * u) as f32, (pj0 as f64 - f.kb * u) as f32);
+            unsafe {
+                *p.get_unchecked_mut(i) = pi;
+                *p.get_unchecked_mut(j) = pj;
+            }
+            // pⁿ⁺¹ at the branch for the next step: nothing else writes these two
+            // nodes before then (the branch shares no node with another branch,
+            // the bell or the reed junction), so this equals `capture` then
+            f.p_old = f.wa * pi as f64 + f.wb * pj as f64;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The precomputed single-division branch update (`HoleBank`) reproduces
+    /// the generic joint solve (`solve_cluster` → `Termination::step`).
+    #[test]
+    fn bank_matches_generic_solve() {
+        let air = Air::at(22.0);
+        let dt = 1.0 / 192000.0;
+        let mut holes = vec![];
+        for (k, (node, al, open)) in [(5usize, 0.3, 1.0), (9, 0.0, 0.4), (13, 0.8, 0.05)].into_iter().enumerate() {
+            let mut h = ToneHole::new(&format!("h{k}"), 0.0, 0.006, 0.004, 0.004, true, false);
+            h.node = node;
+            h.alpha = al;
+            h.bore_radius = 0.009;
+            h.kp = 2.0e6 + 1e5 * k as f32;
+            h.kp1 = 2.1e6;
+            h.openness = open;
+            h.configure(dt, &air, true);
+            holes.push(h);
+        }
+        let open: Vec<usize> = (0..holes.len()).collect();
+        let clusters: Vec<(usize, usize)> = (0..holes.len()).map(|k| (k, k + 1)).collect();
+        let mut bank = HoleBank::with_capacity(8);
+        bank.build(&holes, &open, &clusters);
+        assert_eq!(bank.fast.len(), 3);
+        assert!(bank.multi.is_empty());
+        let mut pa = vec![0.0f32; 20];
+        let mut pb = pa.clone();
+        let mut pold = vec![0.0; holes.len()];
+        let inv_dt = 1.0 / dt;
+        let mut md: f64 = 0.0;
+        for s in 0..4000 {
+            // drive: pressures as if from the bore (same for both)
+            let drive = (3000.0 * (s as f64 * 0.013).sin()) as f32;
+            for (i, (a, b)) in pa.iter_mut().zip(pb.iter_mut()).enumerate() {
+                let v = drive * (1.0 + 0.05 * i as f32);
+                *a = 0.5 * *a + v;
+                *b = 0.5 * *b + v;
+            }
+            for (k, h) in holes.iter().enumerate() {
+                pold[k] = h.p_at(&pa);
+            }
+            bank.capture(&pb);
+            // "bore update"
+            for (a, b) in pa.iter_mut().zip(pb.iter_mut()) {
+                *a += 10.0;
+                *b += 10.0;
+            }
+            for &(a, b) in &clusters {
+                solve_cluster(&mut holes, &open[a..b], &pold, &mut pa, inv_dt);
+            }
+            bank.solve(&mut pb, inv_dt);
+            for (a, b) in pa.iter().zip(&pb) {
+                md = md.max(((a - b) / a.abs().max(1.0)).abs() as f64);
+            }
+        }
+        assert!(md < 1e-5, "max rel deviation {md}");
+        let mut h2 = holes.clone();
+        bank.flush(&mut h2);
+        for (a, b) in holes.iter().zip(&h2) {
+            assert!((a.term.u - b.term.u).abs() <= 1e-6 * a.term.u.abs().max(1e-9), "{} vs {}", a.term.u, b.term.u);
+        }
     }
 }

@@ -424,6 +424,15 @@ PRESETS = [
          params=dict(tongue_y=1.0, tongue_x=0.1, jaw_open=0.25, lip_force=1.2)),
 ]
 
+# Altissimo fingerings (common published alto charts: e.g. G6 = 8va + front F + B + G keys,
+# A6 = 8va + A key + RH F key). The per-note vocal-tract setting that makes each one sound is found
+# by tools/altissimo_tune.py (engine in the loop) and stored in hole_table.json["altissimo"].
+ALTISSIMO = [
+    dict(note="G6", name="altissimo G (8va, front F, LH1, LH3)", keys=["OCT", "LH_front_F", "LH1", "LH3"], register=3),
+    dict(note="G#6", name="altissimo G# (8va, front F, LH1, LH3, G#)", keys=["OCT", "LH_front_F", "LH1", "LH3", "LH_Gs"], register=3),
+    dict(note="A6", name="altissimo A (8va, LH2, RH1)", keys=["OCT", "LH2", "RH1"], register=3),
+]
+
 ALTERNATES = [
     dict(note="Bb4", name="side Bb", keys=["LH1", "RH_side_Bb"], register=1),
     dict(note="Bb4", name="1 and 1", keys=["LH1", "RH1"], register=1),
@@ -433,6 +442,37 @@ ALTERNATES = [
 
 
 # ----------------------------------------------------------------------------------------
+def altissimo_entries(tbl):
+    out = []
+    info = (tbl or {}).get("altissimo", {})
+    for a in ALTISSIMO:
+        e = dict(a)
+        m = note_midi(a["note"]) - 9
+        e["f_target"] = round(440.0 * 2 ** ((m - 69) / 12), 3)
+        n = info.get("notes", {}).get(a["note"])
+        if n:
+            e["tract"] = n["tract"]
+            e["embouchure"] = info.get("embouchure")
+        out.append(e)
+    return out
+
+
+def presets(tbl):
+    out = list(PRESETS)
+    info = (tbl or {}).get("altissimo")
+    if info and "G#6" in info.get("notes", {}):
+        params = dict(info["embouchure"])
+        params.update(info["notes"]["G#6"]["tract"])
+        out.append(dict(name="Altissimo", blow=4.5,
+                        description=("Altissimo voicing: firm lip (1.8 N), a little less mouthpiece, low lip/reed damping, "
+                                     "nearly closed glottis and a high front tongue that puts a strong vocal-tract resonance "
+                                     "(~60-90 MPa s/m^3) near the note. Tract set for G#6; the per-note tongue settings for G6/G#6/A6 "
+                                     "are in alternate_fingerings[].tract. Sounds from ~4 kPa; with a neutral tract the same "
+                                     "fingerings play their low (bore) regime."),
+                        params=params))
+    return out
+
+
 def build(tbl=None, write=True):
     if tbl is None:
         tbl = load_hole_table()
@@ -585,8 +625,8 @@ def build(tbl=None, write=True):
         ),
         octave_logic=OCTAVE_LOGIC,
         fingerings=fing,
-        alternate_fingerings=ALTERNATES,
-        presets=PRESETS,
+        alternate_fingerings=ALTERNATES + altissimo_entries(tbl),
+        presets=presets(tbl),
     )
     if write:
         os.makedirs(os.path.dirname(OUT), exist_ok=True)

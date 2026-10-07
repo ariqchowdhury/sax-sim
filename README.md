@@ -58,7 +58,7 @@ Other scripts
 * **Keyboard**: Space = blow · `/` = tongue · `` ` `` toggles note mode (piano layout `Z…M`,
   `Q…U`, `I…=` → written C4…F♯6) and direct-key mode (`Q` octave, `ASD` LH, `JKL` RH, …) · Esc
   releases all · Shift+1–4 cameras.
-* **MIDI**: note-on → fingering + blow (velocity → pressure), CC2/CC11 breath controller → lung
+* **MIDI**: note-on → fingering + blow (velocity → pp–ff dynamic, or pressure in pure-physics mode), CC2/CC11 breath controller → lung
   pressure, mod wheel → jaw vibrato depth (or tongue height); legato keeps the air on.
 * **Panel**: every parameter, presets (incl. your own, saved locally and exportable as JSON),
   jaw vibrato, WAV recording and telemetry CSV capture.

@@ -56,7 +56,10 @@ try {
   await page.goto(url, { waitUntil: 'networkidle0' });
   await page.click('#start');
   await page.waitForFunction(() => window.__sax?.engine.status.state === 'running', { timeout: 15000 });
-  check('audio engine running', true, await page.evaluate(() => `telemetry via ${window.__sax.engine.transport}`));
+  check('audio engine running', true, await page.evaluate(() => `telemetry via ${window.__sax.engine.transport}, build ${window.__sax.engine.build}`));
+  await page.waitForFunction(() => window.__sax.engine.perf !== null, { timeout: 5000 }).catch(() => {});
+  const perf = await page.evaluate(() => window.__sax.engine.perf);
+  check('audio-thread load reported', !!perf && perf.load > 0 && perf.load < 50, perf ? `${(100 * perf.load).toFixed(0)}% (${perf.timer} timer, level ${perf.level})` : 'no report');
 
   // ---- scale in note mode --------------------------------------------------------------------
   const geo = JSON.parse(fs.readFileSync(path.join(root, 'data/alto_sax.json'), 'utf8'));
@@ -117,6 +120,19 @@ try {
   const p1 = await page.evaluate(() => window.__sax.impPlot.peaks[0]);
   const g4 = geo.fingerings.find((x) => x.written_midi === 67).f_target;
   check('impedance recomputed on key change', Math.abs(p1 - p0) > 5 && Math.abs(1200 * Math.log2(p1 / g4)) < 80, `peak 1: ${p0.toFixed(0)} → ${p1.toFixed(0)} Hz (G4 target ${g4.toFixed(0)})`);
+
+  // ---- adaptive quality: a (simulated) persistent overload report lowers oversampling ----------
+  const q = await page.evaluate(() => {
+    const e = window.__sax.engine;
+    e.onMessage({ type: 'perf', load: 0.7, level: 'high', os: 4, recommendOs: 2, timer: 'date' });
+    const hint = document.getElementById('status-text').textContent;
+    const osAfterHint = window.__sax.state.get(21);
+    e.onMessage({ type: 'perf', load: 1.3, level: 'overload', os: 4, recommendOs: 2, timer: 'date' });
+    const os = window.__sax.state.get(21);
+    window.__sax.state.set(21, 4);
+    return { hint, osAfterHint, os };
+  });
+  check('high load → hint only; persistent overload → oversampling lowered', q.osAfterHint === 4 && q.os === 2 && /try oversampling 2/.test(q.hint), `"${q.hint}", os ${q.osAfterHint} → ${q.os}`);
 
   check('no page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   const failed = results.filter((r) => !r.ok).length;

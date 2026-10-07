@@ -21,6 +21,8 @@ pub struct PlayerOffsets {
     pub tongue_y: f64,
     pub tongue_x: f64,
     pub jaw: f64,
+    /// added to lip_damping
+    pub lip_damping: f64,
 }
 
 #[derive(Clone, Debug)]
@@ -38,8 +40,25 @@ pub struct Player {
     adapt: f64,
     silent_t: f64,
     hold_t: f64,
+    /// onset pressure boost (pp notes start above threshold, then the player
+    /// relaxes onto the soft, hysteretic branch)
+    boost: f64,
     pub out: PlayerOffsets,
 }
+
+/// pressure factor at pp (dynamic 0) and ff (dynamic 1); mf (0.5) = 1
+pub const DYN_PP_PRESSURE: f64 = 0.5;
+/// relaxation time from the mf onset pressure to the pp pressure (s)
+pub const DYN_RELAX_TAU: f64 = 0.3;
+/// lip force (N) / lip damping offsets at pp and ff
+pub const DYN_PP_LIP: f64 = 0.4;
+pub const DYN_PP_DAMP: f64 = 0.5;
+pub const DYN_FF_LIP: f64 = -0.3;
+pub const DYN_FF_PRESSURE: f64 = 2.0;
+/// ff pressure factor for low register-1 notes whose 2nd peak dominates
+pub const DYN_FF_PRESSURE_LOW: f64 = 1.25;
+/// pp pressure factor for those low notes
+pub const DYN_PP_PRESSURE_LOW: f64 = 0.6;
 
 /// rate of the register-locking integrator (1/s)
 const ADAPT_RATE: f64 = 2.5;
@@ -90,26 +109,67 @@ impl Player {
     /// Control-rate update. `freq` = tracked playing frequency (0 = silent),
     /// `lung_pa` = requested lung pressure, `dt` = tick period (s).
     /// Returns true when the offsets changed.
-    pub fn tick(&mut self, assist: f64, freq: f64, lung_pa: f64, tongue: f64, dt: f64) -> bool {
+    pub fn tick(&mut self, assist: f64, dynamic: f64, freq: f64, lung_pa: f64, tongue: f64, dt: f64) -> bool {
         let a = assist.clamp(0.0, 1.0);
         let mut o = PlayerOffsets { pressure_scale: 1.0, ..Default::default() };
         if a > 0.0 {
+            // --- dynamics through the embouchure (PHYSICS.md §11 rec. 1):
+            // pp = less air, firmer and more damped lip (smaller opening, lower
+            // p_M and ζ); ff = more air, looser lip, open jaw. mf (0.5) = no change.
+            let d = dynamic.clamp(0.0, 1.0) - 0.5;
+            let low_guard = self.current.map(|i| self.notes[i].register == 1 && self.notes[i].f_target < 300.0).unwrap_or(false);
+            let (dp, dl, dd, dj) = if d < 0.0 {
+                let t = -2.0 * d; // 0 … 1 toward pp
+                if low_guard {
+                    // low notes: a firmer lip at low pressure favours the octave
+                    (DYN_PP_PRESSURE_LOW.powf(t), 0.0, DYN_PP_DAMP * t, 0.0)
+                } else {
+                    (DYN_PP_PRESSURE.powf(t), DYN_PP_LIP * t, DYN_PP_DAMP * t, 0.0)
+                }
+            } else {
+                let t = 2.0 * d; // 0 … 1 toward ff
+                // low notes (2nd impedance peak ≥ 1st) crack when over-blown with a loose lip
+                let ffp = if low_guard { DYN_FF_PRESSURE_LOW } else { DYN_FF_PRESSURE };
+                (ffp.powf(t), if low_guard { 0.2 * t } else { DYN_FF_LIP * t }, -0.2 * t, 0.2 * t)
+            };
+            // onset boost for soft notes: start above threshold, then relax
+            // (soft notes start at the mf pressure — where the intended register
+            // is the stable one — and relax onto the soft branch once sounding)
+            if tongue > 0.2 || lung_pa < 500.0 || freq <= 0.0 {
+                self.boost = 1.0;
+            } else {
+                self.boost *= 1.0 - dt / DYN_RELAX_TAU;
+            }
+            let boost = 1.0 + self.boost * (1.0 / dp.min(1.0) - 1.0).max(0.0);
+            o.pressure_scale *= dp * boost;
+            o.lip += dl;
+            o.lip_damping += dd;
+            o.jaw += dj;
+        }
+        if a > 0.0 {
             if let Some(i) = self.current {
                 let n = &self.notes[i];
-                // feed-forward embouchure per note (what players do)
+                // feed-forward embouchure per note (what players do), collected
+                // in f and applied scaled by a below
+                let mut f = PlayerOffsets { pressure_scale: 1.0, ..Default::default() };
                 if n.register == 1 && n.f_target < 180.0 {
-                    o.pressure_scale -= 0.05;
-                    o.jaw += 0.15;
-                    o.tongue_y -= 0.10;
+                    f.pressure_scale -= 0.05;
+                    f.jaw += 0.15;
+                    f.tongue_y -= 0.10;
                 } else if n.register >= 2 && n.f_target > 690.0 {
-                    o.lip += 0.20;
-                    o.pressure_scale += 0.10;
-                    o.tongue_y += 0.30;
-                    o.tongue_x -= 0.30;
+                    f.lip += 0.20;
+                    f.pressure_scale += 0.10;
+                    f.tongue_y += 0.30;
+                    f.tongue_x -= 0.30;
                 } else if n.register >= 2 {
-                    o.lip += 0.10;
-                    o.pressure_scale += 0.05;
+                    f.lip += 0.10;
+                    f.pressure_scale += 0.05;
                 }
+                o.lip += f.lip;
+                o.pressure_scale *= f.pressure_scale;
+                o.tongue_y += f.tongue_y;
+                o.tongue_x += f.tongue_x;
+                o.jaw += f.jaw;
                 // register locking feedback
                 // no feedback while the tongue stops the reed (articulation) or
                 // during the 120 ms after its release (note still starting)
@@ -143,18 +203,20 @@ impl Player {
                 // strength from a = 0.5 up
                 let fb = (2.0 * a).min(1.0);
                 let x = self.adapt * fb;
-                o.lip = o.lip * a + 0.5 * x;
-                o.pressure_scale = 1.0 + (o.pressure_scale - 1.0) * a + 0.2 * x;
-                o.tongue_y = o.tongue_y * a + 0.25 * x;
-                o.tongue_x *= a;
-                o.jaw = o.jaw * a - 0.15 * x;
+                // (dynamics offsets above are already in o; they are not scaled by a)
+                o.lip += f.lip * (a - 1.0) + 0.5 * x;
+                o.pressure_scale = o.pressure_scale * (1.0 + (f.pressure_scale - 1.0) * a) / f.pressure_scale + 0.2 * x;
+                o.tongue_y += f.tongue_y * (a - 1.0) + 0.25 * x;
+                o.tongue_x += f.tongue_x * (a - 1.0);
+                o.jaw += f.jaw * (a - 1.0) - 0.15 * x;
             }
         }
         let changed = (o.lip - self.out.lip).abs() > 1e-3
             || (o.pressure_scale - self.out.pressure_scale).abs() > 1e-4
             || (o.tongue_y - self.out.tongue_y).abs() > 1e-3
             || (o.tongue_x - self.out.tongue_x).abs() > 1e-3
-            || (o.jaw - self.out.jaw).abs() > 1e-3;
+            || (o.jaw - self.out.jaw).abs() > 1e-3
+            || (o.lip_damping - self.out.lip_damping).abs() > 1e-3;
         if changed {
             self.out = o;
         }
@@ -172,7 +234,7 @@ mod tests {
         p.on_keys(&[1.0]);
         assert_eq!(p.current, Some(0));
         for _ in 0..10000 {
-            p.tick(0.0, 280.0, 4000.0, 0.0, 1e-3);
+            p.tick(0.0, 0.0, 280.0, 4000.0, 0.0, 1e-3);
         }
         assert_eq!(p.out, PlayerOffsets { pressure_scale: 1.0, ..Default::default() });
     }
@@ -182,8 +244,39 @@ mod tests {
         let mut p = Player { notes: vec![NoteInfo { mask: 1, f_target: 140.0, register: 1 }], ..Default::default() };
         p.on_keys(&[1.0]);
         for _ in 0..2000 {
-            p.tick(1.0, 280.0, 4000.0, 0.0, 1e-3); // sounding the octave
+            p.tick(1.0, 0.5, 280.0, 4000.0, 0.0, 1e-3); // sounding the octave
         }
         assert!(p.out.lip < 0.0 && p.out.pressure_scale < 1.0, "{:?}", p.out);
+    }
+
+    #[test]
+    fn dynamic_mapping() {
+        let mk = || {
+            let mut p = Player { notes: vec![NoteInfo { mask: 1, f_target: 440.0, register: 2 }], ..Default::default() };
+            p.on_keys(&[1.0]);
+            p
+        };
+        // mf = no offsets (in register, sounding)
+        let mut p = mk();
+        for _ in 0..3000 {
+            p.tick(0.5, 0.5, 440.0, 3500.0, 0.0, 1e-3);
+        }
+        let mf = p.out;
+        // pp: once sounding, pressure relaxes below mf, lip firmer & more damped
+        let mut p = mk();
+        for _ in 0..3000 {
+            p.tick(0.5, 0.0, 440.0, 3500.0, 0.0, 1e-3);
+        }
+        assert!(p.out.pressure_scale < 0.6 * mf.pressure_scale && p.out.lip > mf.lip && p.out.lip_damping > 0.0, "{:?}", p.out);
+        // ff: more pressure, looser lip
+        let mut p = mk();
+        for _ in 0..3000 {
+            p.tick(0.5, 1.0, 440.0, 3500.0, 0.0, 1e-3);
+        }
+        assert!(p.out.pressure_scale > 1.5 * mf.pressure_scale && p.out.lip < mf.lip, "{:?}", p.out);
+        // assist 0: dynamic ignored
+        let mut p = mk();
+        p.tick(0.0, 0.0, 440.0, 3500.0, 0.0, 1e-3);
+        assert_eq!(p.out, PlayerOffsets { pressure_scale: 1.0, ..Default::default() });
     }
 }

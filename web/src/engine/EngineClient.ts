@@ -1,8 +1,9 @@
 // Main-thread API to the audio engine running in an AudioWorklet.
 import workletUrl from './worklet.ts?worker&url';
-import type { FromWorklet, ToWorklet, WorkletOptions } from './worklet';
+import type { FromWorklet, PerfReport, ToWorklet, WorkletOptions } from './worklet';
 import { PARAM_COUNT, SCOPE_LEN, T, clampParam, defaultValues } from './params';
 import { SHM, SHM_BYTES } from './shm';
+import { fetchEngineWasm } from './wasmSelect';
 
 export type EngineStatus =
   | { state: 'idle' }
@@ -102,6 +103,9 @@ export class EngineClient {
   status: EngineStatus = { state: 'idle' };
 
   private statusListeners: ((s: EngineStatus) => void)[] = [];
+  private perfListeners: ((p: PerfReport) => void)[] = [];
+  /** latest audio-thread CPU report (null until the first ~0.5 s of audio) */
+  perf: PerfReport | null = null;
   private telemetryListeners: ((t: Telemetry) => void)[] = [];
   private opts: EngineClientOptions;
   /** SharedArrayBuffer telemetry (null → postMessage fallback) */
@@ -154,6 +158,14 @@ export class EngineClient {
     cb(this.status);
   }
 
+  /**
+   * Audio-thread load reports (~2 Hz). level 'high' → show a hint suggesting oversample
+   * `recommendOs`; 'overload' → audio is glitching persistently: the app may apply it.
+   */
+  onPerf(cb: (p: PerfReport) => void): void {
+    this.perfListeners.push(cb);
+  }
+
   onTelemetry(cb: (t: Telemetry) => void): void {
     this.telemetryListeners.push(cb);
   }
@@ -177,15 +189,15 @@ export class EngineClient {
     return true;
   }
 
+  /** which engine build is running ('relaxed-simd' | 'simd128'), set by fetchWasm */
+  build = '';
+
   private async fetchWasm(): Promise<ArrayBuffer | null> {
     const url = this.opts.wasmUrl ?? `${import.meta.env.BASE_URL}engine.wasm`;
-    const res = await fetch(url, { cache: 'no-cache' });
-    if (!res.ok) return null;
-    const buf = await res.arrayBuffer();
-    // Vite's SPA fallback can answer 200 with index.html: check the wasm magic number.
-    const h = new Uint8Array(buf, 0, Math.min(4, buf.byteLength));
-    if (h.length < 4 || h[0] !== 0x00 || h[1] !== 0x61 || h[2] !== 0x73 || h[3] !== 0x6d) return null;
-    return buf;
+    const got = await fetchEngineWasm(url, { cache: 'no-cache' });
+    if (!got) return null;
+    this.build = got.relaxed ? 'relaxed-simd' : 'simd128';
+    return got.bytes;
   }
 
   /** Must be called from a user gesture (click / key). */
@@ -254,6 +266,10 @@ export class EngineClient {
   private onMessage(m: FromWorklet): void {
     if (m.type === 'ready') this.setStatus({ state: 'running' });
     else if (m.type === 'error') this.setStatus({ state: 'error', message: m.message });
+    else if (m.type === 'perf') {
+      this.perf = m;
+      for (const l of this.perfListeners) l(m);
+    }
     else if (m.type === 'telemetry') {
       this.telemetry.decode(m.data, m.data.length, m.pads, m.pads.length);
       for (const l of this.telemetryListeners) l(this.telemetry);

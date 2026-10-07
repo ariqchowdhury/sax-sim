@@ -6,7 +6,7 @@ fn main() {
     let (ty, tx, loss) = (a[0], a[1], a[2]); let jaw = if a.len() > 3 { a[3] } else { 0.3 };
     let fs = 192000.0; let dt = 1.0 / fs;
     let mut t = Tract::new(64); t.build(dt);
-    t.ctrl = TractControls { tongue_x: tx, tongue_y: ty, tongue_tip: 0.3, jaw_open: jaw };
+    t.ctrl = TractControls { tongue_x: tx, tongue_y: ty, tongue_tip: 0.3, jaw_open: jaw, glottis_area: if a.len() > 4 { a[4] * 1e-4 } else { 1.61e-4 } };
     let air = Air::breath();
     let n = t.tube.n; let dx = TRACT_LEN / (n - 1) as f64;
     for i in 0..n - 1 { t.tube.s_half[i] = tract_area((i as f64 + 0.5) * dx, &t.ctrl); }

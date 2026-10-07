@@ -392,7 +392,7 @@ impl Engine {
             reed_damping: v(Param::ReedDamping),
             lip_position_mm: v(Param::LipPosition),
             lip_force: (v(Param::LipForce) + self.player.out.lip).clamp(0.0, 3.0),
-            lip_damping: v(Param::LipDamping),
+            lip_damping: (v(Param::LipDamping) + self.player.out.lip_damping).clamp(0.0, 1.0),
             tip_opening_mm: v(Param::TipOpening),
             facing_length_mm: v(Param::FacingLength),
             tongue_contact: v(Param::TongueReedContact),
@@ -472,6 +472,7 @@ impl Engine {
                 tongue_y: (v(Param::TongueY) + self.player.out.tongue_y).clamp(0.0, 1.0),
                 tongue_tip: v(Param::TongueTip),
                 jaw_open: (v(Param::JawOpen) + self.player.out.jaw).clamp(0.0, 1.0),
+                glottis_area: GLOTTIS_MIN_AREA + v(Param::GlottisOpen).clamp(0.0, 1.0) * (GLOTTIS_MAX_AREA - GLOTTIS_MIN_AREA),
             };
             let breath = Air::breath();
             self.tract.update_coeffs(self.dt, &breath);
@@ -641,7 +642,7 @@ impl Engine {
         }
         // player model
         let assist = self.smooth[Param::PlayerAssist as usize].value;
-        if self.player.tick(assist, self.pitch.freq, self.lung_target_pa, self.smooth[Param::TongueReedContact as usize].value, CTRL_PERIOD as f64 / self.fs) {
+        if self.player.tick(assist, self.smooth[Param::Dynamic as usize].value, self.pitch.freq, self.lung_target_pa, self.smooth[Param::TongueReedContact as usize].value, CTRL_PERIOD as f64 / self.fs) {
             reed = true;
             tract = true;
             self.lungs.set_target_pa(self.lung_target_pa * self.player.out.pressure_scale);

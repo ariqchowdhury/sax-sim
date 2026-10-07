@@ -42,6 +42,8 @@ pub struct ReedPhysParams {
     pub k_b: f64,
     pub m_b: f64,
     pub r_b: f64,
+    /// amplitude-dependent lip damping coefficient (N·s/m per m² of excursion)
+    pub r_nl: f64,
 }
 
 impl Default for ReedPhysParams {
@@ -84,6 +86,22 @@ impl Default for ReedControls {
 /// Lipped reed resonance at the default embouchure (Hz), PHYSICS.md §5a: 1.6–2.2 kHz.
 pub const REED_FR: f64 = 1900.0;
 
+/// Tip stiffness (reed + lip, N/m, before the BODY_SHARE split) at the default embouchure.
+pub const K_DEFAULT: f64 = 321.0;
+/// Share of K provided by the lower lip at the default embouchure.
+pub const LIP_SHARE: f64 = 0.85;
+/// Lip tissue force scale A (N) of the exponential strain-stiffening law.
+pub const LIP_A: f64 = 0.15;
+/// Share of the moving mass (at the tip) that is lip tissue, at the default.
+pub const LIP_MASS_SHARE: f64 = 0.5;
+/// Static lip-force → tip-deflection factor (calibrated: H0 ≈ 1.03 mm at 1 N).
+/// (×1.0905 compensates the tanh saturation at the default, so H0 is unchanged.)
+pub const LIP_STATIC: f64 = 1.0905 * 0.55 * K_DEFAULT * (1.0 - LIP_SHARE) * 0.5 / (K_DEFAULT * 0.5);
+/// Saturation of the static lip deflection (fraction of the tip opening).
+pub const LIP_Y_SAT: f64 = 0.95;
+/// Amplitude-dependent lip damping gain κ (0 = linear lip).
+pub const LIP_NL_DAMP: f64 = 0.0;
+
 /// Fraction of the free-reed equivalent volume carried by the body mode.
 pub const BODY_SHARE: f64 = 0.5;
 
@@ -102,30 +120,52 @@ pub fn derive_reed_params(c: &ReedControls) -> ReedPhysParams {
     // V_r = ρc²S_r²/K ≈ 1.08 cm³ at the default embouchure (Nederveen 1998;
     // same value as tools/tmm.py), with p_M = K·H0/S_r ≈ 6.7 kPa.
     let s_r = 4.94e-5 * (1.0 - BODY_SHARE) * len_ratio.powf(-0.5);
-    // Stiffness at the tip: reed (cantilever ∝ 1/L³, softened here to ∝ L⁻²
-    // because the lay supports the reed) + lower-lip tissue in parallel.
-    let k_reed = 221.0 * (1.0 - BODY_SHARE) * strength * len_ratio * len_ratio;
-    let k_lip = (20.0 + 80.0 * c.lip_force) * (1.0 - BODY_SHARE);
-    let k = k_reed + k_lip;
-    // Lip force applied at distance a = VAMP − lip_position from the heel
-    // deflects the tip by β·F/K with β = a²(3L−a)/(2L³) (cantilever), times a
-    // lay-support factor 0.55 (calibrated: H0 ≈ 1.03 mm at the default 1 N).
+    let share = 1.0 - BODY_SHARE;
+    // Lever between the lip contact (distance a = VAMP − lip_position from the
+    // heel) and the tip of a cantilever: tip/contact deflection ρ = (3L−a)/(2a).
+    // A stiffness (mass) k at the contact is seen at the tip as k/ρ².
     let a = (VAMP - c.lip_position_mm).max(1.0);
+    let lever = |a: f64| {
+        let rho = (3.0 * VAMP - a) / (2.0 * a);
+        1.0 / (rho * rho)
+    };
+    let lever_rel = lever(a) / lever(VAMP - 12.0);
+    // --- lower-lip soft tissue (strain-stiffening): F_t(δ) = A (e^{δ/δ0} − 1)
+    // ⇒ tangent stiffness dF_t/dδ = (F + A)/δ0 grows linearly with lip force.
+    let f_rel = (c.lip_force.max(0.0) + LIP_A) / (1.0 + LIP_A);
+    // Stiffness at the tip: reed (cantilever ∝ 1/L³, softened to ∝ L⁻² by the
+    // lay support) + lip tissue in parallel. At the default embouchure the lip
+    // provides LIP_SHARE of K (total K unchanged from the previous calibration).
+    let k_reed = K_DEFAULT * (1.0 - LIP_SHARE) * share * strength * len_ratio * len_ratio;
+    let k_lip = K_DEFAULT * LIP_SHARE * share * f_rel * lever_rel;
+    let k = k_reed + k_lip;
+    // Static lip force is carried by the reed: tip deflection β·F/k_reed with
+    // β = a²(3L−a)/(2L³) (cantilever) × lay-support factor (H0 ≈ 1.03 mm at 1 N).
     let beta = a * a * (3.0 * VAMP - a) / (2.0 * VAMP * VAMP * VAMP);
-    let y_eq = 0.55 * (1.0 - BODY_SHARE) * beta * c.lip_force / k;
-    // Reed resonance (in situ, lip-loaded) REED_FR at the default embouchure.
-    let f_r = REED_FR * len_ratio.powf(0.75) * strength.sqrt() * (1.0 + 0.15 * (c.lip_force - 1.0)).max(0.6).sqrt();
-    let w_r = 2.0 * core::f64::consts::PI * f_r;
-    let m = k / (w_r * w_r);
-    // Damping: q = 1/Q from intrinsic reed loss + lip tissue.
-    let q = 0.03 + 0.3 * c.reed_damping + 0.6 * c.lip_damping;
-    let r = q * (k * m).sqrt();
+    // The reed wraps onto the curved lay as it is pushed, so the static
+    // deflection saturates toward Y_SAT·H_tip (biting at 3 N leaves ~0.2 mm).
+    let y_sat = LIP_Y_SAT * c.tip_opening_mm * 1e-3;
+    let y_lin = LIP_STATIC * share * beta * c.lip_force / k_reed;
+    let y_eq = y_sat * (y_lin / y_sat).tanh();
+    // Masses: reed (∝ L^½ at the tip) + lip tissue moving with the reed (seen
+    // through the lever); split LIP_MASS_SHARE / rest at the default, where
+    // f_r = REED_FR (scaled by √strength as before).
+    let w_def = 2.0 * core::f64::consts::PI * REED_FR;
+    let m_def = K_DEFAULT * share / (w_def * w_def);
+    let m = m_def * ((1.0 - LIP_MASS_SHARE) * len_ratio.powf(0.5) / strength + LIP_MASS_SHARE * lever_rel);
+    let f_r = (k / m).sqrt() / (2.0 * core::f64::consts::PI);
+    // Damping: intrinsic reed loss + lip tissue (more contact → more damping).
+    let km = (k * m).sqrt();
+    let r_lip = 0.6 * c.lip_damping * km * f_rel.sqrt();
+    let r = (0.03 + 0.3 * c.reed_damping) * km + r_lip;
     let h_tip = c.tip_opening_mm * 1e-3;
     // Curved lay: contact (progressive stiffening as the reed rolls onto the
     // facing) starts when the reed has closed all but the last `phi` of its
     // equilibrium opening; longer facings make the roll-on more gradual.
     let phi = (0.12 * c.facing_length_mm / 22.0).clamp(0.05, 0.25);
     let h0 = (h_tip - y_eq).max(0.05 * h_tip);
+    // amplitude-dependent lip damping: r_lip·κ·((y − y_eq)/H0)²
+    let r_nl = r_lip * LIP_NL_DAMP / (h0 * h0);
     let y_contact = h_tip - phi * h0;
     let span = (h_tip - y_contact).max(1e-5);
     // At full closure the contact has added ≈ 15·K of stiffness.
@@ -158,6 +198,7 @@ pub fn derive_reed_params(c: &ReedControls) -> ReedPhysParams {
         k_b,
         m_b,
         r_b,
+        r_nl,
     }
 }
 
@@ -274,11 +315,13 @@ impl Reed for LumpedReed {
         let ym = self.y_prev;
         let (fc, kc, rc) = self.contact(y);
         let m_dt2 = self.m_dt2;
-        let r_tot = p.r + rc + p.r_tongue;
+        let dy = y - p.y_eq;
+        let rnl = p.r_nl * dy * dy;
+        let r_tot = p.r + rc + p.r_tongue + rnl;
         let k_tot = p.k + kc;
         let f_ext = p.s_r * dp + p.f_tongue + p.k * p.y_eq - fc + kc * y;
         let b = 2.0 * m_dt2 * y - ym * (m_dt2 - r_tot * self.inv_2dt + 0.5 * k_tot);
-        let a_inv = if kc == 0.0 && rc == 0.0 { self.lin_a_inv } else { 1.0 / (m_dt2 + r_tot * self.inv_2dt + 0.5 * k_tot) };
+        let a_inv = if kc == 0.0 && rc == 0.0 && rnl == 0.0 { self.lin_a_inv } else { 1.0 / (m_dt2 + r_tot * self.inv_2dt + 0.5 * k_tot) };
         let mut yn = (f_ext + b) * a_inv;
         if !yn.is_finite() {
             yn = p.y_eq;
@@ -438,5 +481,22 @@ mod tests {
             r.step(1.5 * p_m);
         }
         assert!(r.opening() < 0.05 * h0, "not closed at 1.5 p_M: {}", r.opening());
+    }
+}
+
+#[cfg(test)]
+mod lip_tests {
+    use super::*;
+    /// Default embouchure unchanged by the lip model; trends with lip force.
+    #[test]
+    fn lip_force_trends() {
+        let at = |f: f64| derive_reed_params(&ReedControls { lip_force: f, ..Default::default() });
+        let d = at(1.0);
+        let h0 = d.tip_opening - d.y_eq;
+        assert!((h0 - 1.03e-3).abs() < 0.02e-3, "default H0 {h0}");
+        let (lo, hi) = (at(0.6), at(1.4));
+        assert!(hi.k > d.k && d.k > lo.k, "lip stiffening");
+        assert!(hi.y_eq > d.y_eq && d.y_eq > lo.y_eq);
+        assert!(at(3.0).tip_opening - at(3.0).y_eq > 0.0, "never exactly shut statically");
     }
 }

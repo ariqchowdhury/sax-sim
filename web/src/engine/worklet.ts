@@ -33,7 +33,24 @@ export type ToWorklet =
 export type FromWorklet =
   | { type: 'ready'; exports: string[] }
   | { type: 'error'; message: string }
-  | { type: 'telemetry'; data: Float32Array; pads: Float32Array; frame: number };
+  | { type: 'telemetry'; data: Float32Array; pads: Float32Array; frame: number }
+  | PerfReport;
+
+/**
+ * CPU load of the audio thread, posted about twice a second.
+ * load = time spent in process() / real time of the audio rendered (1.0 = no headroom: dropouts).
+ * level: 'ok' | 'high' (≥ HIGH for ≥ 1 s → suggest a lower oversampling) |
+ *        'overload' (≥ OVERLOAD for ≥ 3 s → audio is glitching persistently; the app may drop
+ *        oversampling to `recommendOs` without asking).
+ */
+export interface PerfReport {
+  type: 'perf';
+  load: number;
+  level: 'ok' | 'high' | 'overload';
+  os: number;
+  recommendOs: number;
+  timer: 'performance' | 'date';
+}
 
 export interface WorkletOptions {
   wasmBytes: ArrayBuffer;
@@ -89,6 +106,17 @@ class SaxProcessor extends AudioWorkletProcessor {
   private shHead: Int32Array | null = null;
   private shTel: Float32Array | null = null;
   private shPads: Float32Array | null = null;
+  // ---- CPU-load monitor (AudioWorkletGlobalScope may lack `performance`; Date.now() has 1 ms
+  // resolution, but summing per-block differences is unbiased: each difference rounds to 0 or
+  // 1 ms with probability proportional to the true duration)
+  private now: () => number;
+  private timer: 'performance' | 'date';
+  private busyMs = 0;
+  private perfBlocks = 0;
+  private perfWindow: number;
+  private highRun = 0;
+  private overRun = 0;
+  private os = 4;
 
   constructor(options: { processorOptions: WorkletOptions }) {
     super();
@@ -101,6 +129,16 @@ class SaxProcessor extends AudioWorkletProcessor {
       this.shPads = new Float32Array(o.shared, SHM.HEADER * 4 + SHM.TEL_CAP * 4, SHM.PAD_CAP);
       this.telemetryEvery = 2; // cheap: just a memcpy into shared memory
     }
+    const perf = (globalThis as { performance?: { now(): number } }).performance;
+    if (perf && typeof perf.now === 'function') {
+      this.now = () => perf.now();
+      this.timer = 'performance';
+    } else {
+      this.now = () => Date.now();
+      this.timer = 'date';
+    }
+    this.perfWindow = Math.max(1, Math.round((sampleRate * 0.5) / 128));
+    if (o.params.length > 21) this.os = Math.round(o.params[21]);
     this.port.onmessage = (e: MessageEvent<ToWorklet>) => {
       this.queue.push(e.data);
     };
@@ -153,11 +191,15 @@ class SaxProcessor extends AudioWorkletProcessor {
     if (!ex || this.dead) {
       return !this.dead;
     }
+    const t0 = this.now();
     try {
       // drain control messages
       for (let i = 0; i < this.queue.length; i++) {
         const m = this.queue[i];
-        if (m.type === 'param') ex.sax_set_param(m.id, m.value);
+        if (m.type === 'param') {
+          ex.sax_set_param(m.id, m.value);
+          if (m.id === 21) this.os = Math.round(m.value);
+        }
         else if (m.type === 'key') ex.sax_set_key(m.index, m.value);
         else if (m.type === 'geometry') {
           this.padCount = m.padCount;
@@ -198,11 +240,28 @@ class SaxProcessor extends AudioWorkletProcessor {
           this.port.postMessage({ type: 'telemetry', data, pads, frame: this.frame } satisfies FromWorklet, [data.buffer, pads.buffer]);
         }
       }
+      this.monitor(this.now() - t0, n);
     } catch (err) {
       this.fail(err);
       return false;
     }
     return true;
+  }
+
+  /** Accumulate the block's CPU time; every ~0.5 s report the load and a quality hint. */
+  private monitor(ms: number, n: number): void {
+    this.busyMs += ms;
+    if (++this.perfBlocks < this.perfWindow) return;
+    const load = this.busyMs / ((this.perfBlocks * n * 1000) / sampleRate);
+    this.busyMs = 0;
+    this.perfBlocks = 0;
+    // thresholds: 'high' at 60 % for 1 s (2 windows), 'overload' at 95 % for 3 s (6 windows)
+    this.highRun = load >= 0.6 ? this.highRun + 1 : 0;
+    this.overRun = load >= 0.95 ? this.overRun + 1 : 0;
+    const level: PerfReport['level'] = this.overRun >= 6 ? 'overload' : this.highRun >= 2 ? 'high' : 'ok';
+    if (level === 'overload') this.overRun = 0; // one recommendation per 3 s of overload
+    const recommendOs = this.os > 1 ? Math.max(1, Math.floor(this.os / 2)) : 1;
+    this.port.postMessage({ type: 'perf', load, level, os: this.os, recommendOs, timer: this.timer } satisfies FromWorklet);
   }
 }
 

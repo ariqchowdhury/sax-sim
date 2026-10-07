@@ -47,7 +47,7 @@ Engine acceptance (M1/M2): f0 per fingering within ±10 cents of the TMM predict
 (±25 cents at M1 for Bb3), threshold within 1.5–3.5 kPa, no self-oscillation failures across the
 standard fingerings at 4 kPa with default embouchure.
 
-## 2. Engine-measured results (final, engine as of 2026-10-06 ~18:30)
+## 2. Engine-measured results (final, round 4: lip model final, Strouhal jet loss, glottal tract section)
 
 Native renderer, default embouchure (lip_position 12 mm, lip_force 1 N, reed_strength 2.5,
 tract on, lumped reed), 50 ms pressure attack, f0 of the last 0.5 s of a 1.5 s note; ✗ = wrong
@@ -58,103 +58,103 @@ Regenerate with `SAX_RENDER=... python3 tools/validation_report.py`.
 
 | written | reg | target Hz | 3.0 kPa f0 (cents) | 3.5 kPa f0 (cents) | 4.0 kPa f0 (cents) |
 |---|---|---|---|---|---|
-| Bb3 | 1 | 138.59 | 138.7 (+2) | 138.3 (-4) | 138.5 (-1) |
-| B3 | 1 | 146.83 | 147.2 (+4) | 146.9 (+0) | 146.3 (-6) |
-| C4 | 1 | 155.56 | 155.7 (+2) | **311 ✗** | 155.2 (-4) |
-| C#4 | 1 | 164.81 | 165.0 (+2) | **493 ✗** | **491 ✗** |
-| D4 | 1 | 174.61 | 175.3 (+7) | 174.6 (+0) | 174.5 (-2) |
-| Eb4 | 1 | 185.00 | 184.8 (-2) | 185.0 (+0) | 185.2 (+2) |
-| E4 | 1 | 196.00 | 195.7 (-2) | 196.0 (-0) | 196.2 (+2) |
-| F4 | 1 | 207.65 | 207.5 (-2) | 207.7 (+0) | 207.9 (+2) |
-| F#4 | 1 | 220.00 | 219.7 (-3) | 220.0 (-0) | 220.3 (+2) |
-| G4 | 1 | 233.08 | 233.1 (+0) | 233.1 (+0) | 233.1 (-0) |
-| G#4 | 1 | 246.94 | 247.1 (+1) | 246.9 (+0) | 246.8 (-1) |
-| A4 | 1 | 261.63 | 261.6 (+0) | 261.6 (-0) | 261.6 (+0) |
-| Bb4 | 1 | 277.18 | 277.1 (-1) | 277.1 (-0) | 277.3 (+0) |
-| B4 | 1 | 293.67 | 293.6 (-0) | 293.5 (-1) | 293.8 (+1) |
-| C5 | 1 | 311.13 | 310.6 (-3) | 311.1 (-0) | 311.8 (+3) |
-| C#5 | 1 | 329.63 | 329.2 (-2) | 329.6 (-0) | 330.1 (+2) |
-| D5 | 2 | 349.23 | 350.4 (+6) | 351.6 (+12) | 352.5 (+16) |
-| Eb5 | 2 | 369.99 | 374.8 (+22) | 374.3 (+20) | 373.6 (+17) |
-| E5 | 2 | 392.00 | 396.0 (+18) | 395.6 (+16) | 395.1 (+13) |
-| F5 | 2 | 415.31 | 418.5 (+13) | 418.1 (+12) | 417.2 (+8) |
-| F#5 | 2 | 440.00 | 440.3 (+1) | 440.6 (+2) | 440.9 (+4) |
-| G5 | 2 | 466.16 | **251 ✗** | 466.1 (-0) | 466.2 (+0) |
-| G#5 | 2 | 493.88 | **269 ✗** | 494.2 (+1) | 494.2 (+1) |
-| A5 | 2 | 523.25 | 529.5 (+21) | 529.1 (+19) | 529.2 (+20) |
-| Bb5 | 2 | 554.37 | 555.0 (+2) | 556.2 (+6) | 557.1 (+8) |
-| B5 | 2 | 587.33 | 585.3 (-6) | 586.0 (-4) | 587.4 (+0) |
-| C6 | 2 | 622.25 | 616.2 (-17) | 617.5 (-13) | 619.5 (-8) |
-| C#6 | 2 | 659.25 | 657.9 (-4) | 657.6 (-4) | 659.6 (+1) |
-| D6 | 2 | 698.46 | 698.9 (+1) | 697.1 (-3) | 699.2 (+2) |
-| Eb6 | 2 | 739.99 | 741.0 (+2) | 738.2 (-4) | 740.6 (+1) |
-| E6 | 2 | 783.99 | 785.4 (+3) | 782.0 (-4) | 784.7 (+2) |
-| F6 | 2 | 830.61 | 831.1 (+1) | 828.7 (-4) | 829.8 (-2) |
-| F#6 | 2 | 880.00 | **423 ✗** | 848.0 (-64) | 849.2 (-62) |
+| Bb3 | 1 | 138.59 | 138.7 (+2) | **277 ✗** | 138.4 (-2) |
+| B3 | 1 | 146.83 | 147.5 (+8) | 146.7 (-1) | 146.2 (-8) |
+| C4 | 1 | 155.56 | 155.5 (-0) | **310 ✗** | **311 ✗** |
+| C#4 | 1 | 164.81 | 165.0 (+2) | 164.6 (-2) | 164.8 (-1) |
+| D4 | 1 | 174.61 | 175.4 (+8) | 174.1 (-6) | 174.5 (-2) |
+| Eb4 | 1 | 185.00 | 184.8 (-1) | 185.0 (+0) | 185.2 (+2) |
+| E4 | 1 | 196.00 | 195.8 (-2) | 196.1 (+0) | 196.3 (+3) |
+| F4 | 1 | 207.65 | 207.4 (-2) | 207.7 (-0) | 207.9 (+2) |
+| F#4 | 1 | 220.00 | 219.7 (-2) | 220.1 (+0) | 220.4 (+3) |
+| G4 | 1 | 233.08 | 233.1 (+0) | 233.1 (+0) | 233.1 (+0) |
+| G#4 | 1 | 246.94 | 247.1 (+1) | 246.9 (-0) | 246.8 (-1) |
+| A4 | 1 | 261.63 | 261.6 (-0) | 261.6 (-0) | 261.6 (-0) |
+| Bb4 | 1 | 277.18 | 277.1 (-0) | 277.2 (-0) | 277.3 (+1) |
+| B4 | 1 | 293.67 | 293.7 (+0) | 293.6 (-1) | 293.8 (+1) |
+| C5 | 1 | 311.13 | 310.3 (-4) | 310.9 (-1) | 311.6 (+2) |
+| C#5 | 1 | 329.63 | 329.2 (-2) | 329.5 (-1) | 330.1 (+2) |
+| D5 | 2 | 349.23 | 350.3 (+5) | 351.5 (+11) | 352.4 (+16) |
+| Eb5 | 2 | 369.99 | 374.9 (+23) | 374.3 (+20) | 373.6 (+17) |
+| E5 | 2 | 392.00 | 396.3 (+19) | 395.9 (+17) | 395.3 (+14) |
+| F5 | 2 | 415.31 | 418.7 (+14) | 418.3 (+12) | 417.3 (+8) |
+| F#5 | 2 | 440.00 | 440.6 (+2) | 441.0 (+4) | 441.2 (+5) |
+| G5 | 2 | 466.16 | **251 ✗** | 466.2 (+0) | 466.2 (+0) |
+| G#5 | 2 | 493.88 | **269 ✗** | 494.0 (+0) | 493.9 (+0) |
+| A5 | 2 | 523.25 | 528.9 (+19) | 528.7 (+18) | 528.7 (+18) |
+| Bb5 | 2 | 554.37 | 554.8 (+1) | 556.2 (+6) | 557.0 (+8) |
+| B5 | 2 | 587.33 | 583.8 (-10) | 585.3 (-6) | 586.6 (-2) |
+| C6 | 2 | 622.25 | 614.3 (-22) | 616.2 (-17) | 618.2 (-11) |
+| C#6 | 2 | 659.25 | 656.9 (-6) | 657.0 (-6) | 659.1 (-0) |
+| D6 | 2 | 698.46 | 698.7 (+1) | 697.2 (-3) | 699.3 (+2) |
+| Eb6 | 2 | 739.99 | 740.9 (+2) | 738.4 (-4) | 740.7 (+2) |
+| E6 | 2 | 783.99 | 785.1 (+2) | 781.9 (-5) | 784.6 (+1) |
+| F6 | 2 | 830.61 | 831.6 (+2) | 829.1 (-3) | 830.3 (-1) |
+| F#6 | 2 | 880.00 | 850.6 (-59) | 848.4 (-63) | 849.6 (-61) |
 
-assist 0: worst in-register error reg1 7 c (D4), reg2 64 c (F#6); wrong register / silent: 6 of 99 cells.
+assist 0: worst in-register error reg1 8 c (B3), reg2 63 c (F#6); wrong register / silent: 5 of 99 cells.
 
 #### player_assist = 0.5
 
 | written | reg | target Hz | 3.0 kPa f0 (cents) | 3.5 kPa f0 (cents) | 4.0 kPa f0 (cents) |
 |---|---|---|---|---|---|
-| Bb3 | 1 | 138.59 | 138.6 (-0) | 138.7 (+1) | **277 ✗** |
-| B3 | 1 | 146.83 | 147.2 (+4) | 147.1 (+3) | 146.3 (-7) |
-| C4 | 1 | 155.56 | 155.5 (-1) | 155.2 (-4) | 155.4 (-2) |
-| C#4 | 1 | 164.81 | 164.8 (-0) | 164.9 (+1) | 164.9 (+1) |
-| D4 | 1 | 174.61 | 174.9 (+2) | 175.4 (+8) | 175.7 (+11) |
-| Eb4 | 1 | 185.00 | 184.8 (-2) | 184.9 (-1) | 185.0 (-0) |
-| E4 | 1 | 196.00 | 195.5 (-4) | 195.7 (-3) | 195.7 (-3) |
-| F4 | 1 | 207.65 | 207.4 (-2) | 207.7 (+0) | 207.9 (+2) |
-| F#4 | 1 | 220.00 | 219.2 (-6) | 219.6 (-3) | 220.0 (+0) |
-| G4 | 1 | 233.08 | 233.0 (-0) | 233.1 (+0) | 233.2 (+1) |
-| G#4 | 1 | 246.94 | 247.3 (+2) | 247.2 (+2) | 247.2 (+2) |
-| A4 | 1 | 261.63 | 261.8 (+1) | 261.5 (-1) | 261.4 (-1) |
-| Bb4 | 1 | 277.18 | 277.1 (-0) | 276.9 (-2) | 276.9 (-2) |
-| B4 | 1 | 293.67 | 293.5 (-1) | 293.4 (-2) | 293.5 (-1) |
-| C5 | 1 | 311.13 | 310.2 (-5) | 311.0 (-1) | 311.8 (+3) |
-| C#5 | 1 | 329.63 | 328.9 (-4) | 329.3 (-2) | 330.1 (+2) |
-| D5 | 2 | 349.23 | 352.0 (+14) | 352.4 (+16) | 353.0 (+19) |
-| Eb5 | 2 | 369.99 | 374.8 (+22) | 373.9 (+18) | 373.5 (+16) |
-| E5 | 2 | 392.00 | 396.1 (+18) | 395.4 (+15) | 394.9 (+13) |
-| F5 | 2 | 415.31 | 418.5 (+13) | 417.8 (+10) | 417.0 (+7) |
-| F#5 | 2 | 440.00 | 440.5 (+2) | 441.0 (+4) | 441.3 (+5) |
-| G5 | 2 | 466.16 | 466.4 (+1) | 466.7 (+2) | 466.5 (+1) |
-| G#5 | 2 | 493.88 | 494.8 (+3) | 495.0 (+4) | 494.7 (+3) |
-| A5 | 2 | 523.25 | 529.5 (+21) | 529.9 (+22) | 529.7 (+21) |
-| Bb5 | 2 | 554.37 | 556.3 (+6) | 557.2 (+9) | 557.9 (+11) |
-| B5 | 2 | 587.33 | 586.4 (-3) | 587.0 (-1) | 588.4 (+3) |
-| C6 | 2 | 622.25 | 617.3 (-14) | 618.7 (-10) | 620.7 (-4) |
-| C#6 | 2 | 659.25 | 656.2 (-8) | 658.7 (-1) | 661.0 (+4) |
-| D6 | 2 | 698.46 | 694.9 (-9) | 699.1 (+2) | 701.1 (+7) |
-| Eb6 | 2 | 739.99 | 738.3 (-4) | 739.8 (-0) | 742.1 (+5) |
-| E6 | 2 | 783.99 | 781.6 (-5) | 784.6 (+1) | 786.6 (+6) |
-| F6 | 2 | 830.61 | 828.2 (-5) | 830.2 (-1) | 831.8 (+3) |
-| F#6 | 2 | 880.00 | 847.4 (-65) | 849.4 (-61) | 850.9 (-58) |
+| Bb3 | 1 | 138.59 | 138.5 (-1) | 138.1 (-6) | **275 ✗** |
+| B3 | 1 | 146.83 | 147.1 (+4) | 146.0 (-9) | 146.2 (-7) |
+| C4 | 1 | 155.56 | 155.3 (-3) | 155.2 (-4) | 155.6 (+1) |
+| C#4 | 1 | 164.81 | 164.7 (-1) | 164.8 (-0) | 164.7 (-1) |
+| D4 | 1 | 174.61 | 174.9 (+3) | 175.5 (+8) | 175.6 (+9) |
+| Eb4 | 1 | 185.00 | 184.8 (-1) | 184.9 (-1) | 184.8 (-2) |
+| E4 | 1 | 196.00 | 195.5 (-5) | 195.8 (-2) | 195.8 (-2) |
+| F4 | 1 | 207.65 | 207.4 (-2) | 207.7 (-0) | 207.9 (+2) |
+| F#4 | 1 | 220.00 | 219.1 (-7) | 219.6 (-3) | 220.0 (+0) |
+| G4 | 1 | 233.08 | 232.7 (-3) | 232.8 (-2) | 232.5 (-5) |
+| G#4 | 1 | 246.94 | 246.6 (-2) | 245.5 (-10) | 246.5 (-3) |
+| A4 | 1 | 261.63 | 261.0 (-4) | 260.6 (-7) | 260.7 (-6) |
+| Bb4 | 1 | 277.18 | 276.7 (-3) | 276.1 (-7) | 276.1 (-7) |
+| B4 | 1 | 293.67 | 292.9 (-4) | 293.4 (-2) | 293.4 (-2) |
+| C5 | 1 | 311.13 | 309.8 (-8) | 310.8 (-2) | 311.6 (+2) |
+| C#5 | 1 | 329.63 | 328.5 (-6) | 329.0 (-3) | 330.1 (+2) |
+| D5 | 2 | 349.23 | 352.4 (+16) | 352.8 (+18) | 353.1 (+19) |
+| Eb5 | 2 | 369.99 | 375.2 (+24) | 374.5 (+21) | 373.9 (+18) |
+| E5 | 2 | 392.00 | 396.6 (+20) | 396.1 (+18) | 395.4 (+15) |
+| F5 | 2 | 415.31 | 419.1 (+16) | 418.5 (+13) | 417.4 (+9) |
+| F#5 | 2 | 440.00 | 441.4 (+6) | 441.6 (+6) | 441.9 (+7) |
+| G5 | 2 | 466.16 | 467.3 (+4) | 467.1 (+3) | 467.0 (+3) |
+| G#5 | 2 | 493.88 | 495.6 (+6) | 495.4 (+5) | 495.7 (+6) |
+| A5 | 2 | 523.25 | 529.1 (+19) | 529.8 (+22) | 529.7 (+21) |
+| Bb5 | 2 | 554.37 | 556.4 (+6) | 557.6 (+10) | 558.3 (+12) |
+| B5 | 2 | 587.33 | 586.0 (-4) | 586.9 (-1) | 588.1 (+2) |
+| C6 | 2 | 622.25 | 616.3 (-17) | 618.0 (-12) | 619.8 (-7) |
+| C#6 | 2 | 659.25 | 656.8 (-6) | 658.6 (-2) | 660.6 (+4) |
+| D6 | 2 | 698.46 | 697.1 (-3) | 699.8 (+3) | 701.5 (+8) |
+| Eb6 | 2 | 739.99 | 740.1 (+0) | 740.9 (+2) | 742.5 (+6) |
+| E6 | 2 | 783.99 | 785.2 (+3) | 785.5 (+3) | 787.7 (+8) |
+| F6 | 2 | 830.61 | 831.3 (+1) | 832.3 (+4) | 833.4 (+6) |
+| F#6 | 2 | 880.00 | 850.5 (-59) | 851.6 (-57) | 853.1 (-54) |
 
-assist 0.5: worst in-register error reg1 11 c (D4), reg2 65 c (F#6); wrong register / silent: 1 of 99 cells.
+assist 0.5: worst in-register error reg1 10 c (G#4), reg2 59 c (F#6); wrong register / silent: 1 of 99 cells.
 
 #### Onset thresholds (assist 0, constant pressure from rest)
 
 | note | onset kPa | extinction kPa (slow decrescendo) |
 |---|---|---|
 | Bb3 | 2.450 | 1.175 |
-| D4 | 2.409 | 1.538 |
-| G4 | 2.355 | 1.533 |
-| C#5 | 2.346 | 1.818 |
-| D5 | 2.397 | 2.270 |
-| G5 | 2.401 | 2.302 |
-| D6 | 2.394 | 2.291 |
+| D4 | 2.409 | 1.513 |
+| G4 | 2.353 | 1.529 |
+| C#5 | 2.343 | 1.790 |
+| D5 | 2.392 | 2.263 |
+| G5 | 2.397 | 2.295 |
+| D6 | 2.389 | 2.284 |
 
 
 **Summary vs exit criteria**
 
 | criterion | target | assist 0 (pure physics) | assist 0.5 (default) |
 |---|---|---|---|
-| right register, all 33 fingerings × 3.0/3.5/4.0 kPa | 99/99 | 93/99 ✘ (C4@3.5, C#4@3.5/4, G5@3, G#5@3, F#6@3) | 98/99 (Bb3 overblows @4 kPa) |
-| register-1 pitch (in register) | ±10 c | ±7 c ✔ | ±11 c (D4 +11 @4 kPa) |
-| register-2 pitch (in register) | ±20 c | D5–F6 within ±20 ✔; **F#6 −64 c ✘** | same; F#6 −65 c ✘ |
-| onset threshold | 2–3 kPa (ideally 2–2.5) | 2.35–2.45 kPa ✔ | — |
+| right register, 33 fingerings × 3.0/3.5/4.0 kPa | 99/99 | 94/99 ✘ (Bb3, C4, G5, G#5 at single pressures) | 98/99 (Bb3 overblows @4 kPa) |
+| register-1 pitch (in register) | ±10 c | ±8 c ✔ | ±10 c ✔ |
+| register-2 pitch (in register) | ±20 c | D5–F6 within ±20 ✔; **F#6 −60…−63 c ✘** | same |
+| onset threshold | 2–3 kPa | 2.34–2.45 kPa ✔ | — |
 
 F#6 remains a geometry limit (palm/side holes at the top of the body, enlarged to 0.92 of the bore).
 
@@ -203,40 +203,98 @@ model — quasi-static reed, Bernoulli flow — on the TMM impedance including r
 
 | control | values | A4 | C#5 | C#6 |
 |---|---|---|---|---|
-| lip_force | 0.6 / 1.0 / 1.4 / 2.0 | -5 / -2 / +1 / — | -14 / -5 / +4 / +13 | -23 / -9 / +8 / +28 |
-| lip_position | 8 / 12 / 16 / 20 | — / -2 / -14 / -23 | — / -5 / -17 / -30 | — / -9 / -26 / -50 |
-| jaw_open | 0.1 / 0.3 / 0.6 / 0.9 | -3 / -2 / -1 / -0 | -5 / -5 / -4 / -4 | -12 / -9 / -6 / -4 |
-| tongue_y | 0.2 / 0.4 / 0.7 / 1.0 | -2 / -2 / -4 / -7 | -4 / -5 / -9 / -6 | -8 / -9 / -10 / +7 |
-| tongue_x (tongue_y=1) | 0.5 / 0.35 / 0.25 / 0.15 / 0.05 | -7 / -21 / -29 / -26 / -11 | -6 / -11 / -54 / -55 / -38 | +7 / — / — / -250 / -148 |
-| lip_damping | 0.1 / 0.4 / 0.8 | +0 / -2 / -6 | -4 / -5 / -9 | -8 / -9 / -15 |
-| reed_strength | 2.0 / 2.5 / 3.5 | -5 / -2 / +4 | -6 / -5 / -0 | -8 / -9 / +2 |
-
+| lip_force | 0.6 / 1.0 / 1.4 / 2.0 | -12 / -0 / +6 / — | -16 / -1 / +14 / +25 | -32 / -6 / +18 / +39 |
+| lip_position | 8 / 12 / 16 / 20 | — / -0 / — / -15 | — / -1 / -9 / -66 | — / -6 / -20 / -40 |
+| jaw_open | 0.1 / 0.3 / 0.6 / 0.9 | -2 / -0 / +1 / +2 | -1 / -1 / -0 / +0 | -9 / -6 / -3 / -2 |
+| tongue_y | 0.2 / 0.4 / 0.7 / 1.0 | +0 / -0 / -3 / -4 | -0 / -1 / -5 / -1 | -5 / -6 / -6 / +10 |
+| tongue_x (tongue_y=1) | 0.5 / 0.35 / 0.25 / 0.15 / 0.05 | -4 / -20 / -29 / -26 / -10 | -1 / -6 / -49 / -52 / -34 | +10 / +8 / — / -248 / -145 |
+| lip_damping | 0.1 / 0.4 / 0.8 | +2 / -0 / -4 | +0 / -1 / -4 | -6 / -6 / -11 |
+| reed_strength | 2.0 / 2.5 / 3.5 | -2 / -0 / +2 | -0 / -1 / -0 | -3 / -6 / -10 |
 
 Literature: jaw vibrato ±10–20 c; "lipping" a few tens of cents in the low register, more in the
 upper register; bends of a semitone or more in the 2nd register and above need vocal-tract tuning
-(Chen, Smith & Wolfe 2009, 2011; Scavone et al. 2008). **Met**: tract bends C#6 by −150…−250 c and
-C#5 by −55 c; lip force gives ±14–28 c for C#5/C#6. **Not met**: low/middle register (A4) responds only
-±5 c to lip force and −23 c to lip position; in the model this comes almost entirely through the reed
-equivalent volume (V_r ≈ 1.1 cm³ ≈ 15 cents at G4), which the lip changes by only ~20 %.
+(Chen, Smith & Wolfe 2009, 2011; Scavone et al. 2008). With the final lip-tissue model (DSP programmer, round 4: lip provides ~85 % of
+the tip stiffness, strain-stiffening with lip force): lip force 0.6 → 1.4 N moves A4 −12…+6 c, C#5
+−16…+14 c, C#6 −32…+18 c (jaw-vibrato range ✔); lip position 12 → 20 mm −15…−66 c; tract bends C#6 by
+−145…−248 c and C#5 by −52 c ✔. Low-register lipping (A4) is still on the small side.
 
-## 5. Altissimo — NOT met
+## 5. Altissimo — G6, G#6, A6 sound with a tuned tract (round 4)
 
-* Tract: soft-wall loss multiplier reduced 10 → 3 (formant-bandwidth-like resonances); a high front
-  tongue now gives tract peaks of 15–55 MPa·s/m³ tunable from ~0.45 to 1.25 kHz with tongue_x
-  (`tools/tract_tmm.py`, `engine/examples/tractz.rs`).
-* Fingerings: `tools/altissimo_search.py` searched 1091 distinct pad configurations: the best bore
-  peaks at written G6 (932 Hz) / A6 (1047 Hz) are only 0.2–0.3 × the largest lower bore peak
-  (e.g. G6: OCT+LH1+BIS+G# — 22 MPa·s/m³ at 902 Hz vs 80 at 573 Hz). Even with Z_tract added in series
-  the lower regime has the larger |Z_b + Z_t| (e.g. 53 vs 86 MPa·s/m³).
-* Engine: with tongue_y 0.95–1.0, tongue_x 0–0.25, lip force 1–2.2 N, lip position 12–22 mm, low
-  lip/reed damping, 5 kPa: **no regime above 800 Hz** on those fingerings (they play 550–625 Hz).
-  Tract tuning does bend high 2nd-register notes by ≥100 cents (C#6 −150…−250 c, D6 −126 c), but
-  register-1 high notes only by ≤55 c (target ≥100 ✘).
-* Probable missing ingredients: stronger suppression of the lower resonances in real cross/vented
-  altissimo fingerings (our octave vents and holes are linear and nearly lossless), and reed-resonance
-  assistance (an altissimo embouchure raises and sharpens the reed resonance toward ~2 kHz).
+Fingerings (common published alto charts, in `alternate_fingerings` with `register: 3` and the per-note
+`tract` setting): G6 = 8va + front F + LH1 + LH3; G#6 = same + G#; A6 = 8va + LH2 + RH1.
+Altissimo embouchure: lip_force 1.8 N, lip_position 11 mm, lip_damping 0.2, reed_damping 0.1,
+glottis_open 0.05 (A_g ≈ 0.15 cm²), jaw 0.15, high front tongue. Tract settings found by
+`tools/altissimo_tune.py` (engine in the loop):
 
-## 6. Geometry design history (wave 2)
+```
+G6 (932.3 Hz) keys OCT,LH_front_F,LH1,LH3: tract tongue_y=0.96 tongue_x=0.06 jaw=0.15
+   tuned  : 3.0 kPa 384 Hz (-1534 c, 3078 Pa)  3.5 kPa 386 Hz (-1527 c, 3641 Pa)  4.0 kPa 893 Hz (-74 c, 847 Pa)  5.0 kPa 962 Hz (+54 c, 437 Pa)
+   neutral tract, altissimo embouchure: 3.5 kPa 2179 Hz  5.0 kPa 388 Hz
+   neutral tract, default embouchure  : 3.5 kPa 382 Hz  5.0 kPa 383 Hz
+G#6 (987.8 Hz) keys OCT,LH_front_F,LH1,LH3,LH_Gs: tract tongue_y=0.96 tongue_x=0.02 jaw=0.15
+   tuned  : 3.0 kPa 386 Hz (-1625 c, 3061 Pa)  3.5 kPa 949 Hz (-69 c, 525 Pa)  4.0 kPa 953 Hz (-63 c, 742 Pa)  5.0 kPa 1027 Hz (+68 c, 367 Pa)
+   neutral tract, altissimo embouchure: 3.5 kPa 2184 Hz  5.0 kPa 388 Hz
+   neutral tract, default embouchure  : 3.5 kPa 383 Hz  5.0 kPa 384 Hz
+A6 (1046.5 Hz) keys OCT,LH2,RH1: tract tongue_y=0.93 tongue_x=0.03 jaw=0.15
+   tuned  : 3.0 kPa 374 Hz (-1784 c, 1328 Pa)  3.5 kPa 378 Hz (-1763 c, 766 Pa)  4.0 kPa 1063 Hz (+27 c, 288 Pa)  5.0 kPa 1075 Hz (+47 c, 319 Pa)
+   neutral tract, altissimo embouchure: 3.5 kPa 2160 Hz  5.0 kPa 629 Hz
+   neutral tract, default embouchure  : 3.5 kPa 612 Hz  5.0 kPa 617 Hz
+```
+
+* **Met**: G6, G#6 and A6 sound in the altissimo regime at 4–5 kPa with the tuned tract, and do **not**
+  sound with a neutral tract (same fingering plays its low bore regime, 383–630 Hz) — the real-world
+  contrast. A6 also sounds at 4 kPa (+27 c).
+* **Not met**: they do not sound at 3–3.5 kPa (low regime or reed squeal at 2.2 kHz with the low-damping
+  embouchure); intonation is pressure-dependent (≈ ±60 c between 4 and 5 kPa; +40…+55 c at 4.5 kPa with the
+  best tongue setting on a 0.01 grid). The regime is tract-dominated: its pitch follows the tongue more
+  than the fingering (fingering changes move it by < 50 c).
+* "Altissimo" preset added to `presets` (tract set for G#6).
+
+### What altissimo physics turned out to matter (for docs/ALTISSIMO.md)
+
+The reed is driven by Δp = p_mouth − p_mp, so the flow sees the vocal tract and the bore **in series**,
+and the reed's own compliance and damping **in parallel** with that sum:
+Z_load = 1 / (1/(Z_bore + Z_tract) + Y_reed), Y_reed = jωC_r/(1 − ω²/ω_r² + jqω/ω_r), C_r = V_r/ρc².
+Three things had to be right before a tract resonance could select a ~1 kHz regime against the bore's
+strong 380–640 Hz resonances:
+1. **Reed compliance and damping at 1 kHz.** With V_r ≈ 1.1 cm³ the reed shunt is ~21 MPa·s/m³ at 1 kHz and
+   its damping adds a parallel loss of ~60 MPa·s/m³ — enough to cut a 90 MPa·s/m³ series peak to ~40. The
+   altissimo embouchure (firm lip → the strain-stiffened lip raises K, halving V_r; a little less
+   mouthpiece; low lip/reed damping) restores the high-frequency load. This was the decisive factor.
+2. **A reflective glottal end.** An open glottis loaded by the trachea is nearly anechoic (R ≈ ρc/S ≈ Z_c of
+   the larynx) and caps tract peaks at ~35–55 MPa·s/m³; modelling the glottis as the first tract section
+   (A_g, ~4–5 mm long, i.e. with its inertance) and narrowing it to ~0.15 cm² raises the high-front-tongue
+   peak near 1 kHz to ~85 MPa·s/m³ (engine/examples/tractz.rs), consistent with the "tens of MPa·s/m³" that
+   Chen, Smith & Wolfe measured on expert players.
+3. **Tract tuning range.** A high front tongue (tongue_y 0.93–0.97, constriction ≈ 0.1 cm² near the hard
+   palate, small jaw opening) places the resonance between ~0.9 and 1.2 kHz; tongue_x fine-tunes it.
+   Soft-wall losses at ×3 the boundary-layer value (round 3) keep formant-like bandwidths.
+Bore-side changes mattered little: the nonlinear (jet) losses at open holes and vents (§7) damp the
+low regime by < 1 dB and do not change which regime starts; fingerings mainly need to keep the low bore
+resonances from being far stronger than ~60 MPa·s/m³.
+
+## 7. Nonlinear (jet) losses at open holes and octave vents (round 4)
+
+Model (radiation.rs/toneholes.rs, PHYSICS.md §3): quasi-steady jet-separation resistance
+R_nl = K ρ |U| / (2 S_e²), K = 1, S_e = min(hole area, pad curtain), multiplied by a Strouhal factor
+1/(1 + (St/St_c)²), St = ω r / v̂, St_c = 1 (Ingard & Ising 1967; Disselhorst & van Wijngaarden 1980;
+Atig, Dalmont & Gilbert 2004; Dalmont et al. 2002). ω and v̂ come from running mean squares of the branch
+flow and its derivative (τ = 5 ms, refreshed every 64 steps). R_nl ≥ 0 is frozen within a step → the
+joint node/branch update stays passive and unconditionally stable (fast path and joint solver identical).
+
+| variant (assist 0, 3.0/3.5/4.0 kPa) | wrong-register cells | register-2 notes failing |
+|---|---|---|
+| no jet loss (K = 0) | 22/99 | F#5, G5, G#5, E6, F6, F#6 at all pressures; B4, C4, C#4, B5 |
+| quasi-steady (K = 1, round 3) | 5/99 | G5, G#5, F#6 @3 kPa; C4 @3.5/4 |
+| Strouhal-limited (K = 1, St_c = 1, shipped) | 6/99 → 5/99 after the final retune | G5, G#5 @3 kPa; C4, Bb3 |
+
+The jet loss is essential for register-2 locking (it damps the vented low resonance at large amplitude).
+The Strouhal limit mostly switches it off at the large tone holes (St ≫ 1: particle displacement ≪ radius)
+and keeps it at the octave vents and small palm holes (r ≈ 1.4–9 mm); F#6 at 3 kPa now locks. Altissimo
+fingerings, neutral tract, 5 kPa: low-regime mouthpiece AC 4.13 kPa (no loss) → 3.72 (quasi-steady) →
+3.97 kPa (Strouhal): ≤ 1 dB, regime unchanged.
+
+## 8. Geometry design history (wave 2)
 
 * **Harmonicity** (Benade criterion; `design_harmonicity.py`): f2/(2f1) of the register-1
   fingerings went from −40…+20 cents to −14…+15 cents (neck taper exponent 0.66, neck entry ID

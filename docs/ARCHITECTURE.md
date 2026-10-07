@@ -16,7 +16,8 @@ web/               Vite + TypeScript + Three.js app
   src/engine/      worklet, wasm loader, params.ts, EngineClient (main-thread API)
   src/scene/       three.js scene: sax, player, mouthpiece, interaction
   src/ui/          panels, visualizers
-  public/engine.wasm  (copied by build script)
+  public/engine.wasm  (copied by build script; baseline simd128 build)
+  public/engine_relaxed.wasm  (relaxed-SIMD build; chosen at runtime by web/src/engine/wasmSelect.ts feature detection, falls back to engine.wasm)
 docs/              PHYSICS.md (spec), ARCHITECTURE.md (this), VALIDATION.md
 ```
 
@@ -66,6 +67,7 @@ All functions `#[no_mangle] pub extern "C"`. Single engine instance per worklet.
 | 21 | oversample | × | 1–8 | 4 | internal oversampling factor (integer) |
 | 22 | reed_model | – | 0–1 | 0 | 0 = lumped reed (tip + body mode), 1 = distributed Euler–Bernoulli beam reed (M4); integer |
 | 23 | player_assist | 0–1 | 0–1 | 0.5 | auto-embouchure: per-note lip/pressure/tract feed-forward + register locking (engine `player.rs`); 0 = pure physics |
+| 24 | dynamic | 0–1 | 0–1 | 0.5 | musical dynamic pp (0) … mf (0.5) … ff (1); the player model scales lung pressure (pp ×0.5, ff ×2; low notes ×0.6/×1.25) and sets lip force/damping and jaw; soft notes start at the mf pressure and relax (0.3 s). No effect when player_assist = 0 |
 
 ## Telemetry block (f32 array, index → meaning)
 

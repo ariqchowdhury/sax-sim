@@ -1,5 +1,6 @@
 // Web Worker owning a second (non-audio) engine instance used only for the input-impedance plot.
 // sax_compute_impedance is not real-time safe (~0.1–0.3 s), so it must never run in the worklet.
+import { fetchEngineWasm } from './wasmSelect';
 
 export type ToImpedanceWorker =
   | { type: 'init'; wasmUrl: string; geometry: string; params: number[]; keys: number[] }
@@ -29,9 +30,9 @@ const pending: ToImpedanceWorker[] = [];
 
 async function init(m: Extract<ToImpedanceWorker, { type: 'init' }>): Promise<void> {
   try {
-    const res = await fetch(m.wasmUrl);
-    if (!res.ok) throw new Error(`engine.wasm: HTTP ${res.status}`);
-    const { instance } = await WebAssembly.instantiate(await res.arrayBuffer(), {});
+    const got = await fetchEngineWasm(m.wasmUrl);
+    if (!got) throw new Error(`engine.wasm not available at ${m.wasmUrl}`);
+    const { instance } = await WebAssembly.instantiate(got.bytes, {});
     const e = instance.exports as unknown as Ex;
     if (typeof e.sax_compute_impedance !== 'function') throw new Error('engine.wasm has no sax_compute_impedance (rebuild the engine)');
     e.sax_init(48000);

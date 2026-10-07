@@ -24,11 +24,17 @@ def tract_area(x, tx, ty, tip, jaw):
     return a * 1e-4
 
 
-def tract_impedance(freqs, tx=0.5, ty=0.4, tip=0.3, jaw=0.3, wall=3.0, s_sub=2.5e-4, T=37.0):
+def tract_impedance(freqs, tx=0.5, ty=0.4, tip=0.3, jaw=0.3, wall=3.0, s_sub=2.5e-4, T=37.0, a_glottis=None, u_mean=2e-4):
     A = tmm.air(T)
     A = dict(A, c=353.0, rho=1.11)
     w = 2 * np.pi * np.asarray(freqs, float)
     Z = np.full(w.shape, A["rho"] * A["c"] / s_sub, complex)   # anechoic subglottal load
+    if a_glottis:
+        # glottal slit: inertance rho*l/A (l = 3 mm + end corrections ~ 2*0.8*sqrt(A/pi)),
+        # linearised Bernoulli resistance rho*U/A^2 and Poiseuille slit resistance
+        l = 0.003 + 1.6 * math.sqrt(a_glottis / math.pi)
+        d = a_glottis / 0.018
+        Z = Z + 1j * w * A["rho"] * l / a_glottis + A["rho"] * u_mean / a_glottis ** 2 + 12 * A["eta"] * 0.003 / (a_glottis * d * d)
     n = 34
     dx = L / n
     for i in range(n):
@@ -52,9 +58,10 @@ def main():
     ap.add_argument("--jaw", type=float, default=0.3)
     ap.add_argument("--wall", type=float, default=3.0)
     ap.add_argument("--keys")
+    ap.add_argument("--glottis", type=float, help="glottal area (cm^2); default: open (anechoic trachea)")
     a = ap.parse_args()
     fr = np.arange(100, 2500, 2.0)
-    Zt = tract_impedance(fr, a.tongue_x, a.tongue_y, a.tip, a.jaw, a.wall)
+    Zt = tract_impedance(fr, a.tongue_x, a.tongue_y, a.tip, a.jaw, a.wall, a_glottis=a.glottis * 1e-4 if a.glottis else None)
     print("tract peaks:", " ".join(f"{f:.0f}Hz/{m/1e6:.1f}" for f, m in tmm.find_peaks(fr, Zt) if m > 2e6))
     if a.keys:
         g = tmm.Geometry()

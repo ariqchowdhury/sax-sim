@@ -18,7 +18,13 @@
 //! where p_tmp is the node pressure updated with all other flows.
 //! R_s may include a flow-dependent jet-separation term knl·|U| (nonlinear
 //! losses at small holes, Dalmont et al. 2002 / Atig et al. 2004), evaluated
-//! with the previous step's flow.
+//! with the previous step's flow. The quasi-steady coefficient knl0 is reduced by
+//! a Strouhal-number factor 1/(1 + (St/St_c)²), St = ω r / v̂ (Ingard & Ising 1967;
+//! Disselhorst & van Wijngaarden 1980; Atig et al. 2004): vortex shedding at the
+//! hole edge only becomes quasi-steady once the acoustic particle displacement
+//! v̂/ω exceeds the edge scale r. ω and v̂ are estimated from running mean squares
+//! of the branch flow and its derivative (τ ≈ 5 ms), refreshed every 64 steps.
+//! R_nl ≥ 0 is frozen within a step, so the branch stays passive.
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Termination {
@@ -30,7 +36,18 @@ pub struct Termination {
     theta: f64,
     rs: f64,
     /// nonlinear (jet separation) resistance coefficient: R_nl = knl·|U|
+    /// (effective, = knl0 × Strouhal factor)
     pub knl: f64,
+    /// quasi-steady coefficient K ρ /(2 S_e²) and the Strouhal parameters
+    pub knl0: f64,
+    /// edge length scale r (m) and 1/S_e (m⁻²) for St = ω r / (Û/S_e)
+    pub st_r: f64,
+    pub st_inv_s: f64,
+    /// running mean squares of U and dU/dt, their update coefficient, step counter
+    ums: f64,
+    dms: f64,
+    ms_a: f64,
+    st_n: u32,
     rr: f64,
     /// 2 L_r / Δt
     b: f64,
@@ -48,6 +65,12 @@ pub struct Termination {
     m11_lin: f64,
     inv_det_lin: f64,
 }
+
+/// Strouhal-number transition of the jet loss (St_c), mean-square time constant (s)
+/// and refresh interval (steps) of the Strouhal factor.
+pub const ST_C: f64 = 1.0;
+pub const ST_TAU: f64 = 0.005;
+pub const ST_EVERY: u32 = 64;
 
 /// Constants of the one-division joint node/termination step (`Termination::step_pre`).
 #[derive(Clone, Copy, Debug, Default)]
@@ -78,6 +101,7 @@ pub fn radiation_rl(rho: f64, c: f64, a: f64, delta_over_a: f64, kappa: f64) -> 
 impl Termination {
     /// Configure. `ls`, `rs` series inertance & resistance; `rr`,`lr` radiation load.
     pub fn set(&mut self, dt: f64, ls: f64, rs: f64, rr: f64, lr: f64) {
+        self.ms_a = (dt / ST_TAU).min(1.0);
         self.theta = if rs * dt > ls { 1.0 } else { 0.5 };
         self.a = ls / (self.theta * dt);
         self.rs = rs;
@@ -95,7 +119,47 @@ impl Termination {
         self.reset();
     }
 
+    /// Configure the amplitude-dependent jet loss: quasi-steady coefficient
+    /// `knl0` = Kρ/(2S_e²), edge scale `r` (m), exit area `s_exit` (m²).
+    pub fn set_nonlinear(&mut self, knl0: f64, r: f64, s_exit: f64) {
+        self.knl0 = knl0;
+        self.st_r = r;
+        self.st_inv_s = if s_exit > 0.0 { 1.0 / s_exit } else { 0.0 };
+        self.update_strouhal();
+    }
+
+    /// knl = knl0 / (1 + (St/St_c)²), St = ω r / v̂ from the running mean squares.
+    #[inline]
+    fn update_strouhal(&mut self) {
+        if self.knl0 == 0.0 || self.st_r <= 0.0 {
+            self.knl = self.knl0;
+            return;
+        }
+        let ums = self.ums.max(1e-30);
+        let v_hat = (2.0 * ums).sqrt() * self.st_inv_s;
+        let omega = (self.dms / ums).sqrt();
+        let st = omega * self.st_r / v_hat.max(1e-9);
+        let x = st / ST_C;
+        self.knl = self.knl0 / (1.0 + x * x);
+    }
+
+    #[inline]
+    fn track(&mut self, u: f64, dudt: f64) {
+        let a = self.ms_a;
+        self.ums += a * (u * u - self.ums);
+        self.dms += a * (dudt * dudt - self.dms);
+        self.st_n += 1;
+        if self.st_n >= ST_EVERY {
+            self.st_n = 0;
+            self.update_strouhal();
+        }
+    }
+
     pub fn reset(&mut self) {
+        self.ums = 0.0;
+        self.dms = 0.0;
+        self.st_n = 0;
+        self.update_strouhal();
         self.is = 0.0;
         self.il = 0.0;
         self.u = 0.0;
@@ -140,6 +204,7 @@ impl Termination {
         // radiated monopole strength from the step-averaged flow
         self.dudt = (ubar - self.u) * inv_dt;
         self.u = ubar;
+        self.track(ubar, self.dudt);
     }
 
     /// Per-step constants of `step` for a node of gain `k` (valid until the next
@@ -177,6 +242,7 @@ impl Termination {
         self.il = c.f1 * self.il + c.f2 * u;
         self.dudt = (u - self.u) * inv_dt;
         self.u = u;
+        self.track(u, self.dudt);
         u
     }
 
