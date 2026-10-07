@@ -316,4 +316,24 @@ export class RenderPipeline {
     if (this.composer) this.composer.render();
     else r.render(this.scene, this.camera);
   }
+
+  /**
+   * UI hook (picture-in-picture inset): after render(), draw the same scene from `camera` into a
+   * rectangle of the canvas (CSS px from the top-left), directly — no post-processing, no shadow
+   * refresh. Frustum culling keeps a close-up cheap. Leaves viewport / scissor as it found them.
+   */
+  renderInset(camera: THREE.Camera, x: number, y: number, w: number, h: number): void {
+    const r = this.renderer;
+    const yb = this.h - y - h; // three's viewport origin is bottom-left
+    r.setRenderTarget(null);
+    r.setScissorTest(true);
+    r.setScissor(x, yb, w, h);
+    r.setViewport(x, yb, w, h);
+    const sm = r.shadowMap.needsUpdate;
+    r.shadowMap.needsUpdate = false;
+    r.render(this.scene, camera);
+    r.shadowMap.needsUpdate = sm;
+    r.setScissorTest(false);
+    r.setViewport(0, 0, this.w, this.h);
+  }
 }

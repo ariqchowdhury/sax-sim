@@ -107,6 +107,12 @@ export class SceneApp {
     r.setAnimationLoop(() => this.frame());
   }
 
+  private afterRenderCb: (() => void)[] = [];
+  /** UI hook: runs after the main frame is rendered (picture-in-picture insets) */
+  onAfterRender(cb: () => void): void {
+    this.afterRenderCb.push(cb);
+  }
+
   onFrame(cb: (dt: number) => void): void {
     this.frameCb.push(cb);
   }
@@ -287,6 +293,7 @@ export class SceneApp {
     this.interaction.update();
     if (this.mp.moved || (this.opts.player && this.player.moved)) this.render.invalidateShadows();
     this.render.render();
+    for (const cb of this.afterRenderCb) cb();
   }
 }
 

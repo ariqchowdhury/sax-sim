@@ -43,6 +43,20 @@ export const NOTE_MAP: Record<string, number> = {
   KeyI: 24, Digit9: 25, KeyO: 26, Digit0: 27, KeyP: 28, BracketLeft: 29, Equal: 30, BracketRight: 31, Backspace: 32, Backslash: 33,
 };
 
+/** note-mode key that plays a written MIDI note: unshifted if possible, else with octave shift ±1 */
+export function noteKeyFor(midi: number): { code: string; shift: number } | null {
+  for (const shift of [0, 1, -1]) {
+    for (const [code, semi] of Object.entries(NOTE_MAP)) if (60 + semi + 12 * shift === midi) return { code, shift };
+  }
+  return null;
+}
+
+/** short label of a KeyboardEvent.code for display ("KeyT" → "T", "Backspace" → "⌫") */
+export function keyLabel(code: string): string {
+  const named: Record<string, string> = { BracketLeft: '[', BracketRight: ']', Backslash: '\\', Backspace: '⌫', Equal: '=', Comma: ',', Period: '.', Semicolon: ';', Quote: "'", Slash: '/' };
+  return named[code] ?? code.replace(/^Key|^Digit/, '');
+}
+
 export interface KeyboardOptions {
   mode: KeyboardMode;
   blowPressure: number; // kPa

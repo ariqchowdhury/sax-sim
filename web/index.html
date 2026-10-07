@@ -37,6 +37,7 @@
               <button role="menuitemcheckbox" data-toggle="airflow" title="Shift+F">Air-flow particles <kbd>Shift F</kbd></button>
               <button role="menuitemcheckbox" data-toggle="hints">Grab hints</button>
               <button role="menuitemcheckbox" data-toggle="labels">Airway readouts</button>
+              <button role="menuitemcheckbox" data-toggle="inset" title="Play mode: a close-up of the mouth and throat that shows how each note is voiced">Voicing close-up</button>
             </div>
           </div>
           <button class="tool" id="scopes-btn" aria-expanded="false" aria-controls="viz" title="Oscilloscope, spectrum, standing wave, input impedance (Shift+S)">Scopes</button>
@@ -74,7 +75,7 @@
             <div class="cents" title="Deviation from the nearest equal-tempered note"><div class="cents-bar"><span id="r-cents-needle"></span></div><span id="r-cents">±0¢</span></div>
             <div class="np-sub"><span id="r-note">—</span> concert · <span id="r-freq">0.0</span> Hz</div>
             <div class="np-sub"><span id="r-fingering">—</span> <span class="mode" id="r-mode"></span></div>
-            <div class="np-play" aria-live="polite"><span class="ap-status" id="ap-status">ready</span><span class="ap-doing" id="ap-doing" title="What the player is doing (effective values)"></span></div>
+            <div class="np-play" aria-live="polite"><span class="ap-status" id="ap-status">ready</span><span class="ap-doing" id="ap-doing" title="What the player is doing (effective values)"></span><button class="alt-btn" id="alt-btn" aria-expanded="false" aria-controls="alt-card" title="Altissimo fingerings (G6 and up) — see, hear and learn them">Altissimo ▴</button></div>
             <div class="ap-setup" id="ap-setup" hidden></div>
             <button class="ap-tune" id="ap-tune" hidden title="The auto player's lip can only trim a few cents; tune the instrument with the mouthpiece on the cork (one click applies it)"></button>
           </div>
@@ -90,6 +91,19 @@
           <label class="air blowp" title="Blowing pressure used by Hold to blow, Space and the note keys (drag the lungs for the same)"><span>Air</span><input type="range" id="air-range" min="0.5" max="8" step="0.1" value="3" aria-label="Blowing pressure (kPa)" /><output id="air-out">3.0 kPa</output></label>
         </div>
         <div class="delta" id="r-delta" aria-live="polite"></div>
+      </section>
+
+      <!-- Play mode: altissimo fingerings (from the data's auto-player table) -->
+      <section id="alt-card" class="alt-card" hidden aria-label="Altissimo fingerings" tabindex="-1">
+        <div class="alt-head"><h2>Altissimo fingerings</h2><span class="muted small">register 3 · ▶ plays it at the current Volume · altissimo has essentially no pp</span><button class="alt-close drawer-close" aria-label="Close altissimo list">×</button></div>
+        <div class="alt-list"></div>
+      </section>
+
+      <!-- Play mode: voicing close-up (picture-in-picture, rendered into the main canvas) -->
+      <section id="inset" class="inset" hidden aria-label="Voicing close-up">
+        <div class="inset-head"><span class="inset-title">Voicing close-up</span><button class="inset-min" aria-label="Collapse / expand the voicing close-up" title="Collapse / expand">–</button></div>
+        <div class="inset-body"><canvas class="inset-overlay"></canvas></div>
+        <div class="inset-labels" aria-live="polite"></div>
       </section>
 
       <!-- drawers (closed by default; state remembered) -->

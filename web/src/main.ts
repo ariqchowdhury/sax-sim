@@ -19,6 +19,9 @@ import { setupTour } from './ui/tour';
 import { ContextCard, partKindOf, type PartKind } from './ui/context';
 import { GrabHints } from './ui/grabHints';
 import { HandleClusters } from './ui/clusters';
+import { tractWords } from './ui/tractWords';
+import { AltissimoList } from './ui/altissimo';
+import { VoicingInset } from './ui/voicingInset';
 import { AutoPlayer, CONTROL_GROUPS } from './ui/autoPlayer';
 import { AUTO_CONTROLS, P, PARAMS, formatParam } from './engine/params';
 
@@ -37,7 +40,7 @@ function fatal(msg: string): void {
 }
 
 // ---- remembered UI state (drawers closed by default) ---------------------------------------------
-interface UiPrefs { controls: boolean; scopes: boolean; hints: boolean; labels: boolean }
+interface UiPrefs { controls: boolean; scopes: boolean; hints: boolean; labels: boolean; inset?: boolean }
 const PREFS_KEY = 'saxsim.ui.v1';
 function loadPrefs(): UiPrefs {
   const d: UiPrefs = { controls: false, scopes: false, hints: true, labels: false };
@@ -92,9 +95,17 @@ function main(): void {
     }
   };
   ctx.valueOf = (id) => (ap.mode === 'play' && !ap.owns(id) && (AUTO_CONTROLS as readonly number[]).includes(id) ? ap.value(id) : NaN);
+  // ---- Play mode extras: altissimo list, voicing close-up ---------------------------------------
+  const alt = new AltissimoList($('alt-card'), $<HTMLButtonElement>('alt-btn'), geo, kb, scene, ensureAudio);
+  const inset = new VoicingInset($('inset'), scene, ap, scene.player.headHandles);
+  // on by default in Play mode on screens ≥ 1024 px wide (off on phones); the choice is remembered
+  inset.setEnabled(prefs.inset ?? window.innerWidth >= 1024);
+  let insetTract = '';
+  inset.tractText = () => insetTract;
+
 
   // debugging handle (console: __sax.state.set(0, 3) etc.)
-  (window as unknown as { __sax: unknown }).__sax = { state, scene, engine, kb, geo, midi, vibrato, recorder, capture, chart, ctx, ap, get coach() { return coach; }, get imp() { return imp; }, get impPlot() { return impPlot; } };
+  (window as unknown as { __sax: unknown }).__sax = { state, scene, engine, kb, geo, midi, vibrato, recorder, capture, chart, ctx, ap, alt, inset, get coach() { return coach; }, get imp() { return imp; }, get impPlot() { return impPlot; } };
 
   // ---- status / start ------------------------------------------------------------------------
   const statusEl = $('status');
@@ -257,6 +268,7 @@ function main(): void {
       case 'airflow': return scene.opts.airflow;
       case 'hints': return prefs.hints;
       case 'labels': return prefs.labels;
+      case 'inset': return inset.enabled;
     }
     return false;
   };
@@ -271,6 +283,7 @@ function main(): void {
     else if (k === 'airflow') scene.opts.airflow = !scene.opts.airflow;
     else if (k === 'hints') { prefs.hints = !prefs.hints; hints.setEnabled(prefs.hints, true); savePrefs(prefs); }
     else if (k === 'labels') { prefs.labels = !prefs.labels; savePrefs(prefs); }
+    else if (k === 'inset') { prefs.inset = !inset.enabled; inset.setEnabled(prefs.inset); savePrefs(prefs); }
     syncToggles();
   }));
   syncToggles();
@@ -384,7 +397,7 @@ function main(): void {
     }
     syncVol();
   };
-  ap.onChange = renderMode;
+  ap.onChange = () => { renderMode(); if (ap.mode !== 'play') { alt.stop(); alt.toggle(false); } };
   modeBtns.forEach((b) => b.addEventListener('click', () => ap.setMode(b.dataset.mode as 'play' | 'explore')));
   ap.setMode(AutoPlayer.initialMode(), false);
   renderMode();
@@ -529,6 +542,7 @@ function main(): void {
       impPlot.draw(live ? smoothedFreq : 0);
     }
     ap.update(dt, live, smoothedFreq);
+    inset.update();
     ctx.draw(t, live, engine.analyser, live ? smoothedFreq : 0, engine.ctx?.sampleRate ?? 48000);
     labels.enabled = scene.opts.player && prefs.labels;
     labels.update();
@@ -633,32 +647,11 @@ function main(): void {
     {
       const entry = chart.recognisedEntry();
       const target = live && f > 20 ? smoothedFreq : entry?.f_target ?? 0;
-      const tr = impPlot.tractRes, trMag = impPlot.tractResMag;
-      let cue = 0, txt = 'computing…', plain = 'Tract resonance: computing…';
-      if (tr > 0) {
-        const strong = trMag >= 10e6;
-        txt = `≈ ${Math.round(tr)} Hz · ${(trMag / 1e6).toFixed(0)} MPa·s/m³`;
-        plain = `Tract resonance ≈ ${Math.round(tr)} Hz`;
-        if (target > 20) {
-          const c = 1200 * Math.log2(tr / target);
-          txt += ` · note ${Math.round(target)} Hz (${c >= 0 ? '+' : ''}${c.toFixed(0)}¢)`;
-          const near = (fr: number): boolean => Math.abs(1200 * Math.log2(tr / fr)) <= 50;
-          const lowerPeak = impPlot.peaks.find((p) => p < target * 0.97 && near(p));
-          const harm = [2, 3].find((k) => near(k * target));
-          let where: string;
-          if (strong && c >= -30 && c <= 400) { cue = 2; where = `${signed(c)}¢: tuned just above the note — supporting it (altissimo / upper-register voicing)`; }
-          else if (strong && lowerPeak) { cue = 1; where = `on a lower bore resonance (${Math.round(lowerPeak)} Hz) — may pull the note down`; }
-          else if (strong && harm) { where = `near harmonic ${harm} of the note — colours the tone`; }
-          else where = `${signed(c)}¢ from the note — little effect`;
-          if (strong && cue !== 2 && c > -500 && c < 900 && !lowerPeak) cue = 1;
-          plain += ` — ${where}`;
-        }
-        if (!strong) {
-          const neutral = state.shown.get(P.tongue_y) < 0.5;
-          txt += ` · weak${neutral ? ' (neutral tongue)' : ''}`;
-          plain += ` (weak${neutral ? ': neutral tongue' : ''})`;
-        }
-      } else if (impPlot.status !== 'computing…') txt = plain = impPlot.status;
+      const tw = tractWords(impPlot.tractRes, impPlot.tractResMag, target, impPlot.peaks, state.shown.get(P.tongue_y));
+      let { txt, plain, cue } = tw;
+      insetTract = tw.short;
+      inset.refreshLabels();
+      if (!(impPlot.tractRes > 0) && impPlot.status !== 'computing…') { txt = plain = impPlot.status; cue = 0; }
       set(lb.tract, txt);
       const el = lb.tract.parentElement!;
       el.classList.toggle('cue-aligned', cue === 2);

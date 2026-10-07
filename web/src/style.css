@@ -120,6 +120,44 @@ body.mode-play .air.blowp { display: none; }
 .air.vol output { font-weight: 700; color: var(--brass-hi); }
 .ps.auto output::after { content: ' · auto'; color: var(--muted); font-size: 10px; }
 
+/* Play mode: altissimo fingerings */
+.alt-btn { display: none; margin-left: auto; flex: none; font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid rgba(180,140,255,0.6); background: rgba(180,140,255,0.1); color: #dcc8ff; cursor: pointer; }
+body.mode-play .alt-btn { display: inline-block; }
+.alt-btn[aria-expanded="true"] { background: rgba(180,140,255,0.3); }
+.alt-card { position: absolute; left: 50%; transform: translateX(-50%); bottom: 112px; z-index: 6; max-width: calc(100% - 2 * var(--gutter)); padding: 8px 10px 10px; border-radius: var(--radius); background: rgba(16,21,31,0.95); border: 1px solid rgba(180,140,255,0.45); box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+body.scopes-open .alt-card { bottom: calc(var(--viz-h) + 120px); }
+.alt-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.alt-head h2 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.7px; color: #dcc8ff; }
+.alt-head .drawer-close { margin-left: auto; }
+.alt-list { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; }
+.alt-item { flex: none; width: 96px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 4px; border-radius: 9px; border: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+.alt-item.on { border-color: #b48cff; background: rgba(180,140,255,0.12); }
+.alt-note { font-weight: 700; font-size: 15px; color: #fff; }
+.alt-fig { width: 56px; height: auto; }
+.alt-fig .fc-key { cursor: default; }
+.alt-map { font-size: 10.5px; color: var(--muted); text-align: center; line-height: 1.5; }
+.alt-cav { font-size: 10px; color: var(--warn); text-align: center; line-height: 1.25; }
+.alt-play { margin-top: auto; width: 34px; height: 26px; border-radius: 8px; border: none; cursor: pointer; color: #1a1205; font-size: 12px; background: linear-gradient(180deg, var(--brass-hi), var(--brass)); }
+
+/* Play mode: voicing close-up (the 3D image is rendered into the main canvas under .inset-body) */
+.inset { position: absolute; right: var(--gutter); top: calc(var(--top-h) + 8px); z-index: 4; width: 340px; border-radius: var(--radius); border: 1px solid rgba(255,210,122,0.45); overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.45); }
+body.controls-open .inset { right: calc(var(--drawer-w) + 2 * var(--gutter)); }
+.inset.lowq { width: 270px; }
+.inset-head { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 10px; background: rgba(16,21,31,0.92); cursor: move; touch-action: none; }
+.inset-title { font-size: 11.5px; font-weight: 650; color: var(--brass-hi); text-transform: uppercase; letter-spacing: 0.6px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.inset-min { background: none; border: 0; color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; padding: 0 6px; }
+.inset-body { position: relative; aspect-ratio: 4 / 3; }
+.inset.collapsed .inset-body { display: none; }
+.inset-overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
+.inset-labels { display: flex; flex-direction: column; gap: 2px; padding: 5px 6px 6px; background: rgba(16,21,31,0.92); }
+.inset.collapsed .inset-labels { display: none; }
+.iv { display: flex; gap: 6px; align-items: baseline; font-size: 11px; padding: 0 2px; font-variant-numeric: tabular-nums; width: fit-content; max-width: 100%; }
+.iv span { color: var(--muted); }
+.iv b { color: #fff; font-weight: 600; }
+.iv i { font-style: normal; font-weight: 650; }
+.iv i.up { color: #ffb38a; } .iv i.down { color: #8ad0ff; }
+.iv.tract { color: #9fdcff; }
+
 /* ---- now playing + Blow -------------------------------------------------------------------------- */
 #hud {
   position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 4;
@@ -349,6 +387,8 @@ button.primary { border: none; border-radius: 8px; cursor: pointer; color: #1a12
   .logo { display: none; }
   .brand { gap: 6px; }
   .seg.mode button { padding: 4px 7px; font-size: 11.5px; }
+  .alt-card { bottom: 96px; }
+  .inset { width: 220px; }
   .np-sub { max-width: none; }
   .air { padding: 2px 6px; }
   .air output { font-size: 10px; }

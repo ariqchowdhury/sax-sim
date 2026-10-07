@@ -62,6 +62,22 @@ every control is yours, exactly as before.
 * **Breath gate**: in Play mode the player blows at its own pressure whenever `lung_pressure` > 0;
   Hold to blow / Space / note keys / MIDI note-on drive that gate as before, and Volume drives
   `dynamic`. Taking over the lungs (mask bit 9) makes your pressure literal.
+* **Altissimo list** (*Altissimo ▴* in the now-playing bar, Play mode): every register-3 entry of
+  the auto-player table (`data/alto_sax.json` → `auto_player.entries`, read at run time — currently
+  G6 … C♯7) with a fingering diagram (octave, palm and side keys included), the note-mode key that
+  plays it (e.g. `]`, `⌫`, `\`, or *↑ then 7*) and its MIDI number (written pitch), the data's caveats
+  (`achieved` cents beyond ±15 — C♯7 "runs about −28 ¢"; `ok: false` dynamics; `robust.slur_mf: false`
+  → "tongue it — slurring in may fail"), and a ▶ button that fingers and blows it for 1.8 s at the
+  current Volume (a second click stops it) and lights its keys on the 3D sax.
+* **Voicing close-up** (Play mode; Layers → *Voicing close-up*; on by default on screens ≥ 1024 px,
+  off on phones; remembered): a picture-in-picture view of the mid-sagittal mouth and throat (tongue,
+  palate, jaw, lips on the mouthpiece, glottis), rendered with a second camera into the main canvas
+  after the main frame (`RenderPipeline.renderInset`: no post-processing or shadow refresh; frustum
+  culling keeps it cheap; smaller on the *low* render tier). When a new note locks, the previous
+  note's settled voicing becomes a dashed ghost for the tongue, tip, jaw and glottis, with arrows to
+  where they are now. Below it: the 2–3 biggest control changes ("tongue height 0.40 → 0.88 +0.48"),
+  and the tract resonance in the same words as the tongue card ("+182¢ · supporting the note").
+  Drag it by its title; – collapses it.
 * **Engine contract** (engine `player.rs`, docs/ARCHITECTURE.md): param 27 `auto_player` (0/1);
   param 28 `auto_player_mask` (bits 0–9 = `AUTO_CONTROLS` lip_force, lip_position, lip_damping,
   tongue_x, tongue_y, tongue_tip, tongue_length, jaw_open, glottis_open, lung_pressure; bit 10

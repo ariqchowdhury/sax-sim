@@ -7,7 +7,8 @@
 //  • progressive-disclosure UI: drawers closed by default + toggle, drag readout, context card, Blow button,
 //    drag gain consistent across zoom, lower-lip axis lock, mouthpiece handle cluster collapse
 //  • Play mode (auto player): fingerings incl. altissimo in register with two mouthpieces, voicing
-//    changes between notes, grab-to-take-over sets / clears the mask
+//    changes between notes, grab-to-take-over sets / clears the mask; altissimo list (all register-3
+//    entries, ▶ plays in register); voicing close-up renders, toggles and its delta labels update
 // Needs Chrome/Chromium: set CHROME_PATH, or it looks in the usual install locations. If none is
 // found the test is skipped (exit 0) unless E2E_REQUIRE=1.
 import fs from 'node:fs';
@@ -285,6 +286,48 @@ await page.evaluateOnNewDocument(() => { localStorage.setItem('saxsim.tour.v1', 
     await page.click('[data-mode="play"]'); await wait(200);
     const pm = await page.evaluate(() => ({ auto: window.__sax.state.get(27), assist: window.__sax.state.get(23), mode: window.__sax.ap.mode, cls: document.body.classList.contains('mode-play'), vol: getComputedStyle(document.querySelector('.air.vol')).display }));
     check('play: Play mode turns the auto player on (Volume shown)', pm.mode === 'play' && pm.auto === 1 && pm.cls && pm.vol !== 'none', JSON.stringify(pm));
+    // ---- altissimo list (from the data's auto-player table) + voicing close-up ------------------
+    {
+      const want = (geo.auto_player?.entries ?? []).filter((e) => e.register === 3).map((e) => e.note);
+      await page.click('#alt-btn'); await wait(200);
+      const got = await page.evaluate(() => [...document.querySelectorAll('#alt-card:not([hidden]) .alt-item')].map((e) => e.dataset.note));
+      const keys = await page.evaluate(() => [...document.querySelectorAll('.alt-item kbd')].map((k) => k.textContent));
+      check('play: altissimo list shows every register-3 entry of the data (with note-mode keys)', want.length > 0 && JSON.stringify(got) === JSON.stringify(want) && keys.every((k) => k && k !== '—'),
+        `${got.join(' ')} · keys ${keys.join(' ')}`);
+      // voicing close-up: on by default (≥ 1024 px) in Play mode, renders, toggles from Layers
+      const insetOn = await page.evaluate(() => !document.getElementById('inset').hidden && window.__sax.inset.enabled);
+      // a first note (G4), settled
+      await page.keyboard.down('KeyB');
+      await page.waitForFunction(() => window.__sax.ap.status === 'locked', { timeout: 8000 }).catch(() => {});
+      await wait(400);
+      await page.keyboard.up('KeyB'); await wait(300);
+      const lab0 = await page.evaluate(() => document.querySelector('.inset-labels').textContent);
+      // ▶ G#6 from the list: plays it in register; the close-up shows what changed since G4
+      const target = (geo.auto_player.entries.find((e) => e.note === 'G#6') ?? {}).f_target;
+      let fP = 0, cP = NaN;
+      for (let attempt = 0; attempt < 2 && !(Math.abs(cP) < 50); attempt++) {
+        await page.click('.alt-item[data-note="G#6"] .alt-play');
+        for (let t = 0; t < 16; t++) { await wait(100); fP = await page.evaluate(() => window.__sax.engine.telemetry.frequency); cP = fP > 20 ? 1200 * Math.log2(fP / target) : NaN; if (Math.abs(cP) < 50 && t > 6) break; }
+        if (!(Math.abs(cP) < 50)) await wait(2000);
+      }
+      await page.waitForFunction(() => /→ G#6/.test(document.querySelector('.inset-title').textContent), { timeout: 5000 }).catch(() => {});
+      const lab1 = await page.evaluate(() => ({ title: document.querySelector('.inset-title').textContent, text: document.querySelector('.inset-labels').textContent, rows: document.querySelectorAll('.inset-labels .iv b').length }));
+      check('play: ▶ in the altissimo list plays G#6 in register', Math.abs(cP) < 50, `${fP.toFixed(1)} Hz, ${Number.isFinite(cP) ? cP.toFixed(0) : '—'} ¢ (target ${target?.toFixed(1)})`);
+      await page.evaluate(() => { window.__sax.inset.probeRequested = true; });
+      await page.waitForFunction(() => window.__sax.inset.lastProbe, { timeout: 5000 }).catch(() => {});
+      const probe = await page.evaluate(() => window.__sax.inset.lastProbe);
+      check('play: voicing close-up is on and renders (non-empty pixels)', insetOn && !!probe && probe.distinct >= 4 && probe.nonBlack >= 5, JSON.stringify(probe));
+      check('play: voicing close-up delta labels update between two notes', /G4 → G#6/.test(lab1.title) && lab1.rows >= 1 && lab1.text !== lab0 && /→/.test(lab1.text),
+        `${lab1.title}: ${lab1.text.slice(0, 140)}`);
+      await page.click('#layers-btn'); await page.click('[data-toggle="inset"]'); await wait(150);
+      const off = await page.evaluate(() => document.getElementById('inset').hidden);
+      await page.click('[data-toggle="inset"]'); await wait(150);
+      const on2 = await page.evaluate(() => !document.getElementById('inset').hidden);
+      await page.click('#layers-btn');
+      check('play: Layers → Voicing close-up toggles it', off && on2);
+      await page.click('.alt-close');
+      await page.keyboard.press('Escape');
+    }
     const alt = (geo.alternate_fingerings ?? []).find((a) => a.register === 3 && a.note === 'G#6');
     // [key, label, target Hz, octave shift]
     const set = [['KeyZ', 'C4', geo.fingerings.find((x) => x.written_midi === 60).f_target, 0], ['KeyB', 'G4', geo.fingerings.find((x) => x.written_midi === 67).f_target, 0],

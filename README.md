@@ -60,7 +60,9 @@ Everything else is one click away and closed by default (state remembered).
   *struggling*, "tongue high and forward, firm lip…") and the anatomy shows it; grab a player part
   to take it over (*reset* hands it back). If your setup detunes the whole horn, a one-click cork
   hint ("runs 24 ¢ sharp — pull the mouthpiece out ~8 mm") appears; setups outside the range the
-  auto player was tuned for get a gentle note. **Explore** = every control is yours.
+  auto player was tuned for get a gentle note. **Altissimo ▴** lists every altissimo fingering
+  (diagram, key, MIDI note, caveats, ▶ to hear it) and the **Voicing close-up** inset shows how the
+  mouth and throat change from note to note. **Explore** = every control is yours.
 * **Mouse / touch**: drag the lungs (pressure), tongue body & tip (drop the tip on the reed to
   tongue), lower lip (take-in / force), upper lip, jaw, glottis; in the mouthpiece cutaway the tip
   opening, facing, baffle, chamber, throat and cork position; the reed (strength). Click keys

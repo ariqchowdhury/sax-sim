@@ -256,9 +256,12 @@ export class AutoPlayer {
   private trackTuning(dt: number, freq: number): void {
     const n = this.current;
     if (this.sampled || !n || !(freq > 20)) return;
+    // wall clock (not frame dt, which is capped per frame): independent of the frame rate
+    const now = performance.now();
     if (Math.abs(1200 * Math.log2(freq / n.f)) > 100) { this.tuneT = 0; return; }
-    this.tuneT += dt;
-    if (this.tuneT < 0.3) return;
+    if (!this.tuneT) this.tuneT = now;
+    if (now - this.tuneT < 300) return;
+    void dt;
     const m = 69 + 12 * Math.log2(freq / 440);
     this.tuneSamples.push(100 * (m - Math.round(m)));
     if (this.tuneSamples.length > 6) this.tuneSamples.shift();
