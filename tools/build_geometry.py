@@ -466,6 +466,47 @@ def altissimo_entries(tbl):
     return out
 
 
+AUTO_PLAYER_JSON = os.path.join(HERE, "auto_player.json")
+
+
+def auto_player_section():
+    """Keys-only 'Auto player' voicing table (docs/PHYSICS.md §12), measured by tools/auto_player.py
+    (engine in the loop, player_assist = 0) and stored in tools/auto_player.json."""
+    if not os.path.exists(AUTO_PLAYER_JSON):
+        return None
+    src = json.load(open(AUTO_PLAYER_JSON))
+    if not src.get("entries"):
+        return None
+    controls = ["lip_force", "lip_position", "lip_damping", "tongue_x", "tongue_y", "tongue_tip", "tongue_length",
+                "jaw_open", "glottis_open", "lung_pressure", "reed_damping"]
+    ad = src.get("adaptation", {})
+    return dict(
+        version=1,
+        controls=controls,
+        dynamics=dict(pp=dict(target_db_re_mf=-20.0, slider=0.0), mf=dict(target_db_re_mf=0.0, slider=0.5),
+                      ff=dict(target_db_re_mf=6.0, slider=1.0)),
+        setup_reference=dict(tip_opening=1.9, facing_length=22.0, baffle_height=0.3, chamber_size=0.5,
+                             throat_diameter=11.0, mouthpiece_insertion=10.0, reed_strength=2.5, reed_model=0,
+                             temperature=22.0),
+        groups=dict(low="register 1", mid="register 2 below D6", palm="register 2, D6-F#6 (palm keys)",
+                    altissimo="register 3"),
+        entries=[dict(note=r["note"], register=r["register"], group=("altissimo" if r["register"] == 3 else "palm" if r["register"] == 2 and r["f_target"] > 690
+                                                    else "mid" if r["register"] == 2 else "low"), keys=r["keys"],
+                      f_target=r["f_target"], voicing=r["voicing"], achieved=r["achieved"], robust=r["robust"])
+                 for r in src["entries"]],
+        adaptation=dict(
+            pressure_rule="lung_pressure = voicing.lung_pressure * pM(setup; voicing lip controls) / pM(setup_reference; "
+                          "same lip controls), lip controls = lip_force/lip_position/lip_damping of the dynamic-interpolated "
+                          "table voicing before per_param corrections; pM = K*H0/S_r (engine/src/reed.rs derive_reed_params)",
+            pM_reference=6710.0,
+            lip_trim_cents_per_N=ad.get("trim", {}),
+            per_param=ad.get("per_param", {}),
+            validity=ad.get("validity", {}),
+            notes=ad.get("notes", ""),
+        ),
+    )
+
+
 def presets(tbl):
     out = list(PRESETS)
     info = (tbl or {}).get("altissimo")
@@ -645,6 +686,9 @@ def build(tbl=None, write=True):
         alternate_fingerings=ALTERNATES + altissimo_entries(tbl),
         presets=presets(tbl),
     )
+    ap = auto_player_section()
+    if ap is not None:
+        doc["auto_player"] = ap
     if write:
         os.makedirs(os.path.dirname(OUT), exist_ok=True)
         with open(OUT, "w") as f:

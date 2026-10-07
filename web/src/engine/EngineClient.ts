@@ -1,7 +1,7 @@
 // Main-thread API to the audio engine running in an AudioWorklet.
 import workletUrl from './worklet.ts?worker&url';
 import type { FromWorklet, PerfReport, ToWorklet, WorkletOptions } from './worklet';
-import { PARAM_COUNT, SCOPE_LEN, T, clampParam, defaultValues } from './params';
+import { AUTO_CONTROLS, AUTO_TEL, PARAMS, PARAM_COUNT, SCOPE_LEN, T, clampParam, defaultValues } from './params';
 import { SHM, SHM_BYTES } from './shm';
 import { fetchEngineWasm } from './wasmSelect';
 
@@ -47,6 +47,13 @@ export class Telemetry {
   rawLen = 0;
   /** index in `raw` of the first value after the documented layout (17 + 2N + 128) */
   tailStart = 0;
+  /**
+   * player-controls block (AUTO_TEL, engine telemetry::IDX_PLAYER): values of AUTO_CONTROLS in
+   * effect, recognised fingering, voicing match (0 exact · 1 nearest · 2 default), auto-player state
+   * (AUTO_STATE: 0 idle/off · 1 settling · 2 locked · 3 struggling). `valid` only when present and
+   * plausible (every value inside its param range, state ∈ 0…3).
+   */
+  readonly auto = { valid: false, values: new Float32Array(AUTO_CONTROLS.length), fingering: -1, match: 0, state: 0 };
 
   /** d[0..n) telemetry, pads[0..np) — copies into preallocated arrays */
   decode(d: Float32Array, n: number, pads: Float32Array, np: number): void {
@@ -78,11 +85,31 @@ export class Telemetry {
       this.scopeReed[i] = s0 + SCOPE_LEN + i < len ? r[s0 + SCOPE_LEN + i] : 0;
     }
     this.tailStart = s0 + 2 * SCOPE_LEN;
+    this.decodeAuto(len);
     if (np !== this.pads.length) this.pads = new Float32Array(np);
     for (let i = 0; i < np; i++) this.pads[i] = pads[i];
     this.seq++;
     this.time = performance.now();
     this.valid = true;
+  }
+
+  private decodeAuto(len: number): void {
+    const a = this.auto;
+    const b = this.tailStart + AUTO_TEL.offset;
+    a.valid = false;
+    if (len < b + AUTO_TEL.len) return;
+    const r = this.raw;
+    const st = r[b + AUTO_TEL.state];
+    if (!(st === 0 || st === 1 || st === 2 || st === 3)) return;
+    for (let i = 0; i < AUTO_CONTROLS.length; i++) {
+      const v = r[b + AUTO_TEL.values + i], d = PARAMS[AUTO_CONTROLS[i]];
+      if (!Number.isFinite(v) || v < d.min - 1e-3 || v > d.max + 1e-3) return;
+      a.values[i] = v;
+    }
+    a.fingering = Math.round(r[b + AUTO_TEL.fingering]);
+    a.match = Math.round(r[b + AUTO_TEL.match]);
+    a.state = st;
+    a.valid = true;
   }
 }
 

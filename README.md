@@ -55,6 +55,12 @@ The 3D view is the instrument: everything you can grab glows softly and carries 
 while you drag, a readout next to the cursor shows the value and what it does to the pitch.
 Everything else is one click away and closed by default (state remembered).
 
+* **Play / Explore** (top left): **Play** (default on a first visit) = keys + **Volume**, and the
+  player voices every note for your mouthpiece setup — the now-playing bar says how (*locked*,
+  *struggling*, "tongue high and forward, firm lip…") and the anatomy shows it; grab a player part
+  to take it over (*reset* hands it back). If your setup detunes the whole horn, a one-click cork
+  hint ("runs 24 ¢ sharp — pull the mouthpiece out ~8 mm") appears; setups outside the range the
+  auto player was tuned for get a gentle note. **Explore** = every control is yours.
 * **Mouse / touch**: drag the lungs (pressure), tongue body & tip (drop the tip on the reed to
   tongue), lower lip (take-in / force), upper lip, jaw, glottis; in the mouthpiece cutaway the tip
   opening, facing, baffle, chamber, throat and cork position; the reed (strength). Click keys

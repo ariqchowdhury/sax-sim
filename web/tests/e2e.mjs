@@ -6,6 +6,8 @@
 //  • checks the input-impedance plot recomputes after a fingering change
 //  • progressive-disclosure UI: drawers closed by default + toggle, drag readout, context card, Blow button,
 //    drag gain consistent across zoom, lower-lip axis lock, mouthpiece handle cluster collapse
+//  • Play mode (auto player): fingerings incl. altissimo in register with two mouthpieces, voicing
+//    changes between notes, grab-to-take-over sets / clears the mask
 // Needs Chrome/Chromium: set CHROME_PATH, or it looks in the usual install locations. If none is
 // found the test is skipped (exit 0) unless E2E_REQUIRE=1.
 import fs from 'node:fs';
@@ -54,10 +56,11 @@ try {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.evaluateOnNewDocument(() => localStorage.setItem('saxsim.tour.v1', '1'));
-  await page.goto(url, { waitUntil: 'networkidle0' });
+  // the existing checks exercise Explore mode (first-time users start in Play; covered further down)
+await page.evaluateOnNewDocument(() => { localStorage.setItem('saxsim.tour.v1', '1'); localStorage.setItem('saxsim.mode.v1', 'explore'); });
+  await page.goto(url, { waitUntil: 'networkidle0', timeout: 120000 }); // generous: a cold dev server on a busy machine
   await page.click('#start');
-  await page.waitForFunction(() => window.__sax?.engine.status.state === 'running', { timeout: 15000 });
+  await page.waitForFunction(() => window.__sax?.engine.status.state === 'running', { timeout: 60000 });
   check('audio engine running', true, await page.evaluate(() => `telemetry via ${window.__sax.engine.transport}, build ${window.__sax.engine.build}`));
   await page.waitForFunction(() => window.__sax.engine.perf !== null, { timeout: 5000 }).catch(() => {});
   const perf = await page.evaluate(() => window.__sax.engine.perf);
@@ -85,7 +88,7 @@ try {
   }
 
   // ---- drags -----------------------------------------------------------------------------------
-  const camTo = async (c) => { await page.click(`[data-cam="${c}"]`); await wait(200); await page.waitForFunction(() => !window.__sax.scene.tween, { timeout: 20000 }); await wait(300); };
+  const camTo = async (c) => { await page.click(`[data-cam="${c}"]`); await wait(200); await page.waitForFunction(() => !window.__sax.scene.tween, { timeout: 60000 }); await wait(300); };
   const screenOf = (expr) => page.evaluate((expr) => {
     const s = window.__sax; const o = expr.split('.').reduce((a, k) => a[k], s);
     // a mesh: its bounding-box centre (handles: their origin)
@@ -271,6 +274,95 @@ try {
     await page.keyboard.press('Escape');
   } else {
     console.log('SKIP altissimo checks: no Altissimo preset / G#6 register-3 fingering in the data');
+  }
+
+  // ---- Play mode (auto player): keys + volume, the player voices each note ----------------------
+  {
+    const { PARAMS: PD, AUTO_CONTROLS } = await import('../src/engine/params.ts');
+    const defaults = PD.filter((d) => ![19, 20, 21, 27, 28].includes(d.id)).map((d) => [d.id, d.default]);
+    await page.keyboard.press('Escape');
+    await page.evaluate((d) => { for (const [i, v] of d) window.__sax.state.set(i, v, 'test'); }, defaults);
+    await page.click('[data-mode="play"]'); await wait(200);
+    const pm = await page.evaluate(() => ({ auto: window.__sax.state.get(27), assist: window.__sax.state.get(23), mode: window.__sax.ap.mode, cls: document.body.classList.contains('mode-play'), vol: getComputedStyle(document.querySelector('.air.vol')).display }));
+    check('play: Play mode turns the auto player on (Volume shown)', pm.mode === 'play' && pm.auto === 1 && pm.cls && pm.vol !== 'none', JSON.stringify(pm));
+    const alt = (geo.alternate_fingerings ?? []).find((a) => a.register === 3 && a.note === 'G#6');
+    // [key, label, target Hz, octave shift]
+    const set = [['KeyZ', 'C4', geo.fingerings.find((x) => x.written_midi === 60).f_target, 0], ['KeyB', 'G4', geo.fingerings.find((x) => x.written_midi === 67).f_target, 0],
+      ['KeyQ', 'C5', geo.fingerings.find((x) => x.written_midi === 72).f_target, 0], ['KeyT', 'G5', geo.fingerings.find((x) => x.written_midi === 79).f_target, 0]];
+    if (alt) set.push(['Digit6', 'G#6 (altissimo)', alt.f_target, 1]);
+    const snap = () => page.evaluate((ids) => ids.map((id) => window.__sax.ap.value(id)), AUTO_CONTROLS.filter((id) => id !== 0));
+    const playSet = async (label) => {
+      const snaps = [];
+      for (const [code_, name, target, oct] of set) {
+        if (oct) await page.keyboard.press('ArrowUp');
+        let cents = NaN, f = 0, status = '';
+        for (let attempt = 0; attempt < 3 && !(Math.abs(cents) < 50); attempt++) {
+          if (attempt) { await page.keyboard.up(code_); await wait(400); }
+          await page.keyboard.down(code_);
+          for (let t = 0; t < 40; t++) {
+            await wait(100);
+            f = await page.evaluate(() => window.__sax.engine.telemetry.frequency);
+            status = await page.evaluate(() => window.__sax.ap.status);
+            cents = f > 20 ? 1200 * Math.log2(f / target) : NaN;
+            if (Math.abs(cents) < 50 && status === 'locked' && t > 6) break;
+          }
+        }
+        snaps.push(await snap());
+        await page.keyboard.up(code_);
+        if (oct) await page.keyboard.press('ArrowDown');
+        await wait(350);
+        check(`play (${label}): ${name} sounds in register`, Math.abs(cents) < 50, `${f.toFixed(1)} Hz, ${Number.isFinite(cents) ? cents.toFixed(0) : '—'} ¢ (target ${target.toFixed(1)}), status ${status}`);
+      }
+      return snaps;
+    };
+    const noteShown = () => page.evaluate(() => { const e = document.getElementById('ap-setup'); return { shown: !e.hidden, text: e.textContent }; });
+    const n0 = await noteShown();
+    const s1 = await playSet('default mouthpiece');
+    // the voicing (anatomy) differs between notes: low C4 vs altissimo, and more than one voicing overall
+    const dist = (a, b) => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
+    const distinct = new Set(s1.map((x) => x.map((v) => v.toFixed(2)).join(','))).size;
+    check('play: the player\'s voicing (anatomy) changes between notes', distinct >= 3 && dist(s1[0], s1[s1.length - 1]) > 0.1,
+      `${distinct} distinct voicings over ${s1.length} notes; C4 → last Δmax ${dist(s1[0], s1[s1.length - 1]).toFixed(2)}; source ${await page.evaluate(() => window.__sax.ap.source)}`);
+    // a different mouthpiece: high baffle, open tip (the player adapts; the setup is the user's)
+    await page.evaluate(() => { window.__sax.state.set(15, 0.9, 'drag'); window.__sax.state.set(13, 2.6, 'drag'); });
+    const owned0 = await page.evaluate(() => window.__sax.ap.mask);
+    // the bar refreshes inside rendered frames (15 Hz): wait for it rather than a fixed delay
+    const tNote = Date.now();
+    await page.waitForFunction(() => !document.getElementById('ap-setup').hidden, { timeout: 10000 }).catch(() => {});
+    const noteMs = Date.now() - tNote;
+    const n1 = await noteShown();
+    const seen = await page.evaluate(() => { const s = window.__sax; return { tip: +s.state.get(13).toFixed(3), baffle: +s.state.get(15).toFixed(3), mode: s.ap.mode, fps: +s.scene.fps.toFixed(0) }; });
+    seen.noteAfterMs = noteMs;
+    check('play: setup outside the auto player\'s tuned ranges gets a gentle note (from the data)', !n0.shown && n1.shown && /outside what the auto player was tuned for/.test(n1.text) && /baffle/.test(n1.text),
+      `default setup: ${n0.shown ? `shown "${n0.text}"` : 'hidden'}; bright setup: ${n1.shown ? 'shown' : 'hidden'} "${n1.text}"; ${JSON.stringify(seen)}`);
+    await playSet('high baffle + open tip');
+    check('play: mouthpiece changes stay the user\'s (no take-over)', owned0 === 0 && await page.evaluate(() => window.__sax.ap.mask) === 0 && Math.abs(await page.evaluate(() => window.__sax.state.get(15)) - 0.9) < 1e-6);
+    await page.evaluate(() => { window.__sax.state.set(15, 0.3, 'test'); window.__sax.state.set(13, 1.9, 'test'); });
+    // tuning hint: a mouthpiece pushed far onto the cork detunes every note beyond what the lip can
+    // trim → "Instrument runs … sharp — pull the mouthpiece out …"; one click moves it
+    await page.evaluate(() => window.__sax.state.set(18, 19, 'drag'));
+    for (const k of ['KeyB', 'KeyQ', 'KeyT', 'KeyE']) { await page.keyboard.down(k); await wait(2600); await page.keyboard.up(k); await wait(350); }
+    const th = await page.evaluate(() => { const b = document.getElementById('ap-tune'); return { shown: !b.hidden, text: b.textContent, hint: window.__sax.ap.tuningHint() }; });
+    if (th.shown) await page.click('#ap-tune');
+    const ins = await page.evaluate(() => window.__sax.state.get(18));
+    check('play: tuning hint for a detuned setup, one click moves the mouthpiece', th.shown && /sharp/.test(th.text) && ins < 19 - 1,
+      `"${th.text}" → insertion 19 → ${ins.toFixed(1)} mm`);
+    await page.evaluate(() => window.__sax.state.set(18, 10, 'test'));
+    // grab to take over: dragging the tongue sets its mask bits + chip; reset clears them
+    await camTo('player');
+    const tq = await screenOf('scene.player.hTongueBody');
+    await page.mouse.move(tq.x, tq.y); await wait(80); await page.mouse.down();
+    for (let i = 1; i <= 6; i++) { await page.mouse.move(tq.x, tq.y - 4 * i); await wait(30); }
+    await page.mouse.up(); await wait(250);
+    const tk = await page.evaluate(() => ({ mask: window.__sax.ap.mask, param: window.__sax.state.get(28), chip: !!document.querySelector('.chip.own[data-group="tongue"]') }));
+    const tongueBits = (1 << AUTO_CONTROLS.indexOf(5)) | (1 << AUTO_CONTROLS.indexOf(6));
+    check('play: grabbing the tongue takes it over (mask bits + chip)', (tk.mask & tongueBits) === tongueBits && tk.param === tk.mask && tk.chip, JSON.stringify(tk));
+    await page.click('.chip.own[data-group="tongue"] button'); await wait(150);
+    const rs = await page.evaluate(() => ({ mask: window.__sax.ap.mask, param: window.__sax.state.get(28), chip: !!document.querySelector('.chip.own[data-group="tongue"]') }));
+    check('play: reset hands the tongue back (mask cleared)', (rs.mask & tongueBits) === 0 && rs.param === rs.mask && !rs.chip, JSON.stringify(rs));
+    await page.click('[data-mode="explore"]'); await wait(150);
+    const ex = await page.evaluate(() => ({ auto: window.__sax.state.get(27), assist: window.__sax.state.get(23), mode: localStorage.getItem('saxsim.mode.v1') }));
+    check('play: Explore turns the auto player off and restores player assist', ex.auto === 0 && Math.abs(ex.assist - 0.5) < 1e-6 && ex.mode === 'explore', JSON.stringify(ex));
   }
 
   // ---- coach mode (M9): synthetic recording → upload → segmentation → analysis → fit → advice ---

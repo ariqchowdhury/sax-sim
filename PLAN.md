@@ -85,6 +85,7 @@ Status of each milestone is tracked at the bottom of this file.
 - M8 done.
 - M9 done (v1): coach regenerated on round-7 physics (template top-3 80 % v1 / 83 % with G4push); recording guard (silent/cracked/wrong-note takes left out and reported); swell-proof segmentation; clap-primary room estimate. Not yet validated on real recordings.
 - UX/graphics pass: 3D view full-screen with progressive disclosure (drawers, context cards, grab hints, zoom-independent drag gain, axis-locked lips, handle-cluster collapse), studio render pipeline with PBR materials and auto quality tiers. Review: docs/UX_REVIEW.md.
+- Play mode (keys-only Auto player): engine `auto_player` sets all 10 player controls from a per-fingering × dynamic voicing table (44 entries incl. altissimo) adapted to the mouthpiece/reed setup (p_M pressure scaling + per-param corrections), with pitch/register feedback; grab-to-take-over mask; 132/132 in tune at default setup, ~99 % in register across setups; UI Play/Explore switch, volume, animated anatomy, status, cork tuning hint, out-of-range note.
 - Player docs: docs/ALTISSIMO.md, docs/OVERTONES.md.
 
 ## Next (proposed)

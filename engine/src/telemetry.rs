@@ -12,7 +12,15 @@ pub const IDX_SCOPE_Y: usize = IDX_SCOPE_P + SCOPE_LEN;
 /// reed deflection along the reed, tip → clamp (m, + toward lay) — appended (M4)
 pub const REED_SHAPE_LEN: usize = 32;
 pub const IDX_REED_SHAPE: usize = IDX_SCOPE_Y + SCOPE_LEN;
-pub const TELEMETRY_LEN: usize = IDX_REED_SHAPE + REED_SHAPE_LEN;
+/// player controls in effect (auto player or user + assist), in `player::ctl` order — appended
+/// (auto player): lip_force N, lip_position mm, lip_damping, tongue_x, tongue_y, tongue_tip,
+/// tongue_length, jaw_open, glottis_open, lung_pressure kPa; then the recognised fingering
+/// (index into `fingerings`, alternates after them; −1 none), the voicing match (0 exact,
+/// 1 nearest fingering, 2 default voicing) and the auto-player state (0 idle/off, 1 settling,
+/// 2 locked, 3 struggling)
+pub const IDX_PLAYER: usize = IDX_REED_SHAPE + REED_SHAPE_LEN;
+pub const PLAYER_LEN: usize = 13;
+pub const TELEMETRY_LEN: usize = IDX_PLAYER + PLAYER_LEN;
 
 pub mod idx {
     pub const LUNG: usize = 0;

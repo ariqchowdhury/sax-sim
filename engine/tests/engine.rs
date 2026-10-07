@@ -297,3 +297,202 @@ fn reset_equals_fresh_engine() {
         assert_eq!(first_diff(&a, &want), None, "os {os} beam {beam}: reset engine differs from a fresh engine");
     }
 }
+
+// ---------------------------------------------------------------- auto player
+
+const STD_NOTES: [&str; 33] = [
+    "Bb3", "B3", "C4", "C#4", "D4", "Eb4", "E4", "F4", "F#4", "G4", "G#4", "A4", "Bb4", "B4", "C5", "C#5", "D5", "Eb5", "E5", "F5", "F#5", "G5", "G#5", "A5", "Bb5", "B5", "C6", "C#6", "D6", "Eb6", "E6", "F6", "F#6",
+];
+
+fn fingering(e: &Engine, note: &str) -> (Vec<String>, f64) {
+    let f = e.inst.json.fingerings.iter().find(|f| f.note == note).unwrap();
+    (f.keys.clone(), f.f_target.unwrap())
+}
+
+fn press(e: &mut Engine, keys: &[String]) {
+    e.release_all_keys();
+    for k in keys {
+        assert!(e.set_key_by_name(k, 1.0));
+    }
+}
+
+fn auto_engine(g: &str, os: f32) -> Engine {
+    let mut e = Engine::new(48000.0);
+    e.load_geometry_json(g).unwrap();
+    e.set_param(Param::BreathNoise as u32, 0.0);
+    e.set_param(Param::Oversample as u32, os);
+    e.set_param(Param::AutoPlayer as u32, 1.0);
+    e
+}
+
+fn cents(f: f64, t: f64) -> f64 {
+    if f > 0.0 {
+        1200.0 * (f / t).log2()
+    } else {
+        f64::NAN
+    }
+}
+
+/// Every standard fingering at pp / mf / ff sounds in its register with the auto player
+/// (default setup; the user's own embouchure/tract values are deliberately off).
+#[test]
+fn auto_player_all_fingerings_in_register() {
+    let Some(g) = geometry() else { return };
+    let jobs: Vec<(&str, f32)> = STD_NOTES.iter().flat_map(|n| [0.15f32, 0.5, 0.9].into_iter().map(move |d| (*n, d))).collect();
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let res = std::sync::Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..8 {
+            s.spawn(|| loop {
+                let j = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                if j >= jobs.len() {
+                    break;
+                }
+                let (n, d) = jobs[j];
+                let mut e = auto_engine(&g, 2.0);
+                let (keys, ft) = fingering(&e, n);
+                press(&mut e, &keys);
+                e.set_param(Param::Dynamic as u32, d);
+                // user controls the auto player must ignore
+                e.set_param(Param::LipForce as u32, 2.6);
+                e.set_param(Param::TongueY as u32, 0.95);
+                e.set_param(Param::GlottisOpen as u32, 0.05);
+                e.snap_params();
+                e.snap_pads();
+                e.set_param(Param::LungPressure as u32, 3.5);
+                let mut y = vec![];
+                for _ in 0..(1.5 * 48000.0 / 128.0) as usize {
+                    y.extend_from_slice(e.process(128));
+                }
+                let fv = sax_engine::analysis::analyze(&y[y.len() / 2..], 48000.0, ft as f32);
+                let f = if fv[sax_engine::analysis::idx::VALID] > 0.0 { fv[sax_engine::analysis::idx::F0] as f64 } else { 0.0 };
+                res.lock().unwrap().push((n, d, cents(f, ft)));
+            });
+        }
+    });
+    let r = res.into_inner().unwrap();
+    let bad: Vec<_> = r.iter().filter(|x| !(x.2.abs() < 100.0)).collect();
+    let ok = r.len() - bad.len();
+    eprintln!("auto player: {ok}/{} in register; failures {bad:?}", r.len());
+    assert!(ok as f64 >= 0.97 * r.len() as f64, "{ok}/{} in register; failures {bad:?}", r.len());
+}
+
+/// Chromatic legato scale Bb3 → F#6 at mf with the air on throughout.
+#[test]
+fn auto_player_legato_scale() {
+    let Some(g) = geometry() else { return };
+    let mut e = auto_engine(&g, 2.0);
+    let (k0, _) = fingering(&e, STD_NOTES[0]);
+    press(&mut e, &k0);
+    e.snap_params();
+    e.snap_pads();
+    e.set_param(Param::LungPressure as u32, 3.5);
+    let mut bad = vec![];
+    for n in STD_NOTES {
+        let (keys, ft) = fingering(&e, n);
+        press(&mut e, &keys);
+        let mut x = vec![];
+        // (the first note includes the attack)
+        let dur = if n == STD_NOTES[0] { 1.0 } else { 0.5 };
+        for _ in 0..(dur * 48000.0 / 128.0) as usize {
+            // radiated sound (the mouthpiece pressure of low notes has a strong 2nd harmonic)
+            x.extend(e.process(128).iter().map(|v| *v as f64));
+        }
+        let c = cents(measure_f0(&x[x.len() / 2..], 48000.0), ft);
+        if !(c.abs() < 100.0) {
+            bad.push((n, c));
+        }
+        // the air stays on: the lungs never drop below 1 kPa in a slur
+        assert!(e.telemetry[sax_engine::telemetry::IDX_PLAYER + 9] > 1.0, "{n}: air dropped");
+    }
+    eprintln!("legato scale: {}/33 in register {bad:?}", 33 - bad.len());
+    assert!(bad.len() <= 1, "notes out of register in the slur: {bad:?}");
+}
+
+/// `auto_player_mask`: owned controls stay at the user's value, the others are the player's.
+#[test]
+fn auto_player_mask_honoured() {
+    let Some(g) = geometry() else { return };
+    let mut e = auto_engine(&g, 2.0);
+    let (keys, ft) = fingering(&e, "G4");
+    press(&mut e, &keys);
+    // user owns lip_force (bit 0) and tongue_y (bit 4)
+    e.set_param(Param::AutoPlayerMask as u32, ((1 << 0) | (1 << 4)) as f32);
+    e.set_param(Param::LipForce as u32, 1.4);
+    e.set_param(Param::TongueY as u32, 0.2);
+    e.set_param(Param::JawOpen as u32, 0.95);
+    e.snap_params();
+    e.snap_pads();
+    let x = run(&mut e, 3.5, 1.0);
+    let p = sax_engine::telemetry::IDX_PLAYER;
+    let t = &e.telemetry;
+    assert!((t[p] - 1.4).abs() < 1e-5, "lip_force {}", t[p]);
+    assert!((t[p + 4] - 0.2).abs() < 1e-5, "tongue_y {}", t[p + 4]);
+    assert!((t[p + 7] - 0.95).abs() > 0.2, "jaw stays the player's: {}", t[p + 7]);
+    assert!(cents(measure_f0(&x[x.len() / 2..], 48000.0), ft).abs() < 100.0);
+    assert_eq!(t[p + 10] as i32, 9, "recognised fingering index (G4)");
+    assert!(t[p + 12] >= 1.0, "state {}", t[p + 12]);
+    // switching the auto player off returns every control to the user's
+    e.set_param(Param::AutoPlayer as u32, 0.0);
+    e.set_param(Param::PlayerAssist as u32, 0.0);
+    e.process(128);
+    e.process(128);
+    let t = &e.telemetry;
+    assert!((t[p + 7] - 0.95).abs() < 1e-5 && (t[p + 4] - 0.2).abs() < 1e-5 && (t[p + 9] - 3.5).abs() < 1e-3, "{:?}", &t[p..p + 13]);
+}
+
+/// Unrecognised key combination: the nearest fingering's voicing, never silent.
+#[test]
+fn auto_player_unknown_fingering_nearest() {
+    let Some(g) = geometry() else { return };
+    let mut e = auto_engine(&g, 2.0);
+    // G4 plus a stray side key
+    let (mut keys, _) = fingering(&e, "G4");
+    keys.push("RH_side_Bb".into());
+    press(&mut e, &keys);
+    e.snap_params();
+    e.snap_pads();
+    let x = run(&mut e, 3.5, 1.0);
+    let p = sax_engine::telemetry::IDX_PLAYER;
+    assert_eq!(e.telemetry[p + 10], -1.0);
+    assert_eq!(e.telemetry[p + 11], 1.0, "nearest-fingering voicing");
+    assert!(ac_rms(&x[x.len() / 2..]) > 100.0, "sounds");
+}
+
+/// A v1 `auto_player` table entry drives the controls (dynamic interpolation, setup adaptation).
+#[test]
+fn auto_player_table_v1() {
+    let Some(g) = geometry() else { return };
+    let mut v: serde_json::Value = serde_json::from_str(&g).unwrap();
+    let keys = v["fingerings"].as_array().unwrap().iter().find(|f| f["note"] == "G4").unwrap()["keys"].clone();
+    let voc = |lf: f64, lp: f64| serde_json::json!({"lip_force": lf, "lip_position": 12.0, "lip_damping": 0.4, "tongue_x": 0.5, "tongue_y": 0.4,
+        "tongue_tip": 0.3, "tongue_length": 0.0, "jaw_open": 0.35, "glottis_open": 0.8, "lung_pressure": lp, "reed_damping": 0.25});
+    v["auto_player"] = serde_json::json!({
+        "version": 1,
+        "controls": ["lip_force","lip_position","lip_damping","tongue_x","tongue_y","tongue_tip","tongue_length","jaw_open","glottis_open","lung_pressure"],
+        "setup_reference": {"tip_opening":1.9,"facing_length":22,"baffle_height":0.3,"chamber_size":0.5,"throat_diameter":11,"mouthpiece_insertion":10,"reed_strength":2.5,"reed_model":0,"temperature":22},
+        "entries": [{"note":"G4","register":1,"group":"low","keys":keys,"f_target":233.08,
+            "voicing":{"pp":voc(1.6, 2.0),"mf":voc(1.0, 3.5),"ff":voc(0.6, 6.0)}}],
+        "adaptation": {"pM_reference": 6710.0, "lip_trim_cents_per_N": {"low": 15.0, "mid": 30.0, "palm": 25.0, "altissimo": 40.0},
+            "per_param": {"mouthpiece_insertion": {"jaw_open": {"low": 0.01}}},
+            "validity": {"mouthpiece_insertion": [5, 15]}}
+    });
+    let g2 = v.to_string();
+    let mut e = auto_engine(&g2, 2.0);
+    let (k, _) = fingering(&e, "G4");
+    press(&mut e, &k);
+    e.set_param(Param::Dynamic as u32, 0.25); // half-way pp–mf
+    e.set_param(Param::MouthpieceInsertion as u32, 20.0); // beyond validity: clamped to 15
+    e.snap_params();
+    e.snap_pads();
+    run(&mut e, 3.5, 0.6);
+    let p = sax_engine::telemetry::IDX_PLAYER;
+    let t = e.telemetry[p..p + 13].to_vec();
+    // lung pressure: (2.0 + 3.5)/2 kPa (± the register lock / setup scaling: same reed setup)
+    assert!((t[9] - 2.75).abs() < 0.3, "lung {t:?}");
+    // jaw: 0.35 + 0.01·(15 − 10)
+    assert!((t[7] - 0.40).abs() < 0.03, "jaw {t:?}");
+    // lip force near (1.6 + 1.0)/2 (pitch trim ≤ 0.6 N)
+    assert!((t[0] - 1.3).abs() < 0.65, "lip {t:?}");
+    assert_eq!(t[11], 0.0);
+}

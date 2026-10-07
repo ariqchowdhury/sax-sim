@@ -499,7 +499,8 @@ export class PlayerModel {
   private tmp2b = new THREE.Vector2();
 
   update(dt: number, mouthPressure: number, flowNorm: number, time: number): void {
-    const s = this.state;
+    // the anatomy shows the effective values in Play mode (auto player), else the params
+    const s = this.state.shown;
     const f = this.far;
     const lp = s.get(P.lip_position) / 1000;
     const jaw = s.get(P.jaw_open);

@@ -153,6 +153,8 @@ fn smoothing_tau(p: usize) -> f64 {
         x if x == Param::Oversample as usize => 0.0,
         x if x == Param::ReedModel as usize => 0.0,
         x if x == Param::Subglottal as usize => 0.0,
+        x if x == Param::AutoPlayer as usize => 0.0,
+        x if x == Param::AutoPlayerMask as usize => 0.0,
         x if x == Param::Temperature as usize => 0.2,
         x if x == Param::TongueReedContact as usize => 0.004,
         _ => 0.02,
@@ -406,6 +408,22 @@ impl Engine {
 
     fn reed_controls(&self) -> ReedControls {
         let v = |p: Param| self.smooth[p as usize].value;
+        if self.player.auto.on {
+            // auto player: absolute controls (player.rs `tick_auto`)
+            let c = &self.player.auto.ctl;
+            use crate::player::ctl;
+            return ReedControls {
+                reed_strength: v(Param::ReedStrength),
+                reed_damping: if self.player.auto.reed_damping.is_finite() && self.smooth[Param::AutoPlayerMask as usize].value.round() as u32 & (1 << crate::player::N_CTL) == 0 { self.player.auto.reed_damping } else { v(Param::ReedDamping) },
+                lip_position_mm: c[ctl::LIP_POSITION],
+                lip_force: c[ctl::LIP_FORCE],
+                lip_damping: c[ctl::LIP_DAMPING],
+                tip_opening_mm: v(Param::TipOpening),
+                facing_length_mm: v(Param::FacingLength),
+                tongue_contact: v(Param::TongueReedContact).max(self.player.auto.tongue),
+                reed_width: self.inst.reed_width,
+            };
+        }
         let (po, w) = (&self.player.out, self.player.out.alt_w);
         use crate::player::blend;
         ReedControls {
@@ -490,7 +508,20 @@ impl Engine {
             let v = |p: Param| self.smooth[p as usize].value;
             let (po, w) = (self.player.out, self.player.out.alt_w);
             use crate::player::blend;
-            let glottis = blend(v(Param::GlottisOpen), po.alt.glottis_open, w).clamp(0.0, 1.0);
+            let mut glottis = blend(v(Param::GlottisOpen), po.alt.glottis_open, w).clamp(0.0, 1.0);
+            if self.player.auto.on {
+                use crate::player::ctl;
+                let c = &self.player.auto.ctl;
+                glottis = c[ctl::GLOTTIS_OPEN];
+                self.tract.ctrl = TractControls {
+                    tongue_x: c[ctl::TONGUE_X],
+                    tongue_y: c[ctl::TONGUE_Y],
+                    tongue_tip: c[ctl::TONGUE_TIP],
+                    jaw_open: c[ctl::JAW_OPEN],
+                    glottis_area: GLOTTIS_MIN_AREA + glottis * (GLOTTIS_MAX_AREA - GLOTTIS_MIN_AREA),
+                    tongue_len: c[ctl::TONGUE_LENGTH],
+                };
+            } else {
             self.tract.ctrl = TractControls {
                 tongue_x: (blend(v(Param::TongueX) + po.tongue_x, po.alt.tongue_x, w) + po.tx_trim).clamp(0.0, 1.0),
                 tongue_y: blend(v(Param::TongueY) + po.tongue_y, po.alt.tongue_y, w).clamp(0.0, 1.0),
@@ -499,6 +530,7 @@ impl Engine {
                 glottis_area: GLOTTIS_MIN_AREA + glottis * (GLOTTIS_MAX_AREA - GLOTTIS_MIN_AREA),
                 tongue_len: v(Param::TongueLength).clamp(0.0, 1.0),
             };
+            }
             let breath = Air::breath();
             let sub_on = v(Param::Subglottal) >= 0.5;
             if sub_on && !self.tract.sub_on {
@@ -518,7 +550,8 @@ impl Engine {
         if self.reed_dirty || force {
             let rc = self.reed_controls();
             self.reed.set_controls(&rc);
-            self.tongue_inlet = 1.0 - 0.9 * self.smooth[Param::TongueReedContact as usize].value.max(self.player.out.tongue).clamp(0.0, 1.0);
+            let pt = if self.player.auto.on { self.player.auto.tongue } else { self.player.out.tongue };
+            self.tongue_inlet = 1.0 - 0.9 * self.smooth[Param::TongueReedContact as usize].value.max(pt).clamp(0.0, 1.0);
             self.reed_dirty = false;
         }
     }
@@ -533,7 +566,10 @@ impl Engine {
         self.smooth[i].target = v as f64;
         if i == Param::LungPressure as usize {
             self.lung_target_pa = v as f64 * 1000.0;
-            self.lungs.set_target_pa(self.lung_target_pa * self.player.out.pressure_scale);
+            // (auto player: the lungs follow its own pressure, set at the next control tick)
+            if !self.player.auto.on {
+                self.lungs.set_target_pa(self.lung_target_pa * self.player.out.pressure_scale);
+            }
         }
         if i == Param::Oversample as usize && v.round() as usize != self.os {
             self.need_rebuild = true;
@@ -625,6 +661,61 @@ impl Engine {
         }
     }
 
+    /// Auto-player control tick (param `auto_player`): returns true when its controls changed.
+    fn auto_tick(&mut self) -> bool {
+        let v = |p: Param| self.smooth[p as usize].value;
+        use crate::player::{N_CTL, N_SETUP};
+        let user: [f64; N_CTL] = [
+            v(Param::LipForce),
+            v(Param::LipPosition),
+            v(Param::LipDamping),
+            v(Param::TongueX),
+            v(Param::TongueY),
+            v(Param::TongueTip),
+            v(Param::TongueLength),
+            v(Param::JawOpen),
+            v(Param::GlottisOpen),
+            self.lung_target_pa,
+        ];
+        let setup: [f64; N_SETUP] = [
+            v(Param::TipOpening),
+            v(Param::FacingLength),
+            v(Param::BaffleHeight),
+            v(Param::ChamberSize),
+            v(Param::ThroatDiameter),
+            v(Param::MouthpieceInsertion),
+            v(Param::ReedStrength),
+            v(Param::ReedModel),
+            v(Param::Temperature),
+        ];
+        let mask = v(Param::AutoPlayerMask).round().max(0.0) as u32;
+        let base = self.base_reed_controls();
+        let changed = self.player.tick_auto(v(Param::Dynamic), self.pitch.freq, &user, mask, &setup, &base, v(Param::TongueReedContact), CTRL_PERIOD as f64 / self.fs);
+        if changed {
+            self.lungs.set_target_pa(self.player.auto.ctl[crate::player::ctl::LUNG_PRESSURE]);
+        }
+        changed
+    }
+
+    /// The ten player controls in effect (auto player or user + assist offsets), lung pressure
+    /// in kPa (telemetry, UI anatomy).
+    pub fn effective_player_controls(&self) -> [f64; crate::player::N_CTL] {
+        let rc = self.reed_controls();
+        let t = &self.tract.ctrl;
+        [
+            rc.lip_force,
+            rc.lip_position_mm,
+            rc.lip_damping,
+            t.tongue_x,
+            t.tongue_y,
+            t.tongue_tip,
+            t.tongue_len,
+            t.jaw_open,
+            ((t.glottis_area - GLOTTIS_MIN_AREA) / (GLOTTIS_MAX_AREA - GLOTTIS_MIN_AREA)).clamp(0.0, 1.0),
+            self.lungs.target / 1000.0,
+        ]
+    }
+
     fn control_tick(&mut self) {
         let mut bore = false;
         let mut tract = false;
@@ -674,11 +765,24 @@ impl Engine {
         }
         // player model
         let assist = self.smooth[Param::PlayerAssist as usize].value;
+        if self.smooth[Param::AutoPlayer as usize].value >= 0.5 {
+            if self.auto_tick() {
+                reed = true;
+                tract = true;
+            }
+        } else if self.player.auto.on {
+            // leaving auto mode: back to the user's controls
+            self.player.auto_off();
+            reed = true;
+            tract = true;
+            self.lungs.set_target_pa(self.lung_target_pa * self.player.out.pressure_scale);
+        } else {
         self.player.base = self.base_reed_controls();
         if self.player.tick(assist, self.smooth[Param::Dynamic as usize].value, self.pitch.freq, self.lung_target_pa, self.smooth[Param::TongueReedContact as usize].value, CTRL_PERIOD as f64 / self.fs) {
             reed = true;
             tract = true;
             self.lungs.set_target_pa(self.lung_target_pa * self.player.out.pressure_scale);
+        }
         }
         self.bore_dirty |= bore;
         self.tract_dirty |= tract;
@@ -1124,6 +1228,15 @@ impl Engine {
         t[idx::CPU_US] = self.last_cpu_us;
         t[idx::SUBGLOTTAL] = if self.use_tract { self.tract.p_subglottal() } else { self.p_lung } as f32;
         t[idx::GLOTTAL_FLOW] = if self.use_tract { self.tract.u_glottis } else { self.u_reed } as f32;
+        let pc = self.effective_player_controls();
+        let t = &mut self.telemetry;
+        for (k, v) in pc.iter().enumerate() {
+            t[telemetry::IDX_PLAYER + k] = *v as f32;
+        }
+        let pl = &self.player;
+        t[telemetry::IDX_PLAYER + 10] = pl.current.map(|i| i as f32).unwrap_or(-1.0);
+        t[telemetry::IDX_PLAYER + 11] = if pl.auto.on { pl.auto.matched as f32 } else if pl.current.is_some() { 0.0 } else { 2.0 };
+        t[telemetry::IDX_PLAYER + 12] = if pl.auto.on { pl.auto.state } else { crate::player::STATE_IDLE };
         t[idx::N_PROFILE] = N_PROFILE as f32;
         for j in 0..N_PROFILE {
             t[telemetry::IDX_PROFILE + j] = self.bore.p[self.prof_idx[j]];

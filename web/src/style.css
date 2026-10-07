@@ -93,6 +93,33 @@ kbd {
 .menu-pop button[aria-checked="true"]::before { background: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 3px rgba(16,21,31,0.97); }
 .phone-only { display: none !important; }
 
+/* ---- Play / Explore switch -------------------------------------------------------------------- */
+.seg.mode { padding: 2px; border-radius: 10px; }
+.seg.mode button { padding: 4px 11px; font-size: 12.5px; font-weight: 600; }
+.seg.mode button[data-mode="play"].on { background: linear-gradient(180deg, var(--brass-hi), var(--brass)); color: #1a1205; box-shadow: none; }
+
+/* Play mode: auto-player status, what the player is doing, take-over chips, Volume */
+.np-play { display: none; align-items: baseline; gap: 8px; margin-top: 4px; font-size: 12px; max-width: 360px; }
+body.mode-play .np-play { display: flex; }
+.ap-status { flex: none; font-weight: 650; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+.ap-status[data-s="adjusting"] { color: var(--warn); border-color: rgba(255,179,71,0.5); }
+.ap-status[data-s="locked"] { color: #9ff0bf; border-color: #5fd38d; }
+.ap-status[data-s="struggling"] { color: #ffb0b0; border-color: var(--err); white-space: normal; }
+.ap-doing { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ap-tune { display: block; margin-top: 4px; font-size: 11.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(255,179,71,0.55); background: rgba(255,179,71,0.08); color: #ffd9a3; cursor: pointer; }
+.ap-tune[hidden], .ap-setup[hidden] { display: none; }
+.ap-setup { margin-top: 4px; font-size: 11.5px; color: #ffd9a3; max-width: 400px; line-height: 1.35; }
+body.mode-explore .ap-setup { display: none; }
+body.mode-explore .ap-tune { display: none; }
+.ap-owned { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+.chip.own { border-color: rgba(92,178,255,0.6); color: #cfe6ff; }
+.chip.own button { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font-size: 11px; }
+.air.vol { display: none; }
+body.mode-play .air.vol { display: grid; }
+body.mode-play .air.blowp { display: none; }
+.air.vol output { font-weight: 700; color: var(--brass-hi); }
+.ps.auto output::after { content: ' · auto'; color: var(--muted); font-size: 10px; }
+
 /* ---- now playing + Blow -------------------------------------------------------------------------- */
 #hud {
   position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 4;
@@ -105,7 +132,7 @@ body.scopes-open #hud { bottom: calc(var(--viz-h) + 22px); }
 .np-note span { font-size: 34px; font-weight: 750; line-height: 1; letter-spacing: -0.5px; color: #fff; }
 .np-note small { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px; margin-top: 3px; }
 .np-mid { flex: 1; min-width: 170px; }
-.np-sub { font-size: 12px; color: var(--muted); margin-top: 3px; white-space: nowrap; }
+.np-sub { font-size: 12px; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 360px; }
 .np-sub span:first-child { color: var(--text); }
 .np-sub .mode { color: var(--muted); }
 .cents { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
@@ -312,6 +339,17 @@ button.primary { border: none; border-radius: 8px; cursor: pointer; color: #1a12
   .np-note span { font-size: 28px; }
   .np-mid { min-width: 0; }
   .np-right, .blow kbd { display: none; }
+  .np-play { max-width: none; }
+  .ap-doing { display: none; }
+  .seg.mode button { padding: 4px 8px; }
+  .np-right:has(.chip.own) { display: flex; min-width: 0; }
+  .np-right:has(.chip.own) .regime, .np-right:has(.chip.own) .level { display: none; }
+  .tool { padding: 6px 7px; font-size: 12px; }
+  .tool .caret { display: none; }
+  .logo { display: none; }
+  .brand { gap: 6px; }
+  .seg.mode button { padding: 4px 7px; font-size: 11.5px; }
+  .np-sub { max-width: none; }
   .air { padding: 2px 6px; }
   .air output { font-size: 10px; }
   .blow { min-width: 86px; padding: 8px 10px; font-size: 13px; }

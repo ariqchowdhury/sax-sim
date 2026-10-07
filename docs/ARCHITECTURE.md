@@ -71,6 +71,8 @@ All functions `#[no_mangle] pub extern "C"`. Single engine instance per worklet.
 | 24 | dynamic | 0–1 | 0–1 | 0.5 | musical dynamic pp (0) … mf (0.5) … ff (1); the player model scales lung pressure (pp ×0.5, ff ×2; low notes ×0.6/×1.25) and sets lip force/damping and jaw; soft notes start at the mf pressure and relax (0.3 s). No effect when player_assist = 0 |
 | 25 | subglottal | – | 0–1 | 1 | 0 = anechoic load ρc/A below the glottis (legacy), 1 = subglottal airways: trachea + bronchial tree (Weibel generations 0–9, yielding walls, `tract.rs` `Subglottal`; Sg1–Sg3 ≈ 540/1420/2300 Hz) driven by the lung pressure; integer |
 | 26 | tongue_length | 0–1 | 0–1 | 0 | tongue-dorsum constriction length: Gaussian σ 2 cm (0) … 4 cm (1) — a bunched tongue raised along the palate forms a long narrow channel (strong 550–800 Hz tract resonances for low-register overtones) |
+| 27 | auto_player | – | 0–1 | 0 | keys-only **auto player** (engine `player.rs` `tick_auto`); 0 = off (exactly the `player_assist` behaviour). On: the player *sets* the 10 player controls below from the voicing table `auto_player` of the geometry (schema v1, PHYSICS.md; per fingering × pp/mf/ff interpolated on `dynamic`, adapted to the setup: lung pressure × p_M(setup)/p_M(reference) evaluated at the voicing's own lip controls, linear `per_param` corrections clamped to `validity`) — or, for notes without an entry (or whose entry is marked failing at every dynamic), from its built-in voicing (the assist model at 0.5 around the default controls, 3.5 kPa × p_M ratio, lip +0.4–1 N per mm of tip opening above 1.9) — plus feedback: register lock, lip-force pitch trim (−0.35…+0.6 N), register rescue (firmer/looser lip + re-tongue), altissimo voice-then-attack. **`lung_pressure` > 0 is the breath gate** (the player blows at its own pressure while it is > 0). Unrecognised key sets use the nearest fingering by pad state (Σ\|Δ openness\| ≤ 4) else the default voicing. Note changes ramp the embouchure/tract with τ = 80 ms; the air stays on in legato; integer |
+| 28 | auto_player_mask | – | 0–2047 | 0 | controls the user owns in auto mode (bit set = the user's param value is used as is; the player adapts the others): bit 0 lip_force, 1 lip_position, 2 lip_damping, 3 tongue_x, 4 tongue_y, 5 tongue_tip, 6 tongue_length, 7 jaw_open, 8 glottis_open, 9 lung_pressure (then the user's pressure, no gate), 10 reed_damping (only used when the table voicing carries one); integer |
 
 ## Telemetry block (f32 array, index → meaning)
 
@@ -94,6 +96,10 @@ All functions `#[no_mangle] pub extern "C"`. Single engine instance per worklet.
 | then 64 | latest 64 samples of mouthpiece pressure (decimated scope) |
 | then 64 | latest 64 samples of reed tip displacement |
 | then 32 | reed deflection along the reed, tip → ligature clamp (m, + toward lay; beam reed, M4 — engine `telemetry.rs` `REED_SHAPE_LEN`) |
+| then 10 | player controls in effect (auto player, or user + player-assist offsets): lip_force N, lip_position mm, lip_damping, tongue_x, tongue_y, tongue_tip, tongue_length, jaw_open, glottis_open, lung pressure target kPa (engine `telemetry::IDX_PLAYER`) |
+| then 1 | recognised fingering: index into `fingerings` (alternates follow in file order), −1 none |
+| then 1 | voicing match: 0 exact fingering, 1 nearest fingering by pad state, 2 default voicing |
+| then 1 | auto-player state: 0 idle (off / breath gate closed), 1 settling, 2 locked (in register, ±30 ¢ for 100 ms), 3 struggling (wrong register or silent > 0.6 s, or outside the table's validity range > 0.3 s) |
 
 ## Geometry JSON schema (`data/alto_sax.json`)
 

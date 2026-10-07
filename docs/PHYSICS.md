@@ -697,3 +697,104 @@ characteristic is still worth having, but it is unlikely on its own to make the 
   with the perf engineer. With the default embouchure there is no palm-key pp regime; pp on palm notes
   needs the embouchure change of the player model (dynamics section).
 
+
+## 12. Auto player — voicing table (`auto_player` in the geometry JSON, schema v1)
+
+Keys-only mode: the user sets fingering + `dynamic`; the engine sets the player controls from a measured
+table (pure physics, player_assist 0), adapts them to the mouthpiece/reed setup, and adds feedback
+(engine/src/player.rs). Produced by `tools/auto_player.py` (engine in the loop) → `tools/auto_player.json`
+→ `tools/build_geometry.py`.
+
+```
+"auto_player": {
+  "version": 1,
+  "controls": [lip_force, lip_position, lip_damping, tongue_x, tongue_y, tongue_tip, tongue_length,
+               jaw_open, glottis_open, lung_pressure (kPa), reed_damping],
+  "dynamics": {"pp": {"target_db_re_mf": -20, "slider": 0}, "mf": {.., "slider": 0.5}, "ff": {"target_db_re_mf": 6, "slider": 1}},
+  "setup_reference": {tip_opening 1.9, facing_length 22, baffle_height 0.3, chamber_size 0.5, throat_diameter 11,
+                      mouthpiece_insertion 10, reed_strength 2.5, reed_model 0, temperature 22},
+  "groups": {low: register 1, mid: register 2 below D6, palm: D6–F#6 (f_target > 690 Hz), altissimo: register 3},
+  "entries": [{note, register, group, keys, f_target,
+               voicing: {pp|mf|ff: {control: value}},             // all 11 controls
+               achieved: {pp|mf|ff: {cents, db_re_mf, ok}},        // measured at the reference setup, from rest
+               robust: {pp|mf|ff: bool, slur_mf: bool}}],
+  "adaptation": {
+    "pressure_rule": lung = voicing.lung × p_M(setup; voicing lip) / p_M(reference; voicing lip),
+    "pM_reference": 6710 (Pa, default embouchure),
+    "lip_trim_cents_per_N": {group: c/N},                         // pitch feedback gain
+    "per_param": {setup param: {"lip_force": {group: N per unit}}},  // linear, setup clamped to validity
+    "validity": {setup param: [lo, hi]}, "notes": ...}}
+```
+
+Entries are matched by exact key set (standard, alternates, altissimo). Between dynamics the controls
+are interpolated linearly in the slider (pp 0, mf 0.5, ff 1). `tongue_length` is 0 throughout (it
+moved pitch but never made a note more robust).
+
+**Robustness criteria for an entry.** The voicing must sound in register and in tune: ±10 ¢ in
+register 1, ±15 ¢ in register 2, ±25 ¢ in altissimo. It must stay in register within tol + 15 ¢ when
+any one of these changes: lung ±10 %, lip ±0.15 N, tongue_x ±0.015. A pp voicing must additionally
+survive the adaptation rule on reed 2.0/3.5 and tip 1.6/2.5 (it sits near threshold). The mf voicing
+is also checked as a slur from the chromatic neighbour.
+
+**Similarity rule for pressure.** The reed oscillation depends on p_lung/p_M. p_M = K·H0/S_r is
+therefore the scale that carries a voicing across tip opening, facing and reed strength. p_M must be
+evaluated at the voicing's own lip controls. At pp (lip ≈ 3 N, 14–20 mm of mouthpiece) the static
+deflection saturates and p_M ≈ 2.1 kPa, so a hard reed raises it ×1.37, against ×1.14 at the default
+embouchure. Using the default-embouchure ratio costs 5–8 % success on reed and tip changes.
+
+**What the measured table shows** (2026-10, tree after round 7):
+* **mf.** 43 of 44 entries are within ±5 ¢. C#7 is −28 ¢ after the auto-path refit (lip 2.5 N, tongue
+  tip 0.9). A firmer lip would raise it (80 ¢/N), but at ≥ 2.8 N the note stops starting reliably.
+* **ff.** +4…+8 dB re mf, at 6–9 kPa. The voicing is a loose lip (0.25–0.65 N), little lip damping, an
+  open jaw and *less* mouthpiece (8–10 mm). With more mouthpiece at ff the note dies or flips to the
+  octave. Altissimo gets only +2…+5 dB.
+* **pp.** Robust pp reaches −8…−19 dB in registers 1–2 (median −11.6 dB through the engine's auto path),
+  not −20. The voicing is heavy lip (2–3 N),
+  more mouthpiece (14–20 mm), lip damping 0.6–1.0, at 1.2–2.4 kPa. The Hopf bifurcation is
+  subcritical (§11), so the softest sustained regime still has finite amplitude. Approaching it
+  from rest either fails to start or jumps to the octave. Altissimo has no pp at all: −1…−3 dB,
+  because threshold ≈ 3.3–3.6 kPa.
+* **Tract (register 1–2).** tongue_y, jaw_open and glottis move pitch by ≤ ±5 ¢ and do not change
+  the pp level. Tract choices matter only in altissimo, where the hole_table voicings are kept
+  ("voice first, then attack").
+
+**Auto-path refit.** In auto mode the engine attacks on the mf voicing and eases to the dynamic over
+about 0.3 s. The pp voicings for Bb3, Eb4, E4, E6, F6 and F#6, and C#7 at all three dynamics, were
+therefore re-searched through that path: `tools/auto_player_path.py` (render --auto --dynamic), with
+robustness required on default/soft/hard reed and on open tip.
+
+**Partial compensation of global detuning.** per_param does not try to compensate setups that detune
+the whole instrument (baffle + chamber, temperature, insertion). In register 1 the lip has ±10 ¢ of
+authority at most. A partial correction would leave registers 1 and 2 detuned by different amounts,
+which is worse than one uniform offset the user fixes with the cork.
+
+**Adaptation results** (12 representative notes × 3 dynamics; `adapt_rows` in tools/auto_player.json):
+
+| setup param | raw voicing works | with p_M scaling (+ lip trim) | validity |
+|---|---|---|---|
+| tip_opening 1.4 / 1.6 / 2.2 / 2.5 / 2.8 / 3.2 | 31 / 64 / 81 / 33 / 14 / 14 % | 78 / 97 / 97 / 92 / 86 / 67 % | 1.6–2.5 |
+| reed_strength 1.5 … 5 | 56–94 % | 94–100 % | 1.5–5 |
+| facing_length 16–30 | 100 % | 100 % | 15–30 |
+| baffle 0 / 0.6 / 1 | | 94 / 89 / 72 % (in tune) | 0–0.6 |
+| chamber 0 / 0.25 / 0.75 / 1 | | 50 / 72 / 67 / 28 % | 0.4–0.6 |
+| throat 8 / 14 / 16 mm | | 67 / 86 / 81 % | 10–15 |
+| insertion 0 / 5 / 15 / 20 mm | | 42 / 67 / 75 / 39 % | 8–12 |
+| temperature 10 / 16 / 28 / 34 °C | | 47 / 89 / 75 / 56 % | 16–26 |
+| reed_model 1 (beam) | 61 % | 56 % | not supported |
+
+* Tip opening and reed strength act through p_M. Once pressure is rescaled they need only a small lip
+  trim, which the `per_param` slopes provide.
+* Baffle, chamber, throat, insertion and temperature are tuning offsets. In register 1 no player
+  control has more than about ±10 ¢ of pitch authority before the note breaks: lip trim is 13 ¢/N,
+  against 50–80 ¢/N in registers 2–3. So a cork moved ±6 mm (±16–23 ¢) or a high baffle (+12–17 ¢)
+  leaves the low notes out of tune while they still sound. A real player retunes these with the cork,
+  not the lip, and that is what the validity range expresses.
+
+**Advice a player would recognise:**
+* pp: firmer lip, take more mouthpiece, lots of lip contact; blow just above threshold.
+* ff: drop the jaw, loosen the lip and take *less* mouthpiece. With a loose lip and a long free reed
+  the note collapses.
+* Altissimo: voice first, then attack. Keep the throat narrow (glottis ≈ 0.05), the tongue high and
+  forward, and a firm lip (2 N).
+* Low notes do not lip down. Tune with the cork.
+* Open tip or harder reed: blow proportionally harder (× p_M ratio).

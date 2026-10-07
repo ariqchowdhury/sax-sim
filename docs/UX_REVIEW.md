@@ -164,7 +164,36 @@ New e2e checks: drag-distance → value consistency at two zoom levels, lower-li
 one of lip position / force changes, and the card says which), mouthpiece cluster collapsed in the
 Instrument view and expanded in the Mouthpiece view.
 
-## 7. Still recommended
+## 7. Play mode (auto player)
+
+A **Play | Explore** switch in the top bar. **Play** is the default on a first visit: the product
+promise for a newcomer is "press keys, hear a saxophone", and Play makes every standard fingering
+speak in register at once (engine: 99/99 notes × pp/mf/ff at the default setup), while keeping the
+3D manipulation fully live. Mouthpiece and reed stay yours, and grabbing a player part takes it over.
+Explore (everything by hand) stays one click away and the choice is remembered.
+
+* **Bottom bar in Play:** a **Volume** slider (pp … ff → `dynamic`) replaces Air. The bar adds the
+  auto-player status (*adjusting… / locked / struggling — this setup makes the note hard*) and
+  **what the player is doing** in plain words ("tongue high and forward, firm lip, narrowed throat").
+  It also flags *nearest fingering* when the keys aren't an exact match.
+* **The anatomy animates** to the controls in effect, from engine telemetry; the context-card
+  sliders follow them and are marked *auto* ([altissimo](ux/after_play_03_altissimo_player_view.jpg)
+  vs [low C4](ux/after_play_04_low_C4_player_view.jpg)).
+* **Grab to take over:** dragging a player part sets its mask bit. A chip "you control the tongue ·
+  reset" appears ([chip](ux/after_play_06_take_over_chip.jpg)), and *reset* hands it back.
+* **Honest limits:**
+  * A setup outside the data's tuned ranges gets a gentle note.
+  * When recent notes run off by more than ±10 ¢ (a detuned horn the lip can't fix), a one-click
+    cork hint appears: "Instrument runs 22 ¢ sharp — pull the mouthpiece out ~7 mm · apply"
+    ([hint](ux/after_play_08_tuning_hint.jpg)).
+  * The Volume tooltip states the measured range: pp ≈ −12 dB, palm ≈ −8 dB, altissimo has no pp,
+    ff ≈ +5 dB.
+
+Screens: [first load, Play](ux/after_play_1440_01_firstload.jpg) ·
+[G4](ux/after_play_1440_02_note_G4.jpg) · [bright mouthpiece G5](ux/after_play_07_bright_mouthpiece_G5.jpg) ·
+[phone](ux/after_play_phone_02_note_G4.jpg).
+
+## 8. Still recommended
 
 1. A real 3D affordance for air: drag the diaphragm / rib cage, with the gauge as feedback only.
 2. Usability-test the defaults with 3–5 first-time users (do they find the Scopes / Controls

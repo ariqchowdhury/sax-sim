@@ -13,6 +13,8 @@
 //!   render --fingering G4 ... --features [--seed N]    features of the rendered note (JSON)
 //!   render --room rec.wav                              blind room / recording-quality estimate (JSON)
 //!          [--inst-t60 95]   instrument ring-down T60·f0 for --analyze/--room (default 95)
+//!   render --fingering G4 --auto [--dynamic 0.15]      auto player: it voices the note (pressure
+//!                                                      = breath gate), prints its controls/state
 //!   render --bench                                     µs per 128-sample block per oversampling
 
 use sax_engine::engine::Engine;
@@ -99,6 +101,9 @@ fn parse_args() -> Opts {
                 o.mode = "analyze".into();
             }
             "--features" => o.features = true,
+            // keys-only auto player (param auto_player = 1; --dynamic 0…1 sets the volume)
+            "--auto" => o.sets.push(("auto_player".into(), 1.0)),
+            "--dynamic" => o.sets.push(("dynamic".into(), next(&mut i).parse().expect("--dynamic 0..1"))),
             "--room" => {
                 o.analyze = Some(next(&mut i));
                 o.mode = "room".into();
@@ -384,6 +389,14 @@ fn render(o: &Opts, geom: &str) {
         el,
         o.seconds / el
     );
+    if e.param(Param::AutoPlayer) >= 0.5 {
+        let p = sax_engine::telemetry::IDX_PLAYER;
+        let t = &e.telemetry[p..p + sax_engine::telemetry::PLAYER_LEN];
+        let names = sax_engine::player::ctl::NAMES;
+        let ctl: Vec<String> = (0..10).map(|k| format!("{}={:.3}", names[k], t[k])).collect();
+        let state = ["idle", "settling", "locked", "struggling"].get(t[12] as usize).copied().unwrap_or("?");
+        println!("auto_player: {} fingering_index={} match={} state={}", ctl.join(" "), t[10], ["exact", "nearest", "default"].get(t[11] as usize).copied().unwrap_or("?"), state);
+    }
     if o.features {
         let t = o.target_hz.or(target.map(|t| t * o.ref_a / 440.0)).unwrap_or(0.0);
         let mut f = sax_engine::analysis::analyze(&r.out, e.fs as f32, t as f32);

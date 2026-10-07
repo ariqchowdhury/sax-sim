@@ -9,8 +9,9 @@ const STEPS: Step[] = [
     title: 'Blow',
     cam: 'full',
     body: `<p>Press and hold <b>Hold to blow</b> (bottom) or <kbd>Space</kbd>. Play notes on the keyboard —
-      <kbd>Z</kbd>…<kbd>M</kbd> and <kbd>Q</kbd>…<kbd>U</kbd> finger the sax <i>and</i> blow. The bar at the bottom
-      shows the note and how many cents off it is.</p>`,
+      <kbd>Z</kbd>…<kbd>M</kbd> and <kbd>Q</kbd>…<kbd>U</kbd> finger the sax <i>and</i> blow. In <b>Play</b> mode (top
+      left) set the <b>Volume</b> and the player voices every note for you; <b>Explore</b> hands you every control.
+      The bar at the bottom shows the note, how many cents off it is, and what the player is doing.</p>`,
   },
   {
     title: 'Grab the tongue',
@@ -18,7 +19,8 @@ const STEPS: Step[] = [
     cutaway: true,
     body: `<p>Parts you can grab glow softly and carry a <b>✋ tag</b>. While blowing, drag the <b>tongue</b> up and
       forward: the note bends, and the card on the left shows the vocal-tract resonance moving toward it. Drag the
-      <b>lungs</b> to blow harder or softer.</p>`,
+      <b>lungs</b> to blow harder or softer. In Play mode, grabbing a part takes it over from the auto player
+      (<i>reset</i> hands it back).</p>`,
   },
   {
     title: 'Lips & mouthpiece',

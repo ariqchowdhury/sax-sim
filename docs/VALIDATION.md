@@ -468,3 +468,54 @@ plays 15–78 cents below the vented TMM peak (largest for A5/Bb5 on the neck ve
 jet loss in the narrow vent and the reed's compliance near its resonance flatten the overblown
 notes. TMM alone is therefore not sufficient for register-2 tuning — always close the loop with the
 engine.
+
+## 9. Auto player end to end (`tools/auto_player.py validate [--engine]`)
+
+Test set: 44 entries (33 standard fingerings, 4 alternates, 7 altissimo G6–C#7) × pp/mf/ff × 7 setups.
+Every take is a 1.5 s attack from rest.
+* "Sounds" means valid in register, |cents| < 100.
+* "In tune" means ±10/15/25 ¢ (reg 1/2/3), +5 ¢ allowed off-reference.
+* "re offset" removes the setup's median tuning offset, i.e. the error after retuning with the cork.
+
+Two columns per metric:
+* **rule:** the table plus the adaptation rule applied in Python, with no feedback.
+* **engine:** the engine's `auto_player = 1` mode, with keys, `dynamic` and setup only. This includes
+  the register lock, pitch trim and altissimo gating.
+
+| setup | sounds (rule) | in tune (rule) | sounds (engine) | in tune (engine) | offset (engine) | in tune re offset (engine) |
+|---|---|---|---|---|---|---|
+| default | 100 % | 95.5 % | 99.2 % | 96.2 % | +2 ¢ | 96.2 % |
+| open tip 2.5 | 93.2 | 91.7 | 100 | 98.5 | +2 | 98.5 |
+| hard reed 3.5 | 93.9 | 93.2 | 97.7 | 97.7 | +3 | 97.7 |
+| soft reed 2.0 | 93.2 | 90.9 | 99.2 | 97.0 | +1 | 97.0 |
+| bright (baffle 0.9)* | 92.4 | 46.2 | 96.2 | 63.6 | +12 | 80.3 |
+| cork pushed (16 mm)* | 94.7 | 25.0 | 99.2 | 49.2 | +17 | 76.5 |
+| cork pulled (4 mm)* | 90.9 | 26.5 | 99.2 | 52.3 | −16 | 95.5 |
+
+\* Outside the validity range (`auto_player.adaptation.validity`). The engine columns are for the final
+table, after the auto-path refit described below. The rule columns are from the first table.
+
+Auto-path refit (`tools/auto_player_path.py`). The engine's auto path attacks on the mf voicing,
+eases to the dynamic over about 0.3 s, and backs off ×0.85 after a failure. Some from-rest pp
+voicings did not survive that path, so they were re-searched through `render --auto --dynamic`,
+requiring robustness on default, soft and hard reed and on open tip:
+* **pp refit:** Bb3 (now −19 dB, no longer jumps to the 12th), Eb4, E4, E6, F6, F#6.
+* **C#7 refit:** lip 2.5 N, tongue_tip 0.9, 4.0–4.8 kPa. It now sounds at −28 ¢ but has no dynamic
+  range.
+
+Steady-state levels through the auto path, measured 1.9–2.4 s after the attack (default setup,
+44 entries):
+* In tune: 132/132.
+* pp re mf: median −11.6 dB, range −19…0 dB. The altissimo pp is at 0…−1.5 dB.
+* ff re mf: median +5.4 dB, range +1.5…+8.2 dB.
+
+Engine-averaged levels such as "pp −13 dB" include the mf-voiced attack.
+
+Remaining failures:
+* **C#7.** −28…−31 ¢, and silent on a hard reed.
+* **Register-1 pp corner cases.** D4 pp −14…−16 ¢. E4 and B4 pp fail on some attacks.
+* **Out-of-range setups.** Their pitch offsets are register-1 notes the lip cannot pull by ±15–20 ¢.
+
+Base-table dynamics:
+* ff: +4…+8 dB re mf.
+* pp: −8…−18 dB in registers 1–2, and −1…−3 dB in altissimo (no altissimo pp: threshold ≈ 3.3 kPa).

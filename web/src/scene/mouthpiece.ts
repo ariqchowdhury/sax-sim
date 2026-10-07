@@ -356,7 +356,7 @@ export class MouthpieceModel {
   private updateReed(): void {
     const pa = this.reed.geometry.getAttribute('position') as THREE.BufferAttribute;
     const a = pa.array as Float32Array;
-    const lip = this.state.get(P.lip_position) / 1000;
+    const lip = this.state.shown.get(P.lip_position) / 1000; // effective value in Play mode
     const F = this.facing();
     const Lv = Math.max(F, lip + 0.004);
     const yTip = this.reedY;
@@ -391,7 +391,7 @@ export class MouthpieceModel {
   update(_dt: number, reedDisp: number | null): void {
     const s = this.state;
     // static estimate when no engine telemetry
-    const y = reedDisp ?? (this.tipOpening() * Math.min(0.85, 0.28 * s.get(P.lip_force)));
+    const y = reedDisp ?? (this.tipOpening() * Math.min(0.85, 0.28 * s.shown.get(P.lip_force)));
     // exaggerate only the oscillating part around the running mean (the static lip bend stays true to scale)
     this.reedMean += (y - this.reedMean) * (reedDisp === null ? 1 : 0.04);
     this.reedY = this.reedMean + (y - this.reedMean) * (reedDisp === null ? 1 : this.reedGain);

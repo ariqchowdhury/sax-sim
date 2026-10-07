@@ -55,7 +55,8 @@ export function buildPanel(container: HTMLElement, state: AppState, scene: Scene
   for (const g of GROUPS) {
     const f = gui.addFolder(g);
     if (g === 'Engine' || g === 'Environment') f.close();
-    for (const d of PARAMS.filter((p) => p.group === g)) {
+    // auto_player / its mask are driven by the Play / Explore switch, not sliders
+    for (const d of PARAMS.filter((p) => p.group === g && !p.name.startsWith('auto_player'))) {
       proxy[d.name] = state.get(d.id);
       const unit = d.unit && !d.unit.includes('–') ? ` (${d.unit})` : '';
       const c = f.add(proxy, d.name, d.min, d.max, d.step ?? (d.max - d.min) / 200).name(d.label + unit);

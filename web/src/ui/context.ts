@@ -77,6 +77,8 @@ export class ContextCard {
   private blurb: HTMLElement;
   private sliders: HTMLElement;
   private note: HTMLElement;
+  /** Play mode: the value a slider should show for a control the auto player drives (NaN = param) */
+  valueOf: ((id: number) => number) | null = null;
   /** called when the card opens / closes (layout, camera insets) */
   onChange: (() => void) | null = null;
 
@@ -179,6 +181,14 @@ export class ContextCard {
     if (v === 'scope') this.scope.draw(t, live);
     else if (v === 'spectrum') this.spectrum.draw(analyser, f0, sampleRate);
     else this.imp.draw(f0);
+    if (this.valueOf) {
+      for (const [id, r] of this.rows) {
+        const v = this.valueOf(id);
+        if (!Number.isFinite(v) || document.activeElement === r.input) continue;
+        if (Math.abs(Number(r.input.value) - v) > 1e-4) { r.input.value = String(v); r.out.value = formatParam(id, v); }
+        r.input.parentElement!.classList.toggle('auto', true);
+      }
+    }
     if (this.blowRow && document.activeElement !== this.blowRow.input) {
       const b = this.kb.opts.blowPressure;
       if (Number(this.blowRow.input.value) !== b) { this.blowRow.input.value = String(b); this.blowRow.out.value = `${b.toFixed(2)} kPa`; }

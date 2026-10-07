@@ -37,9 +37,13 @@ pub enum Param {
     Subglottal = 25,
     /// tongue-dorsum contact length (tract.rs)
     TongueLength = 26,
+    /// 0 = off (player_assist behaviour), 1 = keys-only auto player (player.rs)
+    AutoPlayer = 27,
+    /// bitmask over the 10 player controls (player::ctl) the user owns in auto mode
+    AutoPlayerMask = 28,
 }
 
-pub const NUM_PARAMS: usize = 27;
+pub const NUM_PARAMS: usize = 29;
 
 pub struct ParamDef {
     pub name: &'static str,
@@ -82,6 +86,8 @@ pub const PARAM_DEFS: [ParamDef; NUM_PARAMS] = [
     p!("dynamic", 0.0, 1.0, 0.5),
     p!("subglottal", 0.0, 1.0, 1.0),
     p!("tongue_length", 0.0, 1.0, 0.0),
+    p!("auto_player", 0.0, 1.0, 0.0),
+    p!("auto_player_mask", 0.0, 2047.0, 0.0),
 ];
 
 impl Param {
@@ -108,7 +114,7 @@ pub fn clamp_param(id: usize, v: f32) -> f32 {
         return d.default;
     }
     let mut x = v.max(d.min).min(d.max);
-    if id == Param::Oversample as usize || id == Param::ReedModel as usize || id == Param::Subglottal as usize {
+    if id == Param::Oversample as usize || id == Param::ReedModel as usize || id == Param::Subglottal as usize || id == Param::AutoPlayer as usize || id == Param::AutoPlayerMask as usize {
         x = x.round();
     }
     x

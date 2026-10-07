@@ -7,7 +7,7 @@ audio bridge in `engine/`). Run with `npm run dev`; build with `npm run build`.
 
 The 3D view fills the window; everything else is one deliberate click away.
 
-* **Top bar**: brand + status pill · camera views (*Instrument · Mouthpiece · Player · Keys*) ·
+* **Top bar**: brand + status pill · **Play | Explore** mode switch · camera views (*Instrument · Mouthpiece · Player · Keys*) ·
   **Layers ▾** (Cutaway, X-ray, Air-flow particles, Grab hints, Airway readouts) · **Scopes** ·
   **Controls** · **Coach** · **⋯** (Record WAV, Quick tour, Help & shortcuts).
 * **Now playing** (bottom centre): written note (large), cents meter, concert note + Hz, recognised
@@ -24,6 +24,56 @@ The 3D view fills the window; everything else is one deliberate click away.
   (bottom; <kbd>Shift</kbd>+<kbd>S</kbd>) the four visualizers, the tract-overlay checkbox and the
   pressure / flow / gap / level numbers. Esc closes a focused drawer. On phones (≤ 700 px) both are
   bottom sheets and Coach moves into ⋯.
+
+## Play / Explore (auto player)
+
+**Play** (default on a first visit; the choice is remembered in `saxsim.mode.v1`): press keys and
+set the **Volume** — the player voices every note for the current mouthpiece setup. **Explore**:
+every control is yours, exactly as before.
+
+* **Inputs**: keys in 3D, keyboard note mode, MIDI (velocity → `dynamic`, as before), Hold to blow /
+  Space. The **Volume** slider (pp … ff) drives `dynamic` and replaces the Air slider in Play mode.
+* **Now-playing bar**: the note plus the auto-player status — *adjusting…*, *locked* (within ±50 ¢ of
+  the fingering's target), *struggling — this setup makes the note hard* (not locked after 1.5 s),
+  *not a standard fingering* — and **what the player is doing** in plain words ("tongue high and
+  forward, firm lip, narrowed throat"), from the effective values.
+* **Anatomy**: tongue, lips, jaw, glottis and lungs animate to the effective values the player uses
+  (`AppState.shown`; the context-card sliders of those controls follow them and are marked *auto*).
+* **Grab to take over**: dragging a player part (or moving its slider in the context card / Controls)
+  sets that control's bit in `auto_player_mask`; a chip "you control the tongue · reset" appears in
+  the bar, and *reset* hands it back. Mouthpiece and reed handles stay yours in Play mode — change
+  the setup, hear the tone, the player adapts. Presets keep Play; changing *Player assist* by hand,
+  or loading a player from the coach, switches to Explore.
+* **Volume** expectations (engine measurements): pp ≈ −12 dB and ff ≈ +5 dB re mf; palm-key
+  notes go down to about −8 dB; altissimo has essentially no pp; C♯7 runs ≈ −28 ¢.
+* **Match type**: when the keys are not an exact fingering, the line adds *· nearest fingering*
+  (voiced as the closest one) or *· default voicing*.
+* **Setup outside the tuned range**: the ranges the auto player was tuned for are read at run time
+  from `data/alto_sax.json` → `auto_player.adaptation.validity` (tip opening, reed strength, facing,
+  baffle, chamber, throat, insertion, temperature; beam reed unsupported). Outside them, a gentle
+  note names the offending settings: "This setup is outside what the auto player was tuned for — …
+  Notes may be out of tune."
+* **Tuning hint**: the lip can only trim a few cents, so a setup that detunes the whole instrument
+  (temperature, cork position, extreme baffle / chamber) leaves every note off. Each note is sampled
+  once it has sounded in its register for 0.3 s; when the mean of the last 3–6 notes is beyond
+  ±10 ¢, a button says e.g. "Instrument runs 24 ¢ sharp — pull the mouthpiece out ~8 mm · apply";
+  one click moves the mouthpiece on the cork (≈ 3 ¢ per mm, the top of the measured 2–3 ¢/mm, so it
+  does not overshoot).
+* **Breath gate**: in Play mode the player blows at its own pressure whenever `lung_pressure` > 0;
+  Hold to blow / Space / note keys / MIDI note-on drive that gate as before, and Volume drives
+  `dynamic`. Taking over the lungs (mask bit 9) makes your pressure literal.
+* **Engine contract** (engine `player.rs`, docs/ARCHITECTURE.md): param 27 `auto_player` (0/1);
+  param 28 `auto_player_mask` (bits 0–9 = `AUTO_CONTROLS` lip_force, lip_position, lip_damping,
+  tongue_x, tongue_y, tongue_tip, tongue_length, jaw_open, glottis_open, lung_pressure; bit 10
+  reed_damping, not exposed in the UI). The telemetry block at `IDX_PLAYER` (`AUTO_TEL`, decoded by
+  `Telemetry.auto`) has the 10 controls in effect (valid in every mode; lung in kPa), the
+  recognised fingering, the match type (0 exact · 1 nearest · 2 default) and the state
+  (`AUTO_STATE` 0 idle · 1 settling · 2 locked · 3 struggling), which drive the anatomy, the
+  status and the "what the player is doing" line. Play mode also sets `player_assist` = 1 (restored
+  in Explore).
+* **Fallback** for an engine without the block (older builds): the anatomy shows an estimate
+  ("Player (est.)") mirrored from the older player model's documented feed-forward, and the status
+  comes from the pitch (`ui/autoPlayer.ts`).
 
 ## Start-up
 
@@ -173,8 +223,13 @@ keyboard or part of the current note-mode fingering.
   dominant tract resonance.
 * **3D cue**: the *vocal-tract resonance* label in the head shows the resonance, its strength and
   its distance in cents from the note (playing pitch, else the fingering's target); label and airway
-  turn **green** when a strong (≥ 10 MPa·s/m³) tract resonance lies between 150 ¢ below and 450 ¢
-  above the note (the series peak of Z_bore + Z_tract falls between them), amber within −500…+900 ¢. A *tract-supported* chip appears in the now-playing bar when it is; the tongue context card says it in words.
+  turn **green** when a strong (≥ 10 MPa·s/m³) tract resonance lies from just at to 400 ¢ above the
+  note (−30…+400 ¢; the series peak of Z_bore + Z_tract falls between them — the altissimo /
+  upper-register voicing), amber when it sits on a lower bore resonance (±50 ¢: may pull the note
+  down) or within −500…+900 ¢. The tongue card says it in words — "tuned just above the note —
+  supporting it", "may pull the note down", "near harmonic 2 — colours the tone", "little effect" —
+  and calls a weak (< 10 MPa·s/m³) resonance "neutral tongue" only when the tongue is actually low.
+  In Play mode the overlay is computed from the controls the auto player is using. A *tract-supported* chip appears in the now-playing bar when it is; the tongue context card says it in words.
 
 ## Tone coach (M9, docs/COACHING.md)
 

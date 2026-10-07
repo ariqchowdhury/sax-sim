@@ -278,6 +278,8 @@ export class Interaction {
     this.downXY.copy(this.mouse);
     this.controls.enabled = false;
     this.dom.setPointerCapture?.(e.pointerId);
+    // before begin(): the UI may set the part's values first (Play mode take-over)
+    this.onGrab?.(hit.p);
     hit.p.press?.(e);
     if (hit.p.drag) {
       this.dragStart.copy(hit.point);
@@ -293,7 +295,6 @@ export class Interaction {
       for (const o of hit.p.objects) if (o.userData.isHandle) setHandleActive(o, true);
     }
     this.setHover(hit.p);
-    this.onGrab?.(hit.p);
     this.dom.classList.add('grabbing');
   };
 

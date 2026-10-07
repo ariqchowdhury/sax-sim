@@ -19,7 +19,8 @@ import { setupTour } from './ui/tour';
 import { ContextCard, partKindOf, type PartKind } from './ui/context';
 import { GrabHints } from './ui/grabHints';
 import { HandleClusters } from './ui/clusters';
-import { P, PARAMS, formatParam } from './engine/params';
+import { AutoPlayer, CONTROL_GROUPS } from './ui/autoPlayer';
+import { AUTO_CONTROLS, P, PARAMS, formatParam } from './engine/params';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -77,9 +78,23 @@ function main(): void {
   };
   buildPanel($('panel'), state, scene, kb, { midi, vibrato, recorder, capture, ensureAudio });
   const ctx = new ContextCard($('context'), state, kb);
+  const ap = new AutoPlayer(state, engine, geo, kb, geo.keys.map((k) => k.id));
+  /** controls that shape the vocal tract (impedance overlay) */
+  const TRACT_IDS: number[] = [P.tongue_x, P.tongue_y, P.tongue_tip, P.tongue_length, P.jaw_open, P.glottis_open];
+  const tractSent = new Map<number, number>();
+  /** keep the impedance worker's tract on the values in effect (Play: auto player; Explore: params) */
+  const impTract = (): void => {
+    if (!imp) return;
+    for (const id of TRACT_IDS) {
+      const v = ap.mode === 'play' ? ap.value(id) : state.get(id);
+      const last = tractSent.get(id);
+      if (last === undefined ? v !== state.get(id) : Math.abs(v - last) > (ap.mode === 'play' ? 0.02 : 0)) { imp.setParam(id, v); tractSent.set(id, v); }
+    }
+  };
+  ctx.valueOf = (id) => (ap.mode === 'play' && !ap.owns(id) && (AUTO_CONTROLS as readonly number[]).includes(id) ? ap.value(id) : NaN);
 
   // debugging handle (console: __sax.state.set(0, 3) etc.)
-  (window as unknown as { __sax: unknown }).__sax = { state, scene, engine, kb, geo, midi, vibrato, recorder, capture, chart, ctx, get coach() { return coach; }, get imp() { return imp; }, get impPlot() { return impPlot; } };
+  (window as unknown as { __sax: unknown }).__sax = { state, scene, engine, kb, geo, midi, vibrato, recorder, capture, chart, ctx, ap, get coach() { return coach; }, get imp() { return imp; }, get impPlot() { return impPlot; } };
 
   // ---- status / start ------------------------------------------------------------------------
   const statusEl = $('status');
@@ -131,7 +146,9 @@ function main(): void {
       if (res.kind === 'tract') { impPlot.setTract(res); ctx.imp.setTract(res); }
       else { impPlot.setData(res); ctx.imp.setData(res); }
     };
-    state.onParam((id, v) => imp?.setParam(id, v));
+    // the tract overlay must describe the tract that is actually playing: in Play mode the auto
+    // player's controls in effect are fed from the frame loop (impTract below), not the base params
+    state.onParam((id, v) => { if (!(ap.mode === 'play' && TRACT_IDS.includes(id))) imp?.setParam(id, v); });
     state.onKeys(() => imp?.setKeys(state.keyDown));
   });
   const overlay = $('overlay');
@@ -328,12 +345,59 @@ function main(): void {
   air.addEventListener('input', () => { kb.opts.blowPressure = Number(air.value); syncAir(); });
   syncAir();
 
+  // ---- Play / Explore -------------------------------------------------------------------------
+  // Play (auto player): keys + Volume; the player voices each note for the current mouthpiece.
+  // Default for first-time users (press keys → a sax that speaks); the choice is remembered.
+  const modeBtns = document.querySelectorAll<HTMLButtonElement>('[data-mode]');
+  const vol = $<HTMLInputElement>('vol-range'), volOut = $<HTMLOutputElement>('vol-out');
+  const apStatus = $('ap-status'), apDoing = $('ap-doing'), apOwned = $('ap-owned'), apTune = $<HTMLButtonElement>('ap-tune');
+  apTune.addEventListener('click', () => ap.applyTuning());
+  const apSetup = $('ap-setup');
+  const dynName = (v: number): string => (v < 0.12 ? 'pp' : v < 0.3 ? 'p' : v < 0.45 ? 'mp' : v < 0.6 ? 'mf' : v < 0.8 ? 'f' : 'ff');
+  const syncVol = (): void => {
+    const d = state.get(P.dynamic);
+    if (document.activeElement !== vol && Math.abs(Number(vol.value) - d) > 1e-3) vol.value = String(d);
+    const t = dynName(d);
+    if (volOut.value !== t) volOut.value = t;
+  };
+  vol.addEventListener('input', () => { state.set(P.dynamic, Number(vol.value), 'volume'); syncVol(); });
+  const renderMode = (): void => {
+    document.body.classList.toggle('mode-play', ap.mode === 'play');
+    document.body.classList.toggle('mode-explore', ap.mode === 'explore');
+    modeBtns.forEach((b) => { const on = b.dataset.mode === ap.mode; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+    // "you control the tongue · reset" chips
+    apOwned.textContent = '';
+    if (ap.mode === 'play') {
+      for (const g of CONTROL_GROUPS) {
+        if (!g.ids.some((id) => ap.owns(id))) continue;
+        const chip = document.createElement('span');
+        chip.className = 'chip own';
+        chip.dataset.group = g.name;
+        chip.append(`you control the ${g.name} · `);
+        const reset = document.createElement('button');
+        reset.textContent = 'reset';
+        reset.title = `Hand the ${g.name} back to the auto player`;
+        reset.addEventListener('click', () => ap.release(g.ids));
+        chip.append(reset);
+        apOwned.append(chip);
+      }
+    }
+    syncVol();
+  };
+  ap.onChange = renderMode;
+  modeBtns.forEach((b) => b.addEventListener('click', () => ap.setMode(b.dataset.mode as 'play' | 'explore')));
+  ap.setMode(AutoPlayer.initialMode(), false);
+  renderMode();
+  syncVol();
+
   // ---- grabbing a part: context card, drag readout, hints ------------------------------------
   const keyObjects = new Set<object>([...scene.sax.keys.map((k) => k.group), ...scene.sax.holes.map((h) => h.pivot)]);
   const isKeyPart = (p: Pickable): boolean => p.objects.some((o) => keyObjects.has(o));
   const grab = { from: new Map<number, number>(), f0: 0 };
   scene.interaction.onGrab = (p) => {
     const m = partMeta(p);
+    // Play mode: grabbing a player part takes that control over from the auto player
+    if (m && ap.mode === 'play') ap.take(m.ids.filter((id) => (AUTO_CONTROLS as readonly number[]).includes(id)));
     const kind = m ? partKindOf(m.ids) : isKeyPart(p) ? 'keys' : null;
     if (kind) ctx.show(kind);
     grab.from.clear();
@@ -427,14 +491,15 @@ function main(): void {
     }
   });
   state.onParam((id, v) => { prevValues[id] = v; });
-  const fingerSets = geo.fingerings.map((f) => ({ name: f.note, keys: new Set(f.keys) }));
-  for (const a of geo.alternate_fingerings ?? []) fingerSets.push({ name: `${a.note} (${a.name ?? 'alt'})`, keys: new Set(a.keys) });
+  const fingerSets = geo.fingerings.map((f) => ({ name: f.note, full: f.note, keys: new Set(f.keys) }));
+  // alternates: short label in the bar, the full name (with its keys) in the tooltip
+  for (const a of geo.alternate_fingerings ?? []) fingerSets.push({ name: `${a.note} alt.`, full: `${a.note} (${a.name ?? 'alt'})`, keys: new Set(a.keys) });
   const updateFingering = (): void => {
     const down = new Set<string>();
     geo.keys.forEach((k, i) => { if (state.keyDown[i] > 0.5) down.add(k.id); });
     const m = fingerSets.find((f) => f.keys.size === down.size && [...f.keys].every((k) => down.has(k)));
     r.fingering.textContent = m ? `${m.name} fingering` : down.size ? `${down.size} keys: ${[...down].join(' ')}` : 'open (C♯5) fingering';
-    r.fingering.title = m ? `${m.name} (written)` : [...down].join(' ');
+    r.fingering.title = m ? `${m.full} (written)` : [...down].join(' ');
   };
   state.onKeys(updateFingering);
   updateFingering();
@@ -463,6 +528,7 @@ function main(): void {
       spectrum.draw(engine.analyser, live ? t.frequency : 0, engine.ctx?.sampleRate ?? 48000);
       impPlot.draw(live ? smoothedFreq : 0);
     }
+    ap.update(dt, live, smoothedFreq);
     ctx.draw(t, live, engine.analyser, live ? smoothedFreq : 0, engine.ctx?.sampleRate ?? 48000);
     labels.enabled = scene.opts.player && prefs.labels;
     labels.update();
@@ -473,6 +539,19 @@ function main(): void {
     acc = 0;
     syncToggles();
     syncAir();
+    syncVol();
+    if (ap.mode === 'play') {
+      set(apStatus, ap.statusText());
+      if (apStatus.dataset.s !== ap.status) apStatus.dataset.s = ap.status;
+      const match = ap.status === 'free' ? '' : ap.match === 1 ? ' · nearest fingering' : ap.match === 2 ? ' · default voicing' : '';
+      set(apDoing, `${ap.source === 'estimate' ? 'Player (est.): ' : 'Player: '}${ap.describe()}${match}`);
+      const note = ap.setupNote();
+      apSetup.hidden = !note;
+      if (note) set(apSetup, note);
+      const hint = ap.tuningHint();
+      apTune.hidden = !hint;
+      if (hint) set(apTune, `${hint.text} · apply`);
+    }
     if (kb.isBlowing !== wasBlowing) { wasBlowing = kb.isBlowing; blowBtn.classList.toggle('active', wasBlowing); }
     if (recorder.recording) { const s = Math.floor((performance.now() - recStart) / 1000); set($('rec-time'), `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`); }
     const f = live ? t.frequency : 0;
@@ -515,7 +594,7 @@ function main(): void {
       else if (k === 2) chips.push('<span class="chip r2" title="playing on impedance peak 2">2nd register</span>');
       else if (k >= 3) chips.push(`<span class="chip r3" title="playing on impedance peak ${k}">altissimo · peak ${k}</span>`);
       else chips.push('<span class="chip warn" title="not on a bore resonance">squeak / multiphonic?</span>');
-      if (impPlot.tractRes > 0 && impPlot.tractResMag >= 10e6 && (() => { const c = 1200 * Math.log2(impPlot.tractRes / f); return c > -150 && c < 450; })()) chips.push('<span class="chip r3">tract-supported</span>');
+      if (impPlot.tractRes > 0 && impPlot.tractResMag >= 10e6 && (() => { const c = 1200 * Math.log2(impPlot.tractRes / f); return c >= -30 && c <= 400; })()) chips.push('<span class="chip r3">tract-supported</span>');
       chips2 = rmax >= 0.92 * tip ? '<span class="chip">beating reed</span>' : '<span class="chip">non-beating</span>';
     }
     const html = chips.join('');
@@ -546,7 +625,11 @@ function main(): void {
       set(lb.mouth, '—');
       set(lb.reed, '—');
     }
-    // vocal-tract resonance vs the note (series impedance: strong tract peak near the note supports it)
+    // vocal-tract resonance vs the note. The reed sees Z_bore + Z_tract in series: a strong tract
+    // peak from just at to a few hundred cents ABOVE the playing frequency supports the note (that is
+    // the altissimo / upper-register voicing, docs/ALTISSIMO.md: up to about a minor third above);
+    // one sitting on a lower bore peak can pull the note down; elsewhere it does little.
+    impTract();
     {
       const entry = chart.recognisedEntry();
       const target = live && f > 20 ? smoothedFreq : entry?.f_target ?? 0;
@@ -559,13 +642,22 @@ function main(): void {
         if (target > 20) {
           const c = 1200 * Math.log2(tr / target);
           txt += ` · note ${Math.round(target)} Hz (${c >= 0 ? '+' : ''}${c.toFixed(0)}¢)`;
-          // a tract resonance supports a note from slightly below to a few hundred cents above it
-          // (the series peak of Z_bore + Z_tract sits between the two)
-          if (strong && c > -150 && c < 450) cue = 2;
-          else if (strong && c > -500 && c < 900) cue = 1;
-          plain += cue === 2 ? ' — tuned to the note: it supports it' : cue === 1 ? ` — close to the note (${signed(c)}¢)` : ` — far from the note ${Math.round(target)} Hz`;
+          const near = (fr: number): boolean => Math.abs(1200 * Math.log2(tr / fr)) <= 50;
+          const lowerPeak = impPlot.peaks.find((p) => p < target * 0.97 && near(p));
+          const harm = [2, 3].find((k) => near(k * target));
+          let where: string;
+          if (strong && c >= -30 && c <= 400) { cue = 2; where = `${signed(c)}¢: tuned just above the note — supporting it (altissimo / upper-register voicing)`; }
+          else if (strong && lowerPeak) { cue = 1; where = `on a lower bore resonance (${Math.round(lowerPeak)} Hz) — may pull the note down`; }
+          else if (strong && harm) { where = `near harmonic ${harm} of the note — colours the tone`; }
+          else where = `${signed(c)}¢ from the note — little effect`;
+          if (strong && cue !== 2 && c > -500 && c < 900 && !lowerPeak) cue = 1;
+          plain += ` — ${where}`;
         }
-        if (!strong) { txt += ' · weak (neutral tongue)'; plain += ' (weak: neutral tongue)'; }
+        if (!strong) {
+          const neutral = state.shown.get(P.tongue_y) < 0.5;
+          txt += ` · weak${neutral ? ' (neutral tongue)' : ''}`;
+          plain += ` (weak${neutral ? ': neutral tongue' : ''})`;
+        }
       } else if (impPlot.status !== 'computing…') txt = plain = impPlot.status;
       set(lb.tract, txt);
       const el = lb.tract.parentElement!;

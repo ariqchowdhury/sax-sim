@@ -16,6 +16,10 @@
           <span class="logo" aria-hidden="true"></span>
           <span class="title">Alto Sax</span>
           <button class="status" id="status" title="Audio engine — click to pause / resume"><span class="dot" aria-hidden="true"></span><span id="status-text">audio off</span></button>
+          <div class="seg mode" id="mode-seg" role="radiogroup" aria-label="Mode">
+            <button role="radio" data-mode="play" aria-checked="false" title="Play: press keys and set the volume — the player voices every note for the current mouthpiece. Grab a part of the player to take it over.">Play</button>
+            <button role="radio" data-mode="explore" aria-checked="false" title="Explore: you control every part of the player by hand">Explore</button>
+          </div>
           <button class="rec-pill" id="rec-pill" hidden title="Recording the output — click to stop and save the WAV">● REC <span id="rec-time">0:00</span></button>
         </div>
         <nav class="cams seg" id="cams" aria-label="Camera view">
@@ -70,15 +74,20 @@
             <div class="cents" title="Deviation from the nearest equal-tempered note"><div class="cents-bar"><span id="r-cents-needle"></span></div><span id="r-cents">±0¢</span></div>
             <div class="np-sub"><span id="r-note">—</span> concert · <span id="r-freq">0.0</span> Hz</div>
             <div class="np-sub"><span id="r-fingering">—</span> <span class="mode" id="r-mode"></span></div>
+            <div class="np-play" aria-live="polite"><span class="ap-status" id="ap-status">ready</span><span class="ap-doing" id="ap-doing" title="What the player is doing (effective values)"></span></div>
+            <div class="ap-setup" id="ap-setup" hidden></div>
+            <button class="ap-tune" id="ap-tune" hidden title="The auto player's lip can only trim a few cents; tune the instrument with the mouthpiece on the cork (one click applies it)"></button>
           </div>
           <div class="np-right">
             <div class="regime" id="r-regime"><span class="chip">audio off</span></div>
             <div class="level" title="Output level"><span id="r-level"></span></div>
+            <div class="ap-owned" id="ap-owned"></div>
           </div>
         </div>
         <div class="blowbox">
           <button id="blow-btn" class="blow" aria-pressed="false" title="Hold to blow (or hold Space)"><span class="blow-dot" aria-hidden="true"></span><span>Hold to blow</span><kbd>Space</kbd></button>
-          <label class="air" title="Blowing pressure used by Hold to blow, Space and the note keys (drag the lungs for the same)"><span>Air</span><input type="range" id="air-range" min="0.5" max="8" step="0.1" value="3" aria-label="Blowing pressure (kPa)" /><output id="air-out">3.0 kPa</output></label>
+          <label class="air vol" title="Volume (pp … ff): the player sets air and embouchure for the dynamic. Expect pp ≈ −12 dB and ff ≈ +5 dB re mf; palm-key notes go down to about −8 dB, and altissimo has essentially no pp."><span>Volume</span><input type="range" id="vol-range" min="0" max="1" step="0.01" value="0.5" aria-label="Volume (pp to ff)" /><output id="vol-out">mf</output></label>
+          <label class="air blowp" title="Blowing pressure used by Hold to blow, Space and the note keys (drag the lungs for the same)"><span>Air</span><input type="range" id="air-range" min="0.5" max="8" step="0.1" value="3" aria-label="Blowing pressure (kPa)" /><output id="air-out">3.0 kPa</output></label>
         </div>
         <div class="delta" id="r-delta" aria-live="polite"></div>
       </section>

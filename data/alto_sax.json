@@ -4100,5 +4100,3517 @@
     "jaw_open": 0.15
    }
   }
- ]
+ ],
+ "auto_player": {
+  "version": 1,
+  "controls": [
+   "lip_force",
+   "lip_position",
+   "lip_damping",
+   "tongue_x",
+   "tongue_y",
+   "tongue_tip",
+   "tongue_length",
+   "jaw_open",
+   "glottis_open",
+   "lung_pressure",
+   "reed_damping"
+  ],
+  "dynamics": {
+   "pp": {
+    "target_db_re_mf": -20.0,
+    "slider": 0.0
+   },
+   "mf": {
+    "target_db_re_mf": 0.0,
+    "slider": 0.5
+   },
+   "ff": {
+    "target_db_re_mf": 6.0,
+    "slider": 1.0
+   }
+  },
+  "setup_reference": {
+   "tip_opening": 1.9,
+   "facing_length": 22.0,
+   "baffle_height": 0.3,
+   "chamber_size": 0.5,
+   "throat_diameter": 11.0,
+   "mouthpiece_insertion": 10.0,
+   "reed_strength": 2.5,
+   "reed_model": 0,
+   "temperature": 22.0
+  },
+  "groups": {
+   "low": "register 1",
+   "mid": "register 2 below D6",
+   "palm": "register 2, D6-F#6 (palm keys)",
+   "altissimo": "register 3"
+  },
+  "entries": [
+   {
+    "note": "Bb3",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "LH2",
+     "LH3",
+     "RH1",
+     "RH2",
+     "RH3",
+     "LH_Bb"
+    ],
+    "f_target": 138.591,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.8,
+      "lip_position": 18.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.8,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.25,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.65,
+      "lip_position": 8.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -0.8,
+      "db_re_mf": -18.9,
+      "ok": true,
+      "via": "auto path"
+     },
+     "mf": {
+      "cents": -1.1,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": -0.4,
+      "db_re_mf": 6.1,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true
+    }
+   },
+   {
+    "note": "B3",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "LH2",
+     "LH3",
+     "RH1",
+     "RH2",
+     "RH3",
+     "LH_B"
+    ],
+    "f_target": 146.832,
+    "voicing": {
+     "pp": {
+      "lip_force": 1.7,
+      "lip_position": 18.0,
+      "lip_damping": 0.6,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.35,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.2,
+      "lip_position": 10.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -0.3,
+      "db_re_mf": -9.1,
+      "ok": true
+     },
+     "mf": {
+      "cents": 0.4,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 0.1,
+      "db_re_mf": 6.3,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "C4",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "LH2",
+     "LH3",
+     "RH1",
+     "RH2",
+     "RH3",
+     "RH_C"
+    ],
+    "f_target": 155.563,
+    "voicing": {
+     "pp": {
+      "lip_force": 1.7,
+      "lip_position": 16.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.6,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 4.0,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.4,
+      "lip_position": 10.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 3.4,
+      "db_re_mf": -8.2,
+      "ok": true
+     },
+     "mf": {
+      "cents": -2.0,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": -0.8,
+      "db_re_mf": 4.6,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "C#4",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "LH2",
+     "LH3",
+     "RH1",
+     "RH2",
+     "RH3",
+     "LH_Cs"
+    ],
+    "f_target": 164.814,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.5,
+      "lip_position": 14.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.4,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 0.95,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.55,
+      "lip_position": 8.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 7.5,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 0.5,
+      "db_re_mf": -18.5,
+      "ok": true
+     },
+     "mf": {
+      "cents": 0.2,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 1.5,
+      "db_re_mf": 5.7,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": false,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "D4",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "LH2",
+     "LH3",
+     "RH1",
+     "RH2",
+     "RH3"
+    ],
+    "f_target": 174.614,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.0,
+      "lip_position": 18.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.9,
+      "lip_position": 8.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 7.5,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -7.5,
+      "db_re_mf": -10.9,
+      "ok": true
+     },
+     "mf": {
+      "cents": -0.1,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 4.9,
+      "db_re_mf": 5.5,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "Eb4",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "LH2",
+     "LH3",
+     "RH1",
+     "RH2",
+     "RH3",
+     "RH_Eb"
+    ],
+    "f_target": 184.997,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.8,
+      "lip_position": 14.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.4,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.15,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.0,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.6,
+      "lip_position": 10.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -1.0,
+      "db_re_mf": -10.9,
+      "ok": true,
+      "via": "auto path"
+     },
+     "mf": {
+      "cents": 0.1,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 3.3,
+      "db_re_mf": 5.7,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": false,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "E4",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "LH2",
+     "LH3",
+     "RH1",
+     "RH2"
+    ],
+    "f_target": 195.998,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.8,
+      "lip_position": 14.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.4,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.2,
+      "lip_position": 8.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 1.0,
+      "db_re_mf": -12.9,
+      "ok": true,
+      "via": "auto path"
+     },
+     "mf": {
+      "cents": -0.0,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 2.2,
+      "db_re_mf": 5.6,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "F4",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "LH2",
+     "LH3",
+     "RH1"
+    ],
+    "f_target": 207.652,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.2,
+      "lip_position": 16.0,
+      "lip_damping": 0.6,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.4,
+      "lip_position": 12.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -0.6,
+      "db_re_mf": -11.4,
+      "ok": true
+     },
+     "mf": {
+      "cents": 0.5,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 0.1,
+      "db_re_mf": 4.7,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "F#4",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "LH2",
+     "LH3",
+     "RH2"
+    ],
+    "f_target": 220.0,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.35,
+      "lip_position": 16.0,
+      "lip_damping": 0.6,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.6,
+      "lip_position": 12.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 7.5,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 0.3,
+      "db_re_mf": -12.3,
+      "ok": true
+     },
+     "mf": {
+      "cents": 0.5,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 0.5,
+      "db_re_mf": 4.9,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "G4",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "LH2",
+     "LH3"
+    ],
+    "f_target": 233.082,
+    "voicing": {
+     "pp": {
+      "lip_force": 3.0,
+      "lip_position": 16.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.8,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.25,
+      "lip_position": 8.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -2.9,
+      "db_re_mf": -16.8,
+      "ok": true
+     },
+     "mf": {
+      "cents": -0.4,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": -0.7,
+      "db_re_mf": 5.9,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": false,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "G#4",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "LH2",
+     "LH3",
+     "LH_Gs"
+    ],
+    "f_target": 246.942,
+    "voicing": {
+     "pp": {
+      "lip_force": 3.0,
+      "lip_position": 18.0,
+      "lip_damping": 0.6,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.6,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.4,
+      "lip_position": 10.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -2.1,
+      "db_re_mf": -16.0,
+      "ok": true
+     },
+     "mf": {
+      "cents": 0.5,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 3.6,
+      "db_re_mf": 5.3,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": false,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "A4",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "LH2"
+    ],
+    "f_target": 261.626,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.7,
+      "lip_position": 18.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.4,
+      "lip_position": 8.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 3.2,
+      "db_re_mf": -14.0,
+      "ok": true
+     },
+     "mf": {
+      "cents": 0.6,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 2.9,
+      "db_re_mf": 5.3,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "Bb4",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "BIS"
+    ],
+    "f_target": 277.183,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.7,
+      "lip_position": 18.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.2,
+      "lip_position": 8.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 6.0,
+      "db_re_mf": -13.0,
+      "ok": true
+     },
+     "mf": {
+      "cents": 0.8,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 1.6,
+      "db_re_mf": 6.7,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "B4",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1"
+    ],
+    "f_target": 293.665,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.7,
+      "lip_position": 20.0,
+      "lip_damping": 0.6,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.4,
+      "lip_position": 8.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 1.9,
+      "db_re_mf": -12.2,
+      "ok": true
+     },
+     "mf": {
+      "cents": -0.0,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": -0.5,
+      "db_re_mf": 5.2,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "C5",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH2"
+    ],
+    "f_target": 311.127,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.7,
+      "lip_position": 18.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.4,
+      "lip_position": 8.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 1.1,
+      "db_re_mf": -15.3,
+      "ok": true
+     },
+     "mf": {
+      "cents": -0.4,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 3.0,
+      "db_re_mf": 5.5,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "C#5",
+    "register": 1,
+    "group": "low",
+    "keys": [],
+    "f_target": 329.628,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.7,
+      "lip_position": 18.0,
+      "lip_damping": 0.6,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.4,
+      "lip_position": 10.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 1.0,
+      "db_re_mf": -13.0,
+      "ok": true
+     },
+     "mf": {
+      "cents": -0.9,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 2.9,
+      "db_re_mf": 5.8,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "D5",
+    "register": 2,
+    "group": "mid",
+    "keys": [
+     "OCT",
+     "LH1",
+     "LH2",
+     "LH3",
+     "RH1",
+     "RH2",
+     "RH3"
+    ],
+    "f_target": 349.228,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.7,
+      "lip_position": 20.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 0.6,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.0,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.4,
+      "lip_position": 12.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 5.8,
+      "db_re_mf": -14.3,
+      "ok": true
+     },
+     "mf": {
+      "cents": 1.1,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 5.7,
+      "db_re_mf": 4.1,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "Eb5",
+    "register": 2,
+    "group": "mid",
+    "keys": [
+     "OCT",
+     "LH1",
+     "LH2",
+     "LH3",
+     "RH1",
+     "RH2",
+     "RH3",
+     "RH_Eb"
+    ],
+    "f_target": 369.994,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.7,
+      "lip_position": 18.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 0.6,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 4.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.4,
+      "lip_position": 10.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 9.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 5.2,
+      "db_re_mf": -17.1,
+      "ok": true
+     },
+     "mf": {
+      "cents": 0.6,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 8.2,
+      "db_re_mf": 5.0,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "E5",
+    "register": 2,
+    "group": "mid",
+    "keys": [
+     "OCT",
+     "LH1",
+     "LH2",
+     "LH3",
+     "RH1",
+     "RH2"
+    ],
+    "f_target": 391.995,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.7,
+      "lip_position": 18.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.4,
+      "lip_position": 8.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 7.5,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 1.6,
+      "db_re_mf": -16.3,
+      "ok": true
+     },
+     "mf": {
+      "cents": -1.7,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 2.7,
+      "db_re_mf": 6.1,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "F5",
+    "register": 2,
+    "group": "mid",
+    "keys": [
+     "OCT",
+     "LH1",
+     "LH2",
+     "LH3",
+     "RH1"
+    ],
+    "f_target": 415.305,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.3,
+      "lip_position": 16.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.2,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.6,
+      "lip_position": 8.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -1.7,
+      "db_re_mf": -12.0,
+      "ok": true
+     },
+     "mf": {
+      "cents": -0.3,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": -0.3,
+      "db_re_mf": 5.8,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "F#5",
+    "register": 2,
+    "group": "mid",
+    "keys": [
+     "OCT",
+     "LH1",
+     "LH2",
+     "LH3",
+     "RH2"
+    ],
+    "f_target": 440.0,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.7,
+      "lip_position": 20.0,
+      "lip_damping": 0.6,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 4.0,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.45,
+      "lip_position": 10.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 7.5,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -1.0,
+      "db_re_mf": -11.6,
+      "ok": true
+     },
+     "mf": {
+      "cents": -1.1,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 1.2,
+      "db_re_mf": 5.2,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "G5",
+    "register": 2,
+    "group": "mid",
+    "keys": [
+     "OCT",
+     "LH1",
+     "LH2",
+     "LH3"
+    ],
+    "f_target": 466.164,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.5,
+      "lip_position": 20.0,
+      "lip_damping": 0.6,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 4.0,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.6,
+      "lip_position": 10.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 7.5,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -0.6,
+      "db_re_mf": -10.9,
+      "ok": true
+     },
+     "mf": {
+      "cents": 2.6,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 1.0,
+      "db_re_mf": 5.5,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "G#5",
+    "register": 2,
+    "group": "mid",
+    "keys": [
+     "OCT",
+     "LH1",
+     "LH2",
+     "LH3",
+     "LH_Gs"
+    ],
+    "f_target": 493.883,
+    "voicing": {
+     "pp": {
+      "lip_force": 1.85,
+      "lip_position": 18.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.4,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 0.8,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 4.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.6,
+      "lip_position": 8.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 9.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 0.7,
+      "db_re_mf": -10.4,
+      "ok": true
+     },
+     "mf": {
+      "cents": 0.7,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 8.8,
+      "db_re_mf": 6.0,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "A5",
+    "register": 2,
+    "group": "mid",
+    "keys": [
+     "OCT",
+     "LH1",
+     "LH2"
+    ],
+    "f_target": 523.251,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.2,
+      "lip_position": 20.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 0.75,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 4.0,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.4,
+      "lip_position": 12.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -3.8,
+      "db_re_mf": -13.5,
+      "ok": true
+     },
+     "mf": {
+      "cents": 4.5,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 1.4,
+      "db_re_mf": 4.8,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "Bb5",
+    "register": 2,
+    "group": "mid",
+    "keys": [
+     "OCT",
+     "LH1",
+     "BIS"
+    ],
+    "f_target": 554.365,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.5,
+      "lip_position": 20.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 0.8,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.4,
+      "lip_position": 12.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 3.3,
+      "db_re_mf": -12.9,
+      "ok": true
+     },
+     "mf": {
+      "cents": -1.6,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": -1.9,
+      "db_re_mf": 6.4,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "B5",
+    "register": 2,
+    "group": "mid",
+    "keys": [
+     "OCT",
+     "LH1"
+    ],
+    "f_target": 587.33,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.5,
+      "lip_position": 20.0,
+      "lip_damping": 0.6,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.6,
+      "lip_position": 8.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -1.1,
+      "db_re_mf": -11.1,
+      "ok": true
+     },
+     "mf": {
+      "cents": -1.9,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": -1.0,
+      "db_re_mf": 5.2,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "C6",
+    "register": 2,
+    "group": "mid",
+    "keys": [
+     "OCT",
+     "LH2"
+    ],
+    "f_target": 622.254,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.7,
+      "lip_position": 18.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.2,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.6,
+      "lip_position": 10.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 3.5,
+      "db_re_mf": -11.9,
+      "ok": true
+     },
+     "mf": {
+      "cents": 1.7,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 1.4,
+      "db_re_mf": 5.5,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "C#6",
+    "register": 2,
+    "group": "mid",
+    "keys": [
+     "OCT"
+    ],
+    "f_target": 659.255,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.5,
+      "lip_position": 18.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.4,
+      "lip_position": 12.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 3.4,
+      "db_re_mf": -11.3,
+      "ok": true
+     },
+     "mf": {
+      "cents": 1.4,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": -1.1,
+      "db_re_mf": 8.2,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "D6",
+    "register": 2,
+    "group": "palm",
+    "keys": [
+     "OCT",
+     "LH_palm_D"
+    ],
+    "f_target": 698.456,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.5,
+      "lip_position": 18.0,
+      "lip_damping": 0.6,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 4.0,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.4,
+      "lip_position": 10.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -0.6,
+      "db_re_mf": -12.3,
+      "ok": true
+     },
+     "mf": {
+      "cents": 0.6,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 1.8,
+      "db_re_mf": 5.5,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "Eb6",
+    "register": 2,
+    "group": "palm",
+    "keys": [
+     "OCT",
+     "LH_palm_D",
+     "LH_palm_Eb"
+    ],
+    "f_target": 739.989,
+    "voicing": {
+     "pp": {
+      "lip_force": 3.0,
+      "lip_position": 18.0,
+      "lip_damping": 0.6,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 4.0,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.6,
+      "lip_position": 12.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 6.9,
+      "db_re_mf": -22.1,
+      "ok": true
+     },
+     "mf": {
+      "cents": 0.4,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": -1.3,
+      "db_re_mf": 5.9,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": false,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "E6",
+    "register": 2,
+    "group": "palm",
+    "keys": [
+     "OCT",
+     "LH_palm_D",
+     "LH_palm_Eb",
+     "RH_side_E"
+    ],
+    "f_target": 783.991,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.0,
+      "lip_position": 16.0,
+      "lip_damping": 0.8,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.8,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.4,
+      "lip_position": 8.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -3.7,
+      "db_re_mf": -9.4,
+      "ok": true,
+      "via": "auto path"
+     },
+     "mf": {
+      "cents": -1.1,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 4.7,
+      "db_re_mf": 7.0,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "F6",
+    "register": 2,
+    "group": "palm",
+    "keys": [
+     "OCT",
+     "LH_palm_D",
+     "LH_palm_Eb",
+     "RH_side_E",
+     "LH_palm_F"
+    ],
+    "f_target": 830.609,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.0,
+      "lip_position": 16.0,
+      "lip_damping": 0.8,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.8,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.7,
+      "lip_position": 10.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 0.4,
+      "db_re_mf": -8.8,
+      "ok": true,
+      "via": "auto path"
+     },
+     "mf": {
+      "cents": -0.5,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 4.6,
+      "db_re_mf": 5.8,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "F#6",
+    "register": 2,
+    "group": "palm",
+    "keys": [
+     "OCT",
+     "LH_palm_D",
+     "LH_palm_Eb",
+     "RH_side_E",
+     "LH_palm_F",
+     "RH_high_Fs"
+    ],
+    "f_target": 880.0,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.0,
+      "lip_position": 16.0,
+      "lip_damping": 0.8,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 2.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.2,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.8,
+      "lip_position": 10.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 0.7,
+      "db_re_mf": -7.5,
+      "ok": true,
+      "via": "auto path"
+     },
+     "mf": {
+      "cents": 1.1,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 4.8,
+      "db_re_mf": 5.6,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "Bb4 (side Bb)",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "RH_side_Bb"
+    ],
+    "f_target": 277.183,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.7,
+      "lip_position": 18.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.0,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.2,
+      "lip_position": 8.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 6.0,
+      "db_re_mf": -13.0,
+      "ok": true
+     },
+     "mf": {
+      "cents": 0.8,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 1.6,
+      "db_re_mf": 6.7,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true
+    }
+   },
+   {
+    "note": "Bb4 (1 and 1)",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "RH1"
+    ],
+    "f_target": 277.183,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.7,
+      "lip_position": 18.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.2,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.0,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.2,
+      "lip_position": 8.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 2.4,
+      "db_re_mf": -12.1,
+      "ok": true
+     },
+     "mf": {
+      "cents": -1.0,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": -1.6,
+      "db_re_mf": 7.7,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true
+    }
+   },
+   {
+    "note": "C5 (side C)",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "RH_side_C"
+    ],
+    "f_target": 311.127,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.7,
+      "lip_position": 18.0,
+      "lip_damping": 1.0,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.2,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 1.2,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.5,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.4,
+      "lip_position": 12.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -0.2,
+      "db_re_mf": -12.5,
+      "ok": true
+     },
+     "mf": {
+      "cents": 1.8,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 1.6,
+      "db_re_mf": 5.4,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true
+    }
+   },
+   {
+    "note": "F#4 (alt F# (RH3))",
+    "register": 1,
+    "group": "low",
+    "keys": [
+     "LH1",
+     "LH2",
+     "LH3",
+     "RH3"
+    ],
+    "f_target": 220.0,
+    "voicing": {
+     "pp": {
+      "lip_force": 3.0,
+      "lip_position": 20.0,
+      "lip_damping": 0.6,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 1.4,
+      "reed_damping": 0.3
+     },
+     "mf": {
+      "lip_force": 0.6,
+      "lip_position": 12.0,
+      "lip_damping": 0.4,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.3,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.0,
+      "reed_damping": 0.3
+     },
+     "ff": {
+      "lip_force": 0.55,
+      "lip_position": 10.0,
+      "lip_damping": 0.15,
+      "tongue_x": 0.5,
+      "tongue_y": 0.4,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.5,
+      "glottis_open": 0.8,
+      "lung_pressure": 9.0,
+      "reed_damping": 0.3
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -3.9,
+      "db_re_mf": -18.3,
+      "ok": true
+     },
+     "mf": {
+      "cents": 1.7,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 10.7,
+      "db_re_mf": 5.9,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": false,
+     "mf": true,
+     "ff": true
+    }
+   },
+   {
+    "note": "G6",
+    "register": 3,
+    "group": "altissimo",
+    "keys": [
+     "OCT",
+     "LH1",
+     "LH_Gs"
+    ],
+    "f_target": 932.328,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.25,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.09,
+      "tongue_y": 0.96,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.05,
+      "lung_pressure": 3.3,
+      "reed_damping": 0.1
+     },
+     "mf": {
+      "lip_force": 2.2,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.09,
+      "tongue_y": 0.96,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.05,
+      "lung_pressure": 4.0,
+      "reed_damping": 0.1
+     },
+     "ff": {
+      "lip_force": 1.85,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.09,
+      "tongue_y": 0.96,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.05,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.1
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -5.2,
+      "db_re_mf": -1.0,
+      "ok": true
+     },
+     "mf": {
+      "cents": 1.0,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": -0.1,
+      "db_re_mf": 3.9,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": false
+    }
+   },
+   {
+    "note": "G#6",
+    "register": 3,
+    "group": "altissimo",
+    "keys": [
+     "OCT",
+     "LH1",
+     "BIS",
+     "RH_side_C",
+     "LH_Gs"
+    ],
+    "f_target": 987.767,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.1,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.12,
+      "tongue_y": 0.9,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.05,
+      "lung_pressure": 3.6,
+      "reed_damping": 0.1
+     },
+     "mf": {
+      "lip_force": 1.8,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.12,
+      "tongue_y": 0.9,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.05,
+      "lung_pressure": 4.5,
+      "reed_damping": 0.1
+     },
+     "ff": {
+      "lip_force": 1.65,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.12,
+      "tongue_y": 0.9,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.05,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.1
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 14.6,
+      "db_re_mf": -1.5,
+      "ok": true
+     },
+     "mf": {
+      "cents": 3.7,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 6.0,
+      "db_re_mf": 2.8,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "A6",
+    "register": 3,
+    "group": "altissimo",
+    "keys": [
+     "OCT",
+     "LH2",
+     "RH_side_C",
+     "RH1"
+    ],
+    "f_target": 1046.502,
+    "voicing": {
+     "pp": {
+      "lip_force": 1.5,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.09,
+      "tongue_y": 0.9,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.6,
+      "reed_damping": 0.1
+     },
+     "mf": {
+      "lip_force": 1.45,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.09,
+      "tongue_y": 0.9,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.8,
+      "lung_pressure": 4.5,
+      "reed_damping": 0.1
+     },
+     "ff": {
+      "lip_force": 1.3,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.09,
+      "tongue_y": 0.9,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.1
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -1.0,
+      "db_re_mf": -2.9,
+      "ok": true
+     },
+     "mf": {
+      "cents": 2.5,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": -3.8,
+      "db_re_mf": 2.1,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "Bb6",
+    "register": 3,
+    "group": "altissimo",
+    "keys": [
+     "OCT",
+     "LH_Gs"
+    ],
+    "f_target": 1108.731,
+    "voicing": {
+     "pp": {
+      "lip_force": 1.5,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.09,
+      "tongue_y": 0.85,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.6,
+      "reed_damping": 0.1
+     },
+     "mf": {
+      "lip_force": 1.45,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.09,
+      "tongue_y": 0.85,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.8,
+      "lung_pressure": 4.0,
+      "reed_damping": 0.1
+     },
+     "ff": {
+      "lip_force": 1.45,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.09,
+      "tongue_y": 0.85,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.1
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -4.0,
+      "db_re_mf": -1.3,
+      "ok": true
+     },
+     "mf": {
+      "cents": -4.9,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 2.8,
+      "db_re_mf": 4.1,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "B6",
+    "register": 3,
+    "group": "altissimo",
+    "keys": [
+     "OCT",
+     "LH_palm_D",
+     "RH_side_C",
+     "RH3"
+    ],
+    "f_target": 1174.659,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.4,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.09,
+      "tongue_y": 0.8,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.6,
+      "reed_damping": 0.1
+     },
+     "mf": {
+      "lip_force": 2.35,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.09,
+      "tongue_y": 0.8,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.8,
+      "lung_pressure": 4.5,
+      "reed_damping": 0.1
+     },
+     "ff": {
+      "lip_force": 2.1,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.09,
+      "tongue_y": 0.8,
+      "tongue_tip": 0.3,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.8,
+      "lung_pressure": 5.5,
+      "reed_damping": 0.1
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": 0.7,
+      "db_re_mf": -1.9,
+      "ok": true
+     },
+     "mf": {
+      "cents": 1.3,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": -5.4,
+      "db_re_mf": 2.5,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "C7",
+    "register": 3,
+    "group": "altissimo",
+    "keys": [
+     "OCT",
+     "LH1",
+     "LH2",
+     "LH_palm_D",
+     "RH1",
+     "RH3"
+    ],
+    "f_target": 1244.508,
+    "voicing": {
+     "pp": {
+      "lip_force": 1.5,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.0,
+      "tongue_y": 0.6,
+      "tongue_tip": 0.8,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.8,
+      "lung_pressure": 3.6,
+      "reed_damping": 0.1
+     },
+     "mf": {
+      "lip_force": 1.45,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.0,
+      "tongue_y": 0.6,
+      "tongue_tip": 0.8,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.8,
+      "lung_pressure": 4.0,
+      "reed_damping": 0.1
+     },
+     "ff": {
+      "lip_force": 1.45,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.0,
+      "tongue_y": 0.6,
+      "tongue_tip": 0.8,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.8,
+      "lung_pressure": 6.0,
+      "reed_damping": 0.1
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -3.9,
+      "db_re_mf": -1.5,
+      "ok": true
+     },
+     "mf": {
+      "cents": -2.8,
+      "db_re_mf": 0.0,
+      "ok": true
+     },
+     "ff": {
+      "cents": 6.4,
+      "db_re_mf": 5.0,
+      "ok": true
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": true
+    }
+   },
+   {
+    "note": "C#7",
+    "register": 3,
+    "group": "altissimo",
+    "keys": [
+     "OCT",
+     "LH1",
+     "LH_palm_D",
+     "LH_palm_Eb",
+     "RH1"
+    ],
+    "f_target": 1318.51,
+    "voicing": {
+     "pp": {
+      "lip_force": 2.5,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.0,
+      "tongue_y": 0.65,
+      "tongue_tip": 0.9,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.4,
+      "lung_pressure": 4.0,
+      "reed_damping": 0.1
+     },
+     "mf": {
+      "lip_force": 2.5,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.0,
+      "tongue_y": 0.65,
+      "tongue_tip": 0.9,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.4,
+      "lung_pressure": 4.4,
+      "reed_damping": 0.1
+     },
+     "ff": {
+      "lip_force": 2.5,
+      "lip_position": 11.0,
+      "lip_damping": 0.2,
+      "tongue_x": 0.0,
+      "tongue_y": 0.65,
+      "tongue_tip": 0.9,
+      "tongue_length": 0.0,
+      "jaw_open": 0.15,
+      "glottis_open": 0.4,
+      "lung_pressure": 4.8,
+      "reed_damping": 0.1
+     }
+    },
+    "achieved": {
+     "pp": {
+      "cents": -28.4,
+      "db_re_mf": 0.0,
+      "ok": true,
+      "via": "auto path"
+     },
+     "mf": {
+      "cents": -28.4,
+      "db_re_mf": 0.0,
+      "ok": true,
+      "via": "auto path"
+     },
+     "ff": {
+      "cents": -28.4,
+      "db_re_mf": 0.0,
+      "ok": true,
+      "via": "auto path"
+     }
+    },
+    "robust": {
+     "pp": true,
+     "mf": true,
+     "ff": true,
+     "slur_mf": false
+    }
+   }
+  ],
+  "adaptation": {
+   "pressure_rule": "lung_pressure = voicing.lung_pressure * pM(setup; voicing lip controls) / pM(setup_reference; same lip controls), lip controls = lip_force/lip_position/lip_damping of the dynamic-interpolated table voicing before per_param corrections; pM = K*H0/S_r (engine/src/reed.rs derive_reed_params)",
+   "pM_reference": 6710.0,
+   "lip_trim_cents_per_N": {
+    "low": 13.1,
+    "mid": 62.0,
+    "palm": 48.6,
+    "altissimo": 79.7
+   },
+   "per_param": {
+    "tip_opening": {
+     "lip_force": {
+      "low": 0.0316,
+      "mid": 0.2912,
+      "palm": 0.1985,
+      "altissimo": 0.3186
+     }
+    },
+    "reed_strength": {
+     "lip_force": {
+      "low": -0.0666,
+      "mid": 0.0128,
+      "palm": 0.0063,
+      "altissimo": 0.0163
+     }
+    },
+    "facing_length": {
+     "lip_force": {
+      "low": -0.0062,
+      "mid": -0.0078,
+      "palm": -0.0052,
+      "altissimo": -0.0043
+     }
+    },
+    "baffle_height": {
+     "lip_force": {
+      "low": -0.4747,
+      "mid": -0.5568,
+      "palm": -0.5349,
+      "altissimo": 0.0967
+     }
+    },
+    "chamber_size": {
+     "lip_force": {
+      "low": 0.456,
+      "mid": 1.368,
+      "palm": 1.0756,
+      "altissimo": -0.1889
+     }
+    },
+    "throat_diameter": {
+     "lip_force": {
+      "low": -0.0011,
+      "mid": 0.0051,
+      "palm": -0.0826,
+      "altissimo": -0.0181
+     }
+    },
+    "mouthpiece_insertion": {
+     "lip_force": {
+      "low": -0.0238,
+      "mid": -0.0578,
+      "palm": -0.06,
+      "altissimo": -0.0093
+     }
+    },
+    "temperature": {
+     "lip_force": {
+      "low": -0.0144,
+      "mid": -0.0345,
+      "palm": -0.0257,
+      "altissimo": -0.0136
+     }
+    }
+   },
+   "validity": {
+    "tip_opening": [
+     1.6,
+     2.5
+    ],
+    "reed_strength": [
+     1.5,
+     5.0
+    ],
+    "facing_length": [
+     15.0,
+     30.0
+    ],
+    "baffle_height": [
+     0.0,
+     0.6
+    ],
+    "chamber_size": [
+     0.4,
+     0.6
+    ],
+    "throat_diameter": [
+     10.0,
+     15.0
+    ],
+    "mouthpiece_insertion": [
+     8.0,
+     12.0
+    ],
+    "temperature": [
+     16.0,
+     26.0
+    ],
+    "reed_model": [
+     0.0,
+     0.0
+    ]
+   },
+   "notes": ""
+  }
+ }
 }

@@ -53,6 +53,9 @@ export const PARAMS: readonly ParamDef[] = [
   { id: 24, name: 'dynamic', unit: '0–1', min: 0, max: 1, default: 0.5, label: 'Dynamic (pp–ff)', group: 'Air', description: 'pp (0) … mf (0.5) … ff (1): the player model maps it to pressure, lip force/damping and jaw (needs player_assist > 0)' },
   { id: 25, name: 'subglottal', unit: '', min: 0, max: 1, default: 1, label: 'Subglottal airways (0 anechoic · 1 trachea+bronchi)', group: 'Tongue & Tract', step: 1, description: '0 = anechoic load below the glottis (legacy), 1 = trachea + bronchial tree with yielding walls (subglottal resonances ≈ 540/1420/2300 Hz couple in when the glottis is open)' },
   { id: 26, name: 'tongue_length', unit: '0–1', min: 0, max: 1, default: 0, label: 'Tongue contact length', group: 'Tongue & Tract', description: 'length of the tongue-dorsum constriction (0: 2 cm … 1: 4 cm, a bunched tongue along the palate) — long narrow channel, strong 550–800 Hz tract resonances' },
+  // auto player (engine player.rs `tick_auto`; docs/ARCHITECTURE.md)
+  { id: 27, name: 'auto_player', unit: '', min: 0, max: 1, default: 0, label: 'Auto player', group: 'Engine', step: 1, description: '1 = the player voices every note for the current mouthpiece setup (Play mode): it sets lip, tongue, jaw, glottis and blowing pressure; lung_pressure > 0 is the breath gate (blow / stop); 0 = every control is yours (Explore)' },
+  { id: 28, name: 'auto_player_mask', unit: '', min: 0, max: 2047, default: 0, label: 'Auto player: user-owned controls', group: 'Engine', step: 1, description: 'bitmask over AUTO_CONTROLS (bits 0–9) + bit 10 reed_damping (bit set = the user owns that control at its param value; the auto player adapts the others around it)' },
 ];
 
 export const PARAM_COUNT = PARAMS.length;
@@ -86,7 +89,23 @@ export const P = {
   dynamic: 24,
   subglottal: 25,
   tongue_length: 26,
+  auto_player: 27,
+  auto_player_mask: 28,
 } as const;
+
+/** auto-player controls in mask-bit order (bit i of `auto_player_mask` = AUTO_CONTROLS[i]) */
+export const AUTO_CONTROLS = [P.lip_force, P.lip_position, P.lip_damping, P.tongue_x, P.tongue_y, P.tongue_tip, P.tongue_length, P.jaw_open, P.glottis_open, P.lung_pressure] as const;
+
+/**
+ * Telemetry of the player controls, appended after the reed shape (offsets relative to
+ * Telemetry.tailStart; engine `telemetry::IDX_PLAYER`): the 10 effective AUTO_CONTROLS values in
+ * use (param units, lung pressure in kPa; valid in every mode), the recognised fingering (index
+ * into `fingerings`, alternates after; −1 none), the voicing match (0 exact · 1 nearest
+ * fingering · 2 default voicing) and the auto-player state (0 idle/off · 1 settling · 2 locked ·
+ * 3 struggling).
+ */
+export const AUTO_TEL = { offset: 32, values: 0, fingering: 10, match: 11, state: 12, len: 13 } as const;
+export const AUTO_STATE = { idle: 0, settling: 1, locked: 2, struggling: 3 } as const;
 
 export type ParamName = keyof typeof P;
 
@@ -94,7 +113,7 @@ export function clampParam(id: number, v: number): number {
   const d = PARAMS[id];
   if (!d) return v;
   let x = Math.min(d.max, Math.max(d.min, v));
-  if (d.name === 'oversample' || d.name === 'reed_model' || d.name === 'subglottal') x = Math.round(x);
+  if (d.name === 'oversample' || d.name === 'reed_model' || d.name === 'subglottal' || d.name === 'auto_player' || d.name === 'auto_player_mask') x = Math.round(x);
   return x;
 }
 

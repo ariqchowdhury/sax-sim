@@ -33,6 +33,19 @@ export class AppState {
     return this.values[id];
   }
 
+  /**
+   * What the 3D anatomy shows: the param value, or — in Play mode — the effective value the auto
+   * player is using (ui/autoPlayer.ts sets `shownOverride`; NaN entries fall back to the param).
+   */
+  shownOverride: Float32Array | null = null;
+  readonly shown = {
+    get: (id: number): number => {
+      const o = this.shownOverride;
+      const v = o ? o[id] : NaN;
+      return Number.isFinite(v) ? v : this.values[id];
+    },
+  };
+
   /** normalized 0..1 */
   getN(id: number): number {
     const d = PARAMS[id];
