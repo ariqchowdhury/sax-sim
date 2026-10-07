@@ -460,7 +460,7 @@ def altissimo_entries(tbl):
                  f_target=round(440.0 * 2 ** ((m - 69) / 12), 3))
         if n:
             e["tract"] = n["tract"]
-            e["embouchure"] = info.get("embouchure")
+            e["embouchure"] = n.get("embouchure", info.get("embouchure"))
         out.append(e)
     return out
 
@@ -469,12 +469,13 @@ def presets(tbl):
     out = list(PRESETS)
     info = (tbl or {}).get("altissimo")
     if info and "G#6" in info.get("notes", {}):
-        params = dict(info["embouchure"])
+        params = dict(info["notes"]["G#6"].get("embouchure", info["embouchure"]))
         params.update(info["notes"]["G#6"]["tract"])
         out.append(dict(name="Altissimo", blow=4.5,
-                        description=("Altissimo voicing: firm lip (1.8 N), a little less mouthpiece, low lip/reed damping, "
-                                     "nearly closed glottis and a high front tongue that puts a strong vocal-tract resonance "
-                                     "(~60-90 MPa s/m^3) near the note. Tract set for G#6; the per-note tongue settings for G6/G#6/A6 "
+                        description=("Altissimo voicing: firm lip (1.8-2 N), low lip/reed damping and a high front tongue that puts a "
+                                     "vocal-tract resonance of ~35-50 MPa s/m^3 just above the note (measured-player range); the "
+                                     "fingering's own resonance sets the pitch. Narrowing the glottis roughly doubles the tract peak "
+                                     "and helps, but is not required. Tract set for G#6; the per-note tongue settings for G6/G#6/A6 "
                                      "are in alternate_fingerings[].tract. Sounds from ~4 kPa; with a neutral tract the same "
                                      "fingerings play their low (bore) regime."),
                         params=params))

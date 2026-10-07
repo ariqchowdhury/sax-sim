@@ -1,24 +1,25 @@
 # How Saxophone Altissimo Actually Works
 
 *Compiled from the acoustics literature and from building the sax_sim first-principles
-simulator. First written 2026-10-06; updated after the simulator reached G6–C7 with fingering-anchored pitch
-(round 5). Literature references are cited from memory and were not re-checked online; treat
+simulator. First written 2026-10-06; last updated after round 6 (G6–C#7 with realistic
+vocal-tract strengths). Literature references are cited from memory and were not re-checked online; treat
 details as approximate.*
 
 ## Summary
 
-Altissimo needs four things at once: a firm, low-damping embouchure, a narrowed glottis, a
-vocal tract tuned just above the target note, and a fingering whose own resonance sits
-slightly above the note. Above written F#6 the saxophone's own resonances are too weak to
+Altissimo needs four things at once: a firm, low-damping embouchure, a fingering whose own
+resonance sits slightly above the note, a vocal tract tuned above the target note, and the
+voicing set before the attack. A narrowed throat (glottis) helps but is not required. Above written F#6 the saxophone's own resonances are too weak to
 choose the note. An expert shapes the throat and tongue into a resonator tuned near the target
 pitch, and that resonator adds to the bore's resonance at the reed. But the tract can only win
 if the reed itself stops soaking it up, and the note only stays in tune if the fingering, not
 the tongue, sets the pitch.
 
 This article combines the published acoustics research with what we learned building a
-first-principles alto saxophone simulator. The simulator now plays written G6 through C7
-within about ±20 cents across normal breath pressures with a tuned tract, and falls back to
-low notes with a neutral one, which is the effect players describe.
+first-principles alto saxophone simulator. The simulator now plays written G6 through C#7
+within about ±21 cents from mezzo-forte to forte (3.5 to 5 kPa), with vocal-tract resonances
+of the size measured on real players, and falls back to low notes with a neutral tract, which
+is the effect players describe.
 
 ```
  lungs ─► glottis ─► vocal tract ─┐                ┌─► bore + tone holes ─► bell
@@ -103,19 +104,45 @@ What the shaping looks like physically:
   resonance up and down. In our model a high front tongue tunes the tract peak from 0.45 to
   1.25 kHz, and the best settings for G6, G#6 and A6 differed by only a few percent of the
   tongue's travel.
-- **A narrowed glottis.** This turned out to matter. With the vocal folds nearly closed
+- **A narrowed glottis helps, but isn't required.** With the vocal folds nearly closed
   (about 0.15 cm² open in our model), the bottom of the tract reflects sound instead of
-  leaking it into the lungs. That raised the tract peak near 1 kHz from about 55 to about
-  85 MPa·s/m³, the size Chen, Smith and Wolfe measured on experts.
+  leaking it into the lungs, which roughly doubles the tract resonance (for example 38 to
+  70 MPa·s/m³). Our final voicings use a narrowed glottis for G6–A6 and an open one for Bb6,
+  C7 and C#7. An earlier version of this article said a narrowed glottis was essential; that
+  was true only for tongue-dominated voicings, before we found fingerings that anchor the pitch.
 - **Tuned above the target**, so that the combined peak lands on the note. In our model the
   tract resonance sat well above the note, for G#6 about 1.2 kHz against a 988 Hz note
   (roughly a minor third higher). The sharp fingering then pulls the combined peak down onto
   the note.
-- **Higher notes need a smaller front cavity.** From B6 up, our model needed the tongue body
-  a little lower with the tip raised, which shrinks the space behind the teeth and pushes the
-  resonance to 1.1–1.3 kHz. Above about C7 our model tract could not be tuned high enough, so
-  C#7 and D7 did not sound. Real players who reach those notes may use tract shapes beyond our
-  simple tongue model.
+- **Higher notes need a smaller front cavity.** From Bb6 up, our model needed the tip raised
+  and the tongue body progressively lower, which shrinks the space just behind the teeth and
+  pushes the resonance up to about 1.4 kHz for C#7. D7 did not sound, but not because of the
+  tract: no fingering on our model saxophone has a usable resonance near 1.4 kHz.
+
+### What "high and forward" means for your tongue
+
+In the model the vocal tract is a 17 cm tube from the vocal folds to the lips, and the tongue
+controls where and how much it narrows. In the mouth that translates to:
+
+| Model control | In your mouth |
+|---|---|
+| Tongue height | Arch the middle of the tongue up close to the hard palate, sides touching the upper molars, leaving a narrow channel (about 3–4 mm across) |
+| Tongue forward/back | Forward: the highest point of the arch sits under the hard palate, just behind the ridge behind your upper teeth (as in "ee"). Back: near the soft palate (as in "k" or "oo") |
+| Tongue tip | A separate control: raised toward the ridge behind the upper teeth, as if about to say "t" or "y", without touching the reed |
+| Jaw | Fairly closed; the embouchure already sets it |
+
+So "high and forward" is the silent "ee" shape (as in "see"), with the arch kept forward rather
+than humped back toward the throat; a whispered "hee" or "hyee" is a good cue. The tip is a
+separate choice. In our final voicings, G6, G#6 and A6 used a high arch with the tip relaxed
+behind the lower teeth (plain "ee"). From Bb6 up the tip rises toward the ridge and the arch
+gets progressively lower and further forward, most for C7 and C#7, which shrinks the space
+just behind the teeth.
+
+Fine-tuning is a small forward/back slide of the arch: forward raises the tract resonance
+(about 1.0 to 1.3 kHz in the model), easing back toward "ih" lowers it. The model is a
+one-dimensional tube, so treat these as directions rather than exact anatomy, and the
+mouthpiece occupies the front of the mouth, so "forward" never means pushing the tongue to the
+teeth or onto the reed.
 
 The same mechanism explains pitch bends. A tract peak near a note pulls the pitch, which is
 how players bend notes and play glissandi. In our simulator the tract alone bends
@@ -155,11 +182,12 @@ fingerings, so treat them as examples of the principle, not a chart for your ins
 | Note | Fingering used in the model |
 |---|---|
 | G6 | octave key + LH1 + LH3 + G# |
-| G#6 | octave key + LH1 + side C + RH1 + RH3 |
+| G#6 | octave key + LH1 + side C + RH1 |
 | A6 | octave key + LH1 + LH2 + LH3 + side C |
 | Bb6 | octave key + G# |
-| B6 | octave key + palm D + side C + RH3 |
-| C7 | octave key + palm Eb + side C + RH3 |
+| B6 | octave key + palm D + RH3 |
+| C7 | octave key + LH1 + LH2 + palm D + RH1 + RH3 |
+| C#7 | octave key + LH1 + LH2 + palm D + palm Eb + RH3 |
 
 The chart patterns (for example G6 = octave + front F + LH1 + LH3) also sounded, but less
 robustly in this bore.
@@ -177,17 +205,24 @@ setting could produce altissimo; with an altissimo embouchure plus a tuned tract
 
 - **A firm lip that stiffens the reed.** Lip tissue gets stiffer the harder it is
   compressed. A firm lip roughly halves how much the reed gives under pressure, which stops
-  it from soaking up the tract's help near 1 kHz. Our altissimo setting used 1.8 N of lip
-  force against a normal 1.0 N.
+  it from soaking up the tract's help near 1 kHz. Our altissimo settings used 1.8 to 2.0 N of
+  lip force against a normal 1.0 N; the firmer 2.0 N is what let G6, G#6 and A6 start at
+  mezzo-forte.
 - **Low damping.** A lip that grips firmly without smothering the reed (low lip damping) and
   a lively reed let the high resonance through.
 - **A little less mouthpiece.** Our altissimo setting placed the lip about 11 mm from the
   reed tip against 12 mm normally, which shortens the vibrating part of the reed.
 - **Firm is not biting.** Biting closes the reed opening and starves the flow. In our model
   even 3 N of lip force left about 0.2 mm open, but the note quality suffers well before that.
-- **Support, not force.** Normal notes are stable at 3 to 4 kPa. In our model G#6, Bb6 and
-  C7 start at 3.5 kPa (mezzo-forte), while G6, A6 and B6 need about 4 kPa. Once the voicing
-  and fingering are right, the pitch moves at most about 25 cents between 4 and 5 kPa.
+- **Support, not force.** Normal notes are stable at 3 to 4 kPa. In our model every altissimo
+  note from G6 to C#7 starts at 3.5 kPa (mezzo-forte) once the voicing and fingering are right,
+  and the pitch moves at most about 25 cents between 3.5 and 5 kPa.
+- **Voice, then attack.** The previous note keeps ringing in the air column for a few hundred
+  milliseconds, and the mouth pressure takes time to fall. Attacking while that is still there
+  pulls you into the low register. In the model, re-attacking 0.05 s after the previous note
+  locked the altissimo note in 6 of 21 trials, 0.1 s in 14 of 21, and 0.2 s in 21 of 21, with
+  the voicing set before the reed was released. How the attack was shaped (tongued, soft or
+  sudden) made no difference; the timing and the prepared voicing did.
 - **Watch for squeaks.** With the low-damping embouchure but a neutral tract, our model
   squealed near 2.2 kHz, the reed's own resonance. That is the familiar altissimo squeak: the
   embouchure is ready but the tract is not tuned.
@@ -196,10 +231,11 @@ setting could produce altissimo; with an altissimo embouchure plus a tuned tract
 
 Each exercise trains one piece of the mechanism above, in the order you need them.
 
-1. **Overtones on low Bb.** Finger low Bb and, without touching keys, sound the 2nd, 3rd,
-   4th and 5th resonances using only tongue and throat. The bore peaks exist here, so this
-   teaches you to tune the tract onto a chosen peak. It is the core altissimo skill in a
-   safe range.
+1. **Overtones on low Bb.** Finger low Bb and, without touching keys, step up through the
+   overtone series. The low partials (2nd to 4th) come mainly from air and lip firmness; from
+   about the 6th up the tongue and throat take over, exactly as in altissimo. That makes the
+   upper overtones the core altissimo skill in a safe range. See [OVERTONES.md](OVERTONES.md)
+   for what controls each partial and a step-by-step overtone routine.
 2. **Match overtones to real notes.** Alternate an overtone (say the 4th over low Bb, which
    is written Bb5) with the normal fingering of the same note. Make the sound and the feel
    of the throat match. You are learning where your tongue sits for each pitch.
@@ -212,20 +248,23 @@ Each exercise trains one piece of the mechanism above, in the order you need the
    biting or pinching the reed shut) and take very slightly less mouthpiece. Expect to need
    more air support than for palm-key notes.
 6. **First altissimo note: G6 from a known chart for your horn.** Set the "ee"
-   tongue shape and a narrow, "held" throat before you blow, start supported, and aim the
+   tongue shape (a slightly "held" throat helps) before you blow, start supported, and aim the
    throat slightly above the note. If you hear a lower note, move the tongue rather than
    blowing harder. If you hear a thin squeak far above the note, the embouchure is ready but
    the tongue is off: slide it forward or back.
-7. **Find the window, then stop chasing it.** Once a note speaks, move the tongue slowly
+7. **Voice, then attack.** Keep the tongue on the reed until the voicing is set, and leave a
+   short gap (about 0.2 s) after the previous note before releasing it. If a note cracks low,
+   stop, reset the voicing, and re-attack rather than trying to pull it up.
+8. **Find the window, then stop chasing it.** Once a note speaks, move the tongue slowly
    until it flips out in each direction. The middle of that range is your setting. Inside it,
    the fingering holds the pitch; adjusting the tongue further only risks the flip.
-8. **Choose the fingering by its tuning.** If a note is unstable or flat, try alternates and
+9. **Choose the fingering by its tuning.** If a note is unstable or flat, try alternates and
    keep the one that is slightly sharp before voicing; voicing will bring it down.
-9. **Then slur up into it** from the palm keys, keeping the throat shape continuous. Slurring
-   lets the tract stay tuned while the fingering changes. In our model, slurs from F#6 into
-   every altissimo note locked directly once the voicing was set.
-10. **Higher notes: smaller front cavity.** For B6 and C7, keep the tongue tip up behind the
-    teeth and let the body drop slightly.
+10. **Then slur up into it** from the palm keys, keeping the throat shape continuous. Slurring
+     lets the tract stay tuned while the fingering changes. In our model, slurs from F#6 and
+    from G4 into every altissimo note locked directly once the voicing was set.
+11. **Higher notes: smaller front cavity.** From Bb6 up, raise the tongue tip toward the ridge
+    behind the upper teeth and let the arch drop progressively, most for C7 and C#7.
 
 Signs you are on track: overtones speak cleanly without changing pressure, and altissimo notes
 start without a crack once the throat shape is set first.
@@ -239,52 +278,56 @@ behaviour of the normal range agree well with a separate reference model.
 
 Altissimo results in pure physics (no player assistance), cents from equal temperament:
 
-| Note | 3.5 kPa | 4.0 kPa | 4.5 kPa | 5.0 kPa | Neutral tract |
-|---|---|---|---|---|---|
-| G6 | low note | −9 | +2 | +8 | low note |
-| G#6 | −10 | +1 | +8 | +13 | low note |
-| A6 | low note | −10 | −4 | 0 | low note |
-| Bb6 | −6 | +5 | +11 | +15 | low note |
-| B6 | low note | −21 | −6 | +3 | low note |
-| C7 | −13 | −3 | +1 | +4 | low note |
-| C#7, D7 | not reachable | | | | |
+| Note | Tract resonance (MPa·s/m³) | Glottis | 3.5 kPa | 4.0 kPa | 4.5 kPa | 5.0 kPa | Neutral tract |
+|---|---|---|---|---|---|---|---|
+| G6 | 45 | narrowed | 0 | +2 | +8 | +12 | low note |
+| G#6 | 50 | narrowed | −15 | −10 | −3 | +2 | low note |
+| A6 | 35 | narrowed | −15 | −10 | −9 | −8 | low note |
+| Bb6 | 35 | open | +4 | +9 | +11 | +12 | low note |
+| B6 | 33 | half open | +12 | +17 | +20 | +21 | low note |
+| C7 | 16 | open | +4 | +5 | +7 | +7 | squeal |
+| C#7 | 17 | open | −4 | −2 | −1 | −1 | squeal |
+| D7 | not reachable | | | | | | |
 
-"Low note" means the fingering's ordinary bore regime (300–730 Hz). With the low-damping
-embouchure but a neutral tract, some fingerings squeal near 2.2 kHz instead.
+"Low note" means the fingering's ordinary bore regime (300–720 Hz); "squeal" is the reed's
+own resonance near 2.3 kHz. The tract strengths (16–50 MPa·s/m³) are in the "tens of
+MPa·s/m³" range Chen, Smith and Wolfe measured on players.
 
 What turned out to matter, in order:
 
-1. **Altissimo embouchure (decisive).** A firm, strain-stiffened lip halves the reed's
-   compliance; less mouthpiece and low lip and reed damping help further. Without it no tract
-   setting worked.
-2. **A reflective glottal end.** A narrowed glottis lifts the tract peak near 1 kHz to
-   70–135 MPa·s/m³. Opening the glottis (40–65 MPa·s/m³) stopped every altissimo note.
-3. **Tract tuning** just above the note, with a high tongue and a narrow front channel.
-4. **A slightly sharp fingering.** Bore peaks at altissimo frequencies are only 8–18
-   MPa·s/m³, but a peak 0–20 cents above the note is enough to anchor the pitch once the tract
-   does the heavy lifting. This turned a tongue-controlled ±60-cent drift into ±20 cents.
-5. **Vent losses: not important for altissimo**, but essential for a stable ordinary upper
+1. **Altissimo embouchure (decisive).** A firm, strain-stiffened lip (1.8–2.0 N) halves the
+   reed's compliance; slightly less mouthpiece and low lip and reed damping help further.
+   Without it no tract setting worked.
+2. **A slightly sharp fingering.** Bore peaks at altissimo frequencies are only 8–18
+   MPa·s/m³, but a peak 0–20 cents above the note anchors the pitch. This turned a
+   tongue-controlled ±60-cent drift into ±20 cents, and it is what let the tract be as weak as
+   real players' tracts.
+3. **Tract tuning** above the note, with a high, forward tongue and a narrow front channel,
+   moving to a raised tip and lower arch for the highest notes.
+4. **Voice, then attack.** Setting the voicing before the attack and letting the previous note
+   die away (about 0.2 s) made the attack reliable whatever was played before.
+5. **A narrowed glottis helps** (it roughly doubles the tract resonance) but is not required.
+6. **Vent losses: not important for altissimo**, but essential for a stable ordinary upper
    register.
 
-With the player model's assistance (which sets the voicing automatically when an altissimo
-fingering is pressed), every note from G6 to C7 locks from rest and slurs directly up from F#6.
+We first suspected the reed and lip were absorbing too much near 1 kHz. Testing showed that
+was a minor factor: even removing all reed damping strengthened the altissimo regime only
+slightly, and strengthened the competing low notes too.
+
+With the player model's assistance (which sets the voicing automatically, keeps the tongue on
+the reed until it is ready, then attacks), the altissimo notes lock from rest in 115 of 120
+randomized trials; the other 5 (Bb6 and B6 at 3.5 kPa with a sudden attack) settle after more
+than 0.6 s. Slurs up from F#6 and from G4 lock directly.
 
 Still open:
 
-- **Our tract may be too strong.** Its resonance peaks (70–135 MPa·s/m³) are above the
-  "tens of MPa·s/m³" measured on most players. Weakening them stops altissimo in the model,
-  which suggests the remaining gap is on the reed and lip side: real reeds may absorb less
-  near 1 kHz than ours.
-- **C#7 and D7** need a tract resonance higher than our tongue model can make.
-- **G6, A6 and B6** still need about 4 kPa to start.
-- **Attack and history matter.** Which note locks depends on how the note starts and on what
-  was played just before. A held low note followed by an altissimo attack sometimes locked
-  into the low regime; a second attack worked. Once a regime is locked it also tends to hold
-  even if the tongue moves. Players know both effects: prepare the voicing before the attack,
-  and re-attack rather than trying to "pull" a wrong note up.
-- **The beam reed model** (a more detailed reed) did not produce altissimo, because its lip
-  model nearly closes the reed under a firm lip. A better-calibrated distributed lip might
-  change the picture.
+- **D7** needs a bore resonance near 1.4 kHz that no fingering on our model saxophone provides
+  (at most about 8 MPa·s/m³ there). Real altos and players who reach D7 and above may rely on
+  fingerings, keywork or reed behaviour our model doesn't capture.
+- **Subglottal resonances** (the windpipe and lungs, around 0.6 and 1.4 kHz) are not modelled;
+  the model treats the windpipe as a perfect absorber. They may matter for some players.
+- **The beam reed model** (a more detailed reed) now plays G6–Bb6 after recalibrating its
+  lip, but not B6, and C7 only with a narrowed glottis, so the simpler reed remains the default.
 
 ## References
 
@@ -302,5 +345,5 @@ Still open:
   University Press.
 - Dalmont, J.-P., Gilbert, J. & Kergomard, J. (2000). Reed instruments, from small to large
   amplitude periodic oscillations. *Acta Acustica* 86, 671–684.
-- sax_sim project: `docs/PHYSICS.md` (model), `docs/VALIDATION.md` §7 (altissimo results),
+- sax_sim project: `docs/PHYSICS.md` (model), `docs/VALIDATION.md` §5 (altissimo results),
   `tools/altissimo_tune.py` (fingering and tract search), `tools/altissimo_load.py` (load analysis).

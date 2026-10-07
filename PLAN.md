@@ -72,20 +72,20 @@ Runs in any modern browser: `npm run dev`.
 | **M6** | Accuracy pass | Visco-thermal losses refined, calibration vs. published measurements (impedance peaks, playing freqs, thresholds, spectra); documented error table. |
 | **M7** | Performance | SAB telemetry, SIMD inner loops, adaptive oversampling, < 30% of one core at 4×; no glitches under interaction. |
 | **M8** | Polish | Presets (classical / jazz / altissimo), MIDI + keyboard play, recording/export, help overlay. |
+| **M9** | Tone analysis & coaching | Player records a test set (8–12 sustained notes across the range, some at two dynamics). Extract per-note features (cents error, harmonic balance, breath noise, attack, pitch stability, soft→loud brightening), fit the simulator's player/mouthpiece controls by analysis-by-synthesis (offline renders + optimizer), and rank likely causes from cross-note patterns (uniform offset → cork position; register-dependent → chamber/biting; palm keys only → voicing; edgy → lip cushion/mouthpiece; breathy → seal/support). Show suggestions, load the fitted player into the sim for A/B listening. Compare relative patterns (ideally vs the player's own reference take) because mic, room and horn differ from the model; report several candidate causes, not one. Depends on M6 dynamics work for loudness-related advice. |
 
 Status of each milestone is tracked at the bottom of this file.
 
-## Status (2026-10-06, round 5)
-- M0 done: scaffold, contracts, geometry, PHYSICS.md, TMM reference.
-- M1 done: self-oscillation from lung pressure; onset 2.34–2.45 kPa.
-- M2 done: 23 tone holes with Strouhal-scaled nonlinear jet losses, data-driven keywork (Rust + TS); 33 fingerings + alternates. Register 1 ±8 cents, register 2 ±20 (F#6 −60, geometry limit). Right register 94/99 (pure physics), 98/99 (player_assist 0.5).
-- M3 done: vocal tract with glottal section, lungs, tonguing attacks, tissue-stiffening lip model, player_assist, `dynamic` pp–ff control, 3D drags. Lip-force bends ±6–30 cents; tract bends up to −248 cents.
-- M4 done: parametric mouthpiece; beam reed optional (lumped default).
-- M5 done: scope, spectrum, standing wave, impedance plot, reed shape, readouts.
-- M6 mostly done: altissimo G6–C7 within ±21 cents over 4–5 kPa in pure physics (fingering-anchored pitch), not with a neutral tract; player model voices altissimo automatically and slurs lock from F#6; tract-impedance overlay in the UI; see docs/ALTISSIMO.md. C#7/D7 unreachable. Open: pp–ff range ~12 dB (target 20; onset subcritical in the physics), altissimo pitch accuracy and 3–3.5 kPa onset.
-- M7 mostly done: native 13.8× / wasm 12.2× real time at 4× worst case (relaxed-SIMD build auto-selected), adaptive-quality hint/fallback. Cheaper loss models rejected by accuracy gate.
-- M8 done: MIDI (velocity → dynamic), breath controller, vibrato, recording, presets incl. Altissimo, tour, README, npm test.
+## Status (2026-10-06, round 6)
+- M0–M2 done. Register 1 ±8 cents, register 2 ±19 (F#6 −63, geometry limit). Right register 94–95/99 (pure physics), 97–98/99 (player_assist 0.5).
+- M3 done: tract with glottal section, lungs, tonguing, tissue-stiffening lip, player assist, `dynamic` pp–ff (20.7 dB reg 1, 22.9 dB reg 2; pp non-beating, ff bright) via embouchure/p_M scaling.
+- M4 done: parametric mouthpiece; beam reed recalibrated (optional; lumped default).
+- M5 done: scope, spectrum, standing wave, impedance + tract-impedance overlay, reed shape, readouts.
+- M6 done: altissimo G6–C#7 within ±21 cents at 3.5–5 kPa in pure physics with measured-range tract strengths (16–50 MPa·s/m³); "voice, then attack" gate in the player (115/120 randomized attacks lock). Overtones reproduced on low Bb–C#. Open: D7 (bore has no resonance near 1.4 kHz), 550–800 Hz overtone gap (tract model), subglottal resonances, A5 pp +63 cents.
+- M7 mostly done: native 13.8× / wasm 12.2× real time at 4× worst case; relaxed-SIMD auto-select; adaptive quality.
+- M8 done: MIDI (velocity → dynamic), breath controller, vibrato, recording, presets, tour, README, npm test.
+- Player docs: docs/ALTISSIMO.md, docs/OVERTONES.md.
 
 ## Next (proposed)
-1. Altissimo: reed/lip absorption near 1 kHz (model tract peaks are stronger than measured players'), onset of G6/A6/B6 at 3.5 kPa, attack-history robustness, C#7–D7; beam-reed distributed-lip calibration.
-2. Dynamics: measured mouthpiece flow characteristic + embouchure-driven pp in pure physics.
+1. M9 tone analysis & coaching mode.
+2. Physics: subglottal resonances; richer (2D/branched) tract model for the 550–800 Hz overtone gap; D7 fingerings/keywork; pp intonation (A5/Bb5 sharp at pp); F#6 geometry.

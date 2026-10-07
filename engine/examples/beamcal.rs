@@ -11,6 +11,8 @@ fn main() {
     let mut g = BeamGeom::default();
     if let Ok(e) = std::env::var("E") { g.e_mod = e.parse().unwrap(); }
     if let Ok(e) = std::env::var("TAPER") { g.taper = e.parse().unwrap(); }
+    if let Ok(e) = std::env::var("FSAT") { g.lip_fsat = e.parse().unwrap(); }
+    if let Ok(e) = std::env::var("KLF") { g.lip_k_force = e.parse().unwrap(); }
     if let Ok(e) = std::env::var("RL") { g.lip_damp_gain = e.parse().unwrap(); }
     if let Ok(e) = std::env::var("LIPG") { g.lip_gain = e.parse().unwrap(); }
     let fs = 192000.0;

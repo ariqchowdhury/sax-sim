@@ -622,3 +622,26 @@ C#7/D7 not reachable (tract resonance tops out near 1.35–1.4 kHz with the tip 
 measured-like shapes ((1−x)x^0.3…x^0.7, (1−x)^0.7…1.5 √x) leaves the bifurcation inverse in the harmonic-
 balance analysis (C5, A4) — the 2nd-harmonic coupling through Z(2ω) dominates. A measured mouthpiece
 characteristic is still worth having, but it is unlikely on its own to make the onset supercritical.
+
+**Round 6 additions.**
+* *Dynamics* come from the embouchure, not from blowing pressure alone: with a fixed embouchure the note
+  sustains only above ≈ 0.27·p_M and the subcritical onset already gives ≈ 0.3·p_M of amplitude at
+  extinction, so pressure spans only 6–12 dB. A player scales the whole oscillation by changing p_M
+  (pp: lip force ≈ 2.8–3 N on more mouthpiece, H0 ≈ 0.23 mm, p_M ≈ 2.1 kPa, non-beating, 68–79 dB;
+  ff: loose undamped lip at 6–8 kPa, 98–104 dB) — implemented in the player model (assist > 0):
+  20.7 dB (register 1) / 22.9 dB (register 2) pp→ff with the centroid rising from ~0.5 to ~1.9 kHz
+  (VALIDATION.md §6). Moving the lip toward the tip raises p_M in our reed (wrong direction for pp).
+  A pressure-recovery term is equivalent to a larger vena contracta and leaves the onset subcritical.
+* *Altissimo*: final voicings use tract peaks of 33–50 MPa·s/m³ (G6–B6) and 16–17 (C7, C#7) — the measured
+  range — with fingerings whose bore resonance lies just above the note; all of G6–C#7 sound from 3.5 to
+  5 kPa within ±21 cents; D7 is limited by the bore (≤ 8 MPa·s/m³ near 1.4 kHz). The engine and
+  `tools/tract_tmm.py` agree on the glottis effect (≈ 2× tract peak at A_g = 0.15 vs 1.61 cm²); a narrowed
+  glottis helps but is not required. Subglottal end: anechoic trachea (no subglottal resonances).
+* *Attack history*: the previous note's bore oscillation (τ ≈ 15–30 ms) and mouth pressure (lung release
+  τ = 120 ms) seed the low regime if the altissimo attack follows within ~0.1–0.2 s; the player model's
+  "voice, then attack" gate (tongue on the reed until the voicing ramp is complete and ≥ 0.1 s has
+  passed; trims reset per attack) makes the attack independent of the previous state.
+* *Tract strength vs frequency*: the articulatory model can make 30–90 MPa·s/m³ resonances only at
+  0.9–1.4 kHz (front tongue); mid/back tongue positions give ≤ 23 at 550–650 Hz and ≤ 10 at 700–800 Hz,
+  which is why low-note overtones in that band do not speak (docs/OVERTONES.md).
+

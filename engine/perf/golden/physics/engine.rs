@@ -387,6 +387,22 @@ impl Engine {
         }
     }
 
+    /// Reed controls as set by the user (no player offsets).
+    fn base_reed_controls(&self) -> ReedControls {
+        let v = |p: Param| self.smooth[p as usize].value;
+        ReedControls {
+            reed_strength: v(Param::ReedStrength),
+            reed_damping: v(Param::ReedDamping),
+            lip_position_mm: v(Param::LipPosition),
+            lip_force: v(Param::LipForce),
+            lip_damping: v(Param::LipDamping),
+            tip_opening_mm: v(Param::TipOpening),
+            facing_length_mm: v(Param::FacingLength),
+            tongue_contact: v(Param::TongueReedContact),
+            reed_width: self.inst.reed_width,
+        }
+    }
+
     fn reed_controls(&self) -> ReedControls {
         let v = |p: Param| self.smooth[p as usize].value;
         let (po, w) = (&self.player.out, self.player.out.alt_w);
@@ -394,7 +410,7 @@ impl Engine {
         ReedControls {
             reed_strength: v(Param::ReedStrength),
             reed_damping: blend(v(Param::ReedDamping), po.alt.reed_damping, w),
-            lip_position_mm: blend(v(Param::LipPosition), po.alt.lip_position, w),
+            lip_position_mm: blend(v(Param::LipPosition) + po.lip_position, po.alt.lip_position, w).clamp(2.0, 22.0),
             lip_force: blend(v(Param::LipForce) + po.lip, po.alt.lip_force, w).clamp(0.0, 3.0),
             lip_damping: blend(v(Param::LipDamping) + po.lip_damping, po.alt.lip_damping, w).clamp(0.0, 1.0),
             tip_opening_mm: v(Param::TipOpening),
@@ -649,6 +665,7 @@ impl Engine {
         }
         // player model
         let assist = self.smooth[Param::PlayerAssist as usize].value;
+        self.player.base = self.base_reed_controls();
         if self.player.tick(assist, self.smooth[Param::Dynamic as usize].value, self.pitch.freq, self.lung_target_pa, self.smooth[Param::TongueReedContact as usize].value, CTRL_PERIOD as f64 / self.fs) {
             reed = true;
             tract = true;

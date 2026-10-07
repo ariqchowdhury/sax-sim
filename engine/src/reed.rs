@@ -99,6 +99,14 @@ pub const LIP_MASS_SHARE: f64 = 0.5;
 pub const LIP_STATIC: f64 = 1.0905 * 0.55 * K_DEFAULT * (1.0 - LIP_SHARE) * 0.5 / (K_DEFAULT * 0.5);
 /// Saturation of the static lip deflection (fraction of the tip opening).
 pub const LIP_Y_SAT: f64 = 0.95;
+/// Lip contribution to the tip-mode damping ratio q per unit lip_damping
+/// (default embouchure q ≈ 0.36, altissimo ≈ 0.22: lipped Q ≈ 3–5).
+pub const LIP_Q: f64 = 0.6;
+/// Body-mode damping: q_b = BODY_Q0 + 0.3·reed_damping + BODY_LIP_Q·lip_damping
+/// (≈ 0.24 default / 0.13 altissimo, i.e. a lipped flexural mode with Q ≈ 4–8;
+/// previously 0.5 + 0.5·lip_damping ≈ 0.6–0.7, Q < 2 — unphysically lossy).
+pub const BODY_Q0: f64 = 0.05;
+pub const BODY_LIP_Q: f64 = 0.25;
 /// Amplitude-dependent lip damping gain κ (0 = linear lip).
 pub const LIP_NL_DAMP: f64 = 0.0;
 
@@ -156,7 +164,7 @@ pub fn derive_reed_params(c: &ReedControls) -> ReedPhysParams {
     let f_r = (k / m).sqrt() / (2.0 * core::f64::consts::PI);
     // Damping: intrinsic reed loss + lip tissue (more contact → more damping).
     let km = (k * m).sqrt();
-    let r_lip = 0.6 * c.lip_damping * km * f_rel.sqrt();
+    let r_lip = LIP_Q * c.lip_damping * km * f_rel.sqrt();
     let r = (0.03 + 0.3 * c.reed_damping) * km + r_lip;
     let h_tip = c.tip_opening_mm * 1e-3;
     // Curved lay: contact (progressive stiffening as the reed rolls onto the
@@ -179,7 +187,7 @@ pub fn derive_reed_params(c: &ReedControls) -> ReedPhysParams {
     let k_b = 1.42e5 * s_b * s_b / v_b;
     let w_b = 2.0 * core::f64::consts::PI * 1.5 * f_r;
     let m_b = k_b / (w_b * w_b);
-    let r_b = (0.5 + 0.5 * c.lip_damping) * (k_b * m_b).sqrt();
+    let r_b = (BODY_Q0 + 0.3 * c.reed_damping + BODY_LIP_Q * c.lip_damping) * (k_b * m_b).sqrt();
     let f_tongue = 1.0 * c.tongue_contact;
     let r_tongue = c.tongue_contact * 6.0 * (k * m).sqrt();
     ReedPhysParams {

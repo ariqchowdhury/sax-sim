@@ -49,6 +49,10 @@ pub struct BeamGeom {
     pub taper: f64,
     /// lip-force calibration gain (effective force = gain · lip_force)
     pub lip_gain: f64,
+    /// lip-force saturation (N): effective force F_sat·tanh(F/F_sat)
+    pub lip_fsat: f64,
+    /// lip foundation stiffness k_l = (2 + lip_k_force·F)·1e5 N/m²
+    pub lip_k_force: f64,
     /// lip-damping calibration gain on r_l
     pub lip_damp_gain: f64,
 }
@@ -67,6 +71,8 @@ impl Default for BeamGeom {
             rho: 500.0,
             taper: TAPER,
             lip_gain: LIP_GAIN,
+            lip_fsat: LIP_FSAT,
+            lip_k_force: LIP_K_FORCE,
             lip_damp_gain: LIP_DAMP_GAIN,
         }
     }
@@ -74,11 +80,17 @@ impl Default for BeamGeom {
 
 /// Calibrated cane modulus at strength 2.5 (PHYSICS.md range 6–12 GPa); see
 /// `default_beam_targets` test for the resulting H0, p_M, V_r, f_r.
-pub const BEAM_E_DEFAULT: f64 = 8.0e9;
+pub const BEAM_E_DEFAULT: f64 = 7.0e9;
 /// thickness taper exponent e(ξ) = e_tip + (e_heel − e_tip)(ξ/L_v)^TAPER
 pub const TAPER: f64 = 1.8;
 /// lip-force calibration gain
-pub const LIP_GAIN: f64 = 6.0;
+pub const LIP_GAIN: f64 = 7.0;
+/// Lip-force saturation (N): the lip tissue spreads and the reed wraps onto
+/// the lay, so the static push saturates (cf. the lumped reed's tanh law).
+pub const LIP_FSAT: f64 = 1.0;
+/// lip tissue stiffening with force (PHYSICS.md §5b: 6; 20 matches the lumped
+/// reed's strain-stiffening lip at the default and altissimo embouchures)
+pub const LIP_K_FORCE: f64 = 20.0;
 /// lip-damping calibration gain
 pub const LIP_DAMP_GAIN: f64 = 1.0;
 /// Kelvin–Voigt internal damping at reed_damping = 0.3 (s)
@@ -357,7 +369,7 @@ impl BeamReed {
             }
         }
         // lip foundation, damping, loads, lay
-        let k_l = (2.0 + 6.0 * c.lip_force) * 1e5;
+        let k_l = (2.0 + g.lip_k_force * c.lip_force) * 1e5;
         let r_l = (20.0 + 150.0 * c.lip_damping) * g.lip_damp_gain;
         self.eta = ETA_R * (c.reed_damping / 0.3).max(0.05);
         let r_t = 0.15 * c.tongue_contact.clamp(0.0, 1.0);
@@ -390,7 +402,8 @@ impl BeamReed {
         for i in 0..NB {
             denom += self.klip[i] * (1.0 - zz[i]);
         }
-        let y_lip = if denom > 0.0 { g.lip_gain * c.lip_force / denom } else { 0.0 };
+        let f_eff = g.lip_fsat * (c.lip_force / g.lip_fsat).tanh();
+        let y_lip = if denom > 0.0 { g.lip_gain * f_eff / denom } else { 0.0 };
         for i in 0..NB {
             self.fconst[i] += self.klip[i] * y_lip;
         }

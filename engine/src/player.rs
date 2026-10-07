@@ -23,6 +23,8 @@ pub struct PlayerOffsets {
     pub jaw: f64,
     /// added to lip_damping
     pub lip_damping: f64,
+    /// added to lip_position (mm; dynamics: more mouthpiece at pp)
+    pub lip_position: f64,
     /// altissimo voicing: weight 0…1 (ramped) of the absolute targets `alt`,
     /// plus a pitch-holding trim added to tongue_x after blending
     pub alt_w: f64,
@@ -72,6 +74,7 @@ impl PlayerOffsets {
             && self.tongue_x == 0.0
             && self.jaw == 0.0
             && self.lip_damping == 0.0
+            && self.lip_position == 0.0
             && self.alt_w == 0.0
             && self.tx_trim == 0.0
             && self.tongue == 0.0
@@ -104,22 +107,79 @@ pub struct Player {
     lip_trim: f64,
     wrong_t: f64,
     dip_t: f64,
+    /// altissimo "voice, then attack": remaining tongue-stop time, the altissimo
+    /// fingering last selected and the previous requested lung pressure
+    alt_gate_t: f64,
+    alt_sel: Option<usize>,
+    prev_lung: f64,
+    pp_cache: ReedPpCache,
+    /// dynamics excursion currently applied (0 = mf) and its learnt per-note limit
+    dyn_w: f64,
+    dyn_cap: Option<f64>,
+    prev_freq: f64,
+    dyn_trim: f64,
+    bad_t: f64,
+    dyn_retry: bool,
+    emb_w: f64,
+    /// the player's own (un-offset) reed/embouchure controls, set by the engine
+    pub base: crate::reed::ReedControls,
     pub out: PlayerOffsets,
 }
 
-/// pressure factor at pp (dynamic 0) and ff (dynamic 1); mf (0.5) = 1
-pub const DYN_PP_PRESSURE: f64 = 0.5;
-/// relaxation time from the mf onset pressure to the pp pressure (s)
+/// Closing pressure of the pp embouchure for the current base controls (cached).
+#[derive(Clone, Debug, Default)]
+struct ReedPpCache {
+    key: [f64; 5],
+    pm: f64,
+}
+
+impl ReedPpCache {
+    fn get(c: &mut ReedPpCache, base: &crate::reed::ReedControls) -> f64 {
+        let key = [base.reed_strength, base.tip_opening_mm, base.facing_length_mm, base.lip_damping, base.reed_width];
+        if c.pm <= 0.0 || key != c.key {
+            let pp = crate::reed::ReedControls { lip_force: DYN_PP_LIP_FORCE, lip_position_mm: DYN_PP_LIP_POS, tongue_contact: 0.0, ..*base };
+            c.pm = closing_pressure(&pp);
+            c.key = key;
+        }
+        c.pm
+    }
+}
+
+// ---- dynamics (PHYSICS.md §11/§12) ----------------------------------------------------------
+// The oscillation is born subcritically (inverse Hopf) with an amplitude of order 0.3·p_M, so
+// blowing pressure alone spans only ~6–12 dB. Players play pp by closing the reed: a pinched,
+// well-damped lower lip on more mouthpiece lowers the reed opening H0 and the closing pressure
+// p_M = K·H0/S_r (here ≈ 6.7 → 2 kPa), and they blow just above the soft branch's extinction
+// (γ = p/p_M ≈ 0.35). The amplitude of the whole regime scales with p_M, so pp is ~25 dB below
+// ff, not beating and dark; ff = loose, lightly damped lip and ≈ 2× the mf pressure (strong
+// beating, bright). pp/ff are absolute embouchure targets blended in with the dynamic.
+
+/// pp embouchure: lip force (N), lip position (mm from the tip), lip-damping offset
+pub const DYN_PP_LIP_FORCE: f64 = 2.8;
+pub const DYN_PP_LIP_POS: f64 = 16.0;
+pub const DYN_PP_DAMP: f64 = 0.4;
+/// pp blowing pressure as a fraction of the pp embouchure's closing pressure p_M
+pub const DYN_PP_GAMMA: f64 = 0.42;
+/// pp pitch trim: lip-force gain (N/(cent·s)) beyond a dead band (cents), limit (N)
+pub const DYN_TRIM_GAIN: f64 = 0.004;
+pub const DYN_TRIM_DEADBAND: f64 = 20.0;
+pub const DYN_TRIM_MAX: f64 = 1.0;
+/// after a note dies or cracks at excursion w, the player limits it to DYN_BACKOFF·w
+pub const DYN_BACKOFF: f64 = 0.85;
+/// lag of the second gesture behind the first when moving away from mf (s)
+pub const DYN_EMB_TAU: f64 = 0.12;
+/// relaxation time from the mf onset (pressure and embouchure) to the soft target (s)
 pub const DYN_RELAX_TAU: f64 = 0.3;
-/// lip force (N) / lip damping offsets at pp and ff
-pub const DYN_PP_LIP: f64 = 0.4;
-pub const DYN_PP_DAMP: f64 = 0.5;
-pub const DYN_FF_LIP: f64 = -0.3;
+/// ff: lip-force and lip-damping offsets, pressure factor
+pub const DYN_FF_LIP: f64 = -0.6;
+pub const DYN_FF_DAMP: f64 = -0.4;
 pub const DYN_FF_PRESSURE: f64 = 2.0;
-/// ff pressure factor for low register-1 notes whose 2nd peak dominates
-pub const DYN_FF_PRESSURE_LOW: f64 = 1.25;
-/// pp pressure factor for those low notes
-pub const DYN_PP_PRESSURE_LOW: f64 = 0.6;
+
+/// Reed closing pressure p_M = K·H0/S_r (Pa) of an embouchure.
+pub fn closing_pressure(c: &crate::reed::ReedControls) -> f64 {
+    let r = crate::reed::derive_reed_params(c);
+    r.k * (r.tip_opening - r.y_eq) / r.s_r
+}
 
 /// altissimo voicing ramp time (s), tongue_x pitch-trim gain (1/(cent·s)),
 /// register-seek rate (1/s) and trim limit
@@ -134,6 +194,13 @@ pub const ALT_TRIM_MAX: f64 = 0.1;
 /// ALT_DIP_TIME (s) — a light re-tongue — so the note restarts voiced
 pub const ALT_REARTIC_AFTER: f64 = 0.12;
 pub const ALT_DIP_TIME: f64 = 0.08;
+/// "voice, then attack" (PHYSICS.md §11): on a new altissimo fingering or a new
+/// attack the player keeps the tongue on the reed until the voicing ramp is in
+/// place and at least ALT_SETTLE has passed — long enough for the previous
+/// note's bore oscillation (Q ≈ 30 at 300–700 Hz → τ ≈ 15–30 ms) to ring down,
+/// so it cannot seed the low regime. Measured: pure physics locks 18/18 for
+/// gaps ≥ 0.1 s, 6/18 at 0.05 s.
+pub const ALT_SETTLE: f64 = 0.1;
 /// lip-force pitch-trim gain (N/(cent·s)) and limit (N)
 pub const ALT_LIP_GAIN: f64 = 0.006;
 pub const ALT_LIP_MAX: f64 = 0.6;
@@ -205,6 +272,17 @@ impl Player {
         }
     }
 
+    /// Lagging part of the dynamics excursion (breath toward pp, lip toward ff):
+    /// follows `w` with DYN_EMB_TAU, immediately when backing off toward mf.
+    fn emb_lag(&mut self, w: f64, dt: f64) -> f64 {
+        if w < self.emb_w {
+            self.emb_w = w;
+        } else {
+            self.emb_w += (w - self.emb_w) * (dt / DYN_EMB_TAU).min(1.0);
+        }
+        self.emb_w
+    }
+
     /// Recognise the fingering from key press amounts.
     pub fn on_keys(&mut self, keys: &[f32]) {
         let mut mask = 0u64;
@@ -219,6 +297,10 @@ impl Player {
             self.adapt = 0.0;
             self.silent_t = 0.0;
             self.hold_t = 0.12;
+            self.dyn_cap = None;
+            self.dyn_w = 0.0;
+            self.dyn_retry = false;
+            self.dyn_trim = 0.0;
         }
     }
 
@@ -230,41 +312,104 @@ impl Player {
     /// `lung_pa` = requested lung pressure, `dt` = tick period (s).
     /// Returns true when the offsets changed.
     pub fn tick(&mut self, assist: f64, dynamic: f64, freq: f64, lung_pa: f64, tongue: f64, dt: f64) -> bool {
+        let base = self.base;
         let a = assist.clamp(0.0, 1.0);
         let mut o = PlayerOffsets { pressure_scale: 1.0, ..Default::default() };
         if a > 0.0 {
-            // --- dynamics through the embouchure (PHYSICS.md §11 rec. 1):
-            // pp = less air, firmer and more damped lip (smaller opening, lower
-            // p_M and ζ); ff = more air, looser lip, open jaw. mf (0.5) = no change.
+            // --- dynamics through the embouchure (see the DYN_* constants)
             let d = dynamic.clamp(0.0, 1.0) - 0.5;
-            let low_guard = self.current.map(|i| self.notes[i].register == 1 && self.notes[i].f_target < 300.0).unwrap_or(false);
-            let (dp, dl, dd, dj) = if d < 0.0 {
-                let t = -2.0 * d; // 0 … 1 toward pp
-                if low_guard {
-                    // low notes: a firmer lip at low pressure favours the octave
-                    (DYN_PP_PRESSURE_LOW.powf(t), 0.0, DYN_PP_DAMP * t, 0.0)
-                } else {
-                    (DYN_PP_PRESSURE.powf(t), DYN_PP_LIP * t, DYN_PP_DAMP * t, 0.0)
-                }
-            } else {
-                let t = 2.0 * d; // 0 … 1 toward ff
-                // low notes (2nd impedance peak ≥ 1st) crack when over-blown with a loose lip
-                let ffp = if low_guard { DYN_FF_PRESSURE_LOW } else { DYN_FF_PRESSURE };
-                (ffp.powf(t), if low_guard { 0.2 * t } else { DYN_FF_LIP * t }, -0.2 * t, 0.2 * t)
+            // onset: soft notes start at the mf embouchure and pressure — where the
+            // intended register is the stable one — and relax onto the soft branch
+            // (relax only while the intended register sounds; a wrong regime keeps
+            // the mf embouchure so the register lock below can act)
+            let in_reg = match self.current {
+                Some(i) if freq > 0.0 => (1200.0 * (freq / self.notes[i].f_target).log2()).abs() < 300.0,
+                None => freq > 0.0,
+                _ => false,
             };
-            // onset boost for soft notes: start above threshold, then relax
-            // (soft notes start at the mf pressure — where the intended register
-            // is the stable one — and relax onto the soft branch once sounding)
-            if tongue > 0.2 || lung_pa < 500.0 || freq <= 0.0 {
-                self.boost = 1.0;
+            // A note that dies (soft branch lost) or cracks (wrong register) while
+            // the player is easing toward pp/ff makes them back off to the mf
+            // embouchure and remember a smaller excursion for this note — the
+            // way a player learns how soft / loud a note will go.
+            let held = tongue <= 0.2 && lung_pa >= 500.0;
+            // (a single pitch-tracker frame — 20 ms — is not a crack: require 50 ms)
+            if held && self.dyn_w > 0.15 && (freq <= 0.0 || !in_reg) {
+                self.bad_t += dt;
             } else {
+                self.bad_t = 0.0;
+            }
+            if self.bad_t > 0.05 {
+                // first failure: retry once with a neutral throat/jaw (the low-note
+                // voicing changes the tract load, which decides between the
+                // fundamental and the octave on the soft branch); then cap
+                let low_voiced = self.current.map(|i| self.notes[i].register == 1 && self.notes[i].f_target < 180.0).unwrap_or(false);
+                if low_voiced && !self.dyn_retry {
+                    self.dyn_retry = true;
+                } else {
+                    self.dyn_cap = Some((self.dyn_w * DYN_BACKOFF).min(self.dyn_cap.unwrap_or(1.0)));
+                }
+                self.boost = 1.0;
+                self.bad_t = 0.0;
+            }
+            if !held || (freq <= 0.0 && self.dyn_w <= 0.15) {
+                self.boost = 1.0;
+            } else if in_reg {
                 self.boost *= 1.0 - dt / DYN_RELAX_TAU;
             }
-            let boost = 1.0 + self.boost * (1.0 / dp.min(1.0) - 1.0).max(0.0);
-            o.pressure_scale *= dp * boost;
-            o.lip += dl;
-            o.lip_damping += dd;
-            o.jaw += dj;
+            self.dyn_w = 0.0;
+            if d < 0.0 {
+                // weight toward the pp embouchure (eased so mp stays near mf)
+                let t = -2.0 * d;
+                let w = (t * t * (3.0 - 2.0 * t) * (1.0 - self.boost)).min(self.dyn_cap.unwrap_or(1.0));
+                self.dyn_w = w;
+                // Lip and breath move together so that γ = p/p_M falls smoothly
+                // from the mf value to γ_pp: the blowing pressure follows the
+                // closing pressure of the momentary embouchure. (Firming the lip at
+                // still-high γ, or easing off the air before the lip has firmed,
+                // both push low notes — 2nd impedance peak ≥ 1st — onto their
+                // octave.) The breath command leads the lip by the lungs' lag.
+                let we = self.emb_lag(w, dt);
+                let lf = base.lip_force + we * (DYN_PP_LIP_FORCE - base.lip_force);
+                let lp = base.lip_position_mm + we * (DYN_PP_LIP_POS - base.lip_position_mm);
+                // the firm pp lip raises the pitch (smaller reed volume): ease the
+                // lip off while sharp, like a player "lipping down"
+                if let (Some(i), true) = (self.current, in_reg && we > 0.3) {
+                    let c = 1200.0 * (freq / self.notes[i].f_target).log2();
+                    if c > DYN_TRIM_DEADBAND {
+                        self.dyn_trim = (self.dyn_trim - DYN_TRIM_GAIN * (c - DYN_TRIM_DEADBAND) * dt).max(-DYN_TRIM_MAX);
+                    }
+                }
+                o.lip += lf - base.lip_force + self.dyn_trim * we;
+                o.lip_position += lp - base.lip_position_mm;
+                o.lip_damping += DYN_PP_DAMP * we;
+                let pm0 = closing_pressure(&base);
+                let pm_pp = ReedPpCache::get(&mut self.pp_cache, &base);
+                let lead = |x: f64| crate::reed::ReedControls {
+                    lip_force: base.lip_force + x * (DYN_PP_LIP_FORCE - base.lip_force),
+                    lip_position_mm: base.lip_position_mm + x * (DYN_PP_LIP_POS - base.lip_position_mm),
+                    ..base
+                };
+                let pm_w = closing_pressure(&lead(w));
+                let lung = lung_pa.max(1.0);
+                // γ at mf (the player's own) → γ_pp, geometrically
+                let g_mf = lung / pm0;
+                let g = g_mf * (DYN_PP_GAMMA / g_mf).min(1.0).powf(w);
+                let p_w = (g * pm_w).min(lung);
+                let _ = pm_pp;
+                o.pressure_scale *= p_w / lung;
+            } else {
+                // toward ff, also entered from the mf onset (a loose lip at full
+                // pressure would start low notes on their octave)
+                let t = 2.0 * d;
+                let w = (t * (1.0 - self.boost)).min(self.dyn_cap.unwrap_or(1.0));
+                self.dyn_w = w;
+                // toward ff the breath leads and the lip loosens after it
+                let we = self.emb_lag(w, dt);
+                o.pressure_scale *= DYN_FF_PRESSURE.powf(w);
+                o.lip += DYN_FF_LIP * we;
+                o.lip_damping += DYN_FF_DAMP * we;
+                o.jaw += 0.2 * we;
+            }
         }
         if a > 0.0 {
             if let Some(i) = self.current {
@@ -272,7 +417,7 @@ impl Player {
                 // feed-forward embouchure per note (what players do), collected
                 // in f and applied scaled by a below
                 let mut f = PlayerOffsets { pressure_scale: 1.0, ..Default::default() };
-                if n.register == 1 && n.f_target < 180.0 {
+                if n.register == 1 && n.f_target < 180.0 && !self.dyn_retry {
                     f.pressure_scale -= 0.05;
                     f.jaw += 0.15;
                     f.tongue_y -= 0.10;
@@ -293,6 +438,11 @@ impl Player {
                 // register locking feedback
                 // no feedback while the tongue stops the reed (articulation) or
                 // during the 120 ms after its release (note still starting)
+                // (also during the first 200 ms after the note speaks: the onset
+                // transient often reads as a higher mode for a few periods)
+                if freq > 0.0 && self.prev_freq <= 0.0 {
+                    self.hold_t = self.hold_t.max(0.2);
+                }
                 if tongue > 0.2 {
                     self.hold_t = 0.12;
                     self.silent_t = 0.0;
@@ -325,7 +475,9 @@ impl Player {
                 let x = self.adapt * fb;
                 // (dynamics offsets above are already in o; they are not scaled by a)
                 o.lip += f.lip * (a - 1.0) + 0.5 * x;
-                o.pressure_scale = o.pressure_scale * (1.0 + (f.pressure_scale - 1.0) * a) / f.pressure_scale + 0.2 * x;
+                // (the lock acts relative to the current pressure: at pp an additive
+                // −0.2 would blow the note out)
+                o.pressure_scale = o.pressure_scale * (1.0 + (f.pressure_scale - 1.0) * a) / f.pressure_scale * (1.0 + 0.2 * x);
                 o.tongue_y += f.tongue_y * (a - 1.0) + 0.25 * x;
                 o.tongue_x += f.tongue_x * (a - 1.0);
                 o.jaw += f.jaw * (a - 1.0) - 0.15 * x;
@@ -341,6 +493,24 @@ impl Player {
         let want = if alt_target.is_some() { (2.0 * a).min(1.0) } else { 0.0 };
         let stp = dt / ALT_RAMP;
         self.alt_w += (want - self.alt_w).clamp(-stp, stp);
+        // voice, then attack: new altissimo selection or new attack → tongue on the
+        // reed until voiced and the old oscillation has rung down; each attack
+        // starts from the notated voicing (no trims carried over from the last note)
+        let sel = if alt_target.is_some() { self.current } else { None };
+        let attack = lung_pa > 500.0 && self.prev_lung <= 500.0;
+        if sel.is_some() && (sel != self.alt_sel || attack) {
+            self.alt_gate_t = ALT_SETTLE;
+            if attack {
+                self.tx_trim = 0.0;
+                self.lip_trim = 0.0;
+            }
+        }
+        self.alt_sel = sel;
+        self.prev_lung = lung_pa;
+        let gating = sel.is_some() && lung_pa > 300.0 && (self.alt_gate_t > 0.0 || self.alt_w < 0.95 * want);
+        if self.alt_gate_t > 0.0 {
+            self.alt_gate_t -= dt;
+        }
         if let (Some(i), Some(_)) = (self.current, alt_target) {
             if freq > 0.0 && tongue < 0.2 {
                 let c = 1200.0 * (freq / self.notes[i].f_target).log2();
@@ -379,9 +549,13 @@ impl Player {
             self.dip_t -= dt;
             o.tongue = 1.0;
         }
+        if gating {
+            o.tongue = 1.0;
+        }
         if alt_target.is_none() {
             self.wrong_t = 0.0;
         }
+        self.prev_freq = freq;
         o.alt_w = self.alt_w;
         o.alt = self.alt_cur;
         o.tx_trim = self.tx_trim * self.alt_w;
@@ -398,7 +572,8 @@ impl Player {
             || (o.tongue_y - self.out.tongue_y).abs() > 1e-3
             || (o.tongue_x - self.out.tongue_x).abs() > 1e-3
             || (o.jaw - self.out.jaw).abs() > 1e-3
-            || (o.lip_damping - self.out.lip_damping).abs() > 1e-3;
+            || (o.lip_damping - self.out.lip_damping).abs() > 1e-3
+            || (o.lip_position - self.out.lip_position).abs() > 1e-2;
         if changed {
             self.out = o;
         }
@@ -460,6 +635,40 @@ mod tests {
         let mut p = mk();
         p.tick(0.0, 0.0, 440.0, 3500.0, 0.0, 1e-3);
         assert!(p.out.is_neutral(), "{:?}", p.out);
+    }
+
+    #[test]
+    fn pp_embouchure_trajectory_and_backoff() {
+        let mk = || {
+            let mut p = Player { notes: vec![NoteInfo { mask: 1, f_target: 440.0, register: 2, alt: None }], ..Default::default() };
+            p.on_keys(&[1.0]);
+            p
+        };
+        // pp: closed-down embouchure (more lip force, more mouthpiece) and a blowing
+        // pressure of γ_pp·p_M of that embouchure
+        let mut p = mk();
+        for _ in 0..3000 {
+            p.tick(0.5, 0.0, 440.0, 3500.0, 0.0, 1e-3);
+        }
+        let pp = PlayerOffsets { ..p.out };
+        assert!(pp.lip > 1.5 && pp.lip_position > 3.0, "{pp:?}");
+        let pm_pp = closing_pressure(&crate::reed::ReedControls { lip_force: DYN_PP_LIP_FORCE, lip_position_mm: DYN_PP_LIP_POS, ..Default::default() });
+        let p_blow = 3500.0 * pp.pressure_scale;
+        assert!((p_blow / pm_pp - DYN_PP_GAMMA).abs() < 0.03, "γ = {}", p_blow / pm_pp);
+        // the note dies on the way down: back off to mf and stay above that point
+        let mut p = mk();
+        for _ in 0..400 {
+            p.tick(0.5, 0.0, 440.0, 3500.0, 0.0, 1e-3);
+        }
+        let w_fail = p.dyn_w;
+        for _ in 0..200 {
+            p.tick(0.5, 0.0, 0.0, 3500.0, 0.0, 1e-3);
+        }
+        for _ in 0..3000 {
+            p.tick(0.5, 0.0, 440.0, 3500.0, 0.0, 1e-3);
+        }
+        assert!(w_fail > 0.3 && p.dyn_w <= DYN_BACKOFF * w_fail + 1e-9, "{w_fail} → {}", p.dyn_w);
+        assert!(p.out.pressure_scale > pp.pressure_scale, "{:?}", p.out);
     }
 
     #[test]

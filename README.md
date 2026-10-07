@@ -93,6 +93,11 @@ The engine is checked against literature values and an independent frequency-dom
 transfer-matrix model (`tools/tmm.py`): impedance peaks, playing frequencies per fingering,
 oscillation thresholds, spectra. See **[docs/VALIDATION.md](docs/VALIDATION.md)**.
 
+## For players
+
+* [docs/ALTISSIMO.md](docs/ALTISSIMO.md) — how altissimo works (vocal-tract tuning, embouchure, fingerings) and a practice route, from the literature and the simulator.
+* [docs/OVERTONES.md](docs/OVERTONES.md) — what controls overtones on a low fingering (Rascher-style), and how to practise them.
+
 ## Milestones
 
 Plan, team roles and milestone status: **[PLAN.md](PLAN.md)**.
