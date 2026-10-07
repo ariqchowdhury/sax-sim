@@ -84,8 +84,9 @@ Status of each milestone is tracked at the bottom of this file.
 - M6 done: altissimo G6–C#7 within ±21 cents at 3.5–5 kPa in pure physics with measured-range tract strengths (16–50 MPa·s/m³); "voice, then attack" gate in the player (115/120 randomized attacks lock). Overtones reproduced on low Bb–C#. Open: D7 (bore has no resonance near 1.4 kHz), 550–800 Hz overtone gap (tract model), subglottal resonances, A5 pp +63 cents.
 - M7 mostly done: native 13.8× / wasm 12.2× real time at 4× worst case; relaxed-SIMD auto-select; adaptive quality.
 - M8 done: MIDI (velocity → dynamic), breath controller, vibrato, recording, presets, tour, README, npm test.
+- M9 done (v1): Coach mode — record/upload test set (+ recommended G4push take), shared Rust analyser (30 features), blind room estimate (RT60 ≥ 0.6 s reliably flagged; short rooms read as dry), template cause ranking (top-3 80 % on synthetic players with G4push, 75 % without), browser fitter (multi-start LM + CMA-ES, ~33 s, 3/4 hidden-player recovery; big simultaneous changes weakly identifiable), trade-off reporting, A/B load into the simulator, sessions. Not yet validated on real recordings.
 - Player docs: docs/ALTISSIMO.md, docs/OVERTONES.md.
 
 ## Next (proposed)
-1. M9 tone analysis & coaching mode.
-2. Physics: subglottal resonances; richer (2D/branched) tract model for the 550–800 Hz overtone gap; D7 fingerings/keywork; pp intonation (A5/Bb5 sharp at pp); F#6 geometry.
+1. M9 follow-ups: validate on real recordings (calibrate confidence τ, ring-down 95 Hz constant, room thresholds); report alternative solutions from parallel starts (lip force/position/tip-opening valley); player-facing docs/TONE.md.
+2. Physics: subglottal resonances; richer (2D/branched) tract model for the 550–800 Hz overtone gap; D7 fingerings/keywork; pp intonation (A5/Bb5 sharp at pp); F#6 geometry; calibrated wall-roughness loss (real altos ~10–30 % lossier than smooth-wall theory) with full retune.

@@ -96,3 +96,35 @@ export class FingeringChart {
     this.noteEl.title = r;
   }
 }
+
+/** static (non-interactive) fingering diagram with the given key ids pressed — used by the coach */
+export function staticFingering(geo: SaxGeometry, keyIds: string[]): SVGSVGElement {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 120 212');
+  svg.classList.add('fc-svg');
+  const body = document.createElementNS(NS, 'path');
+  body.setAttribute('d', 'M60 4 L60 182 Q60 206 84 206 Q100 206 100 190');
+  body.setAttribute('class', 'fc-body');
+  svg.appendChild(body);
+  const down = new Set(keyIds);
+  let extraY = 0;
+  for (const k of geo.keys) {
+    let pos = LAYOUT[k.id];
+    if (!pos) { pos = [108, 10 + extraY, 'small']; extraY += 12; }
+    const [x, y, shape] = pos;
+    let el: SVGElement;
+    if (shape === 'pearl' || shape === 'small') {
+      el = document.createElementNS(NS, 'circle');
+      el.setAttribute('cx', String(x)); el.setAttribute('cy', String(y)); el.setAttribute('r', shape === 'pearl' ? '7' : '3.6');
+    } else {
+      el = document.createElementNS(NS, 'rect');
+      const w = shape === 'pill' ? 13 : 6, h = shape === 'pill' ? 6 : 11;
+      el.setAttribute('x', String(x - w / 2)); el.setAttribute('y', String(y - h / 2));
+      el.setAttribute('width', String(w)); el.setAttribute('height', String(h)); el.setAttribute('rx', '3');
+    }
+    el.setAttribute('class', down.has(k.id) ? 'fc-key down' : 'fc-key');
+    svg.appendChild(el);
+  }
+  return svg;
+}

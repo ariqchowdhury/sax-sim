@@ -8,6 +8,11 @@
 //!   render --threshold [--fingering Bb3]              oscillation threshold (kPa)
 //!   render --peaks                                     linear input-impedance peak near each target (no reed)
 //!   render ... --tongue-release 0.3                    tongued attack: tongue on reed, released at t
+//!   render --analyze rec.wav --note G4 [--ref 442] [--target Hz]   M9 feature vector (JSON)
+//!   render --analyze rec.wav --notes Bb3,D4,G4,...     auto-segment, one feature vector per note
+//!   render --fingering G4 ... --features [--seed N]    features of the rendered note (JSON)
+//!   render --room rec.wav                              blind room / recording-quality estimate (JSON)
+//!          [--inst-t60 95]   instrument ring-down T60·f0 for --analyze/--room (120 sim, ≈95 real)
 //!   render --bench                                     µs per 128-sample block per oversampling
 
 use sax_engine::engine::Engine;
@@ -31,6 +36,16 @@ struct Opts {
     attack: f64,
     /// tongued attack: tongue on the reed from t = 0, released at this time (s)
     tongue_release: f64,
+    /// M9: analyse a WAV (`--analyze`), print features of the render (`--features`),
+    /// reference A (Hz), explicit target (Hz), note list for segmented files, RNG seed
+    analyze: Option<String>,
+    features: bool,
+    ref_a: f64,
+    target_hz: Option<f64>,
+    notes: Vec<String>,
+    seed: Option<u32>,
+    /// instrument ring-down constant for --analyze/--room (0 = default 120)
+    inst_t60: f64,
     /// legato key changes during the render: (time s, keys)
     switches: Vec<(f64, Vec<String>)>,
     quiet: bool,
@@ -51,6 +66,13 @@ fn parse_args() -> Opts {
         fs: 48000.0,
         attack: 0.0,
         tongue_release: 0.0,
+        analyze: None,
+        features: false,
+        ref_a: 440.0,
+        target_hz: None,
+        notes: vec![],
+        seed: None,
+        inst_t60: 0.0,
         switches: vec![],
         quiet: false,
     };
@@ -72,6 +94,21 @@ fn parse_args() -> Opts {
             "--fs" => o.fs = next(&mut i).parse().expect("fs"),
             "--attack" => o.attack = next(&mut i).parse().expect("attack"),
             "--tongue-release" => o.tongue_release = next(&mut i).parse().expect("tongue release time"),
+            "--analyze" => {
+                o.analyze = Some(next(&mut i));
+                o.mode = "analyze".into();
+            }
+            "--features" => o.features = true,
+            "--room" => {
+                o.analyze = Some(next(&mut i));
+                o.mode = "room".into();
+            }
+            "--note" => o.fingering = Some(next(&mut i)),
+            "--ref" => o.ref_a = next(&mut i).parse().expect("--ref Hz"),
+            "--target" => o.target_hz = Some(next(&mut i).parse().expect("--target Hz")),
+            "--notes" => o.notes = next(&mut i).split(',').filter(|s| !s.is_empty()).map(String::from).collect(),
+            "--seed" => o.seed = Some(next(&mut i).parse().expect("--seed u32")),
+            "--inst-t60" => o.inst_t60 = next(&mut i).parse().expect("--inst-t60 Hz·s"),
             "--switch" => {
                 // --switch T:KEY1,KEY2,...  (or T:NOTE to use a fingering name)
                 let v = next(&mut i);
@@ -124,6 +161,9 @@ fn load_geometry_text(o: &Opts) -> String {
 
 fn make_engine(o: &Opts, geom: &str) -> Engine {
     let mut e = Engine::new(o.fs);
+    if let Some(seed) = o.seed {
+        e.set_seed(seed);
+    }
     e.load_geometry_json(geom).expect("geometry");
     e.use_tract = !o.no_tract;
     if let Ok(v) = std::env::var("SAX_LOSS") {
@@ -301,6 +341,8 @@ fn main() {
         "table" => table(&o, &geom),
         "threshold" => threshold(&o, &geom),
         "peaks" => peaks(&o, &geom),
+        "analyze" => analyze_file(&o, &geom),
+        "room" => room_file(&o),
         "search" => search(&o, &geom),
         _ => render(&o, &geom),
     }
@@ -342,6 +384,14 @@ fn render(o: &Opts, geom: &str) {
         el,
         o.seconds / el
     );
+    if o.features {
+        let t = o.target_hz.or(target.map(|t| t * o.ref_a / 440.0)).unwrap_or(0.0);
+        let mut f = sax_engine::analysis::analyze(&r.out, e.fs as f32, t as f32);
+        // simulator level in dB re 1 Pa at the 1 m listener (COACHING.md)
+        let gain = e.param(Param::MasterGain) as f64;
+        f[sax_engine::analysis::idx::LEVEL] -= (20.0 * (Engine::OUTPUT_PA_TO_FS * gain).max(1e-12).log10()) as f32;
+        println!("{}", features_json(o.fingering.as_deref(), t, &f, None));
+    }
     if let Some(p) = &o.out {
         write_wav(p, &r.out, e.fs as u32);
     }
@@ -651,3 +701,104 @@ fn fingering_keys_any(e: &Engine, name: &str) -> Option<Vec<String>> {
 }
 
 static ALT_JSON: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+
+/// One feature vector as JSON: {"note", "target_hz", "features": {name: value}, "vector": [...]}.
+fn features_json(note: Option<&str>, target: f64, f: &[f32], seg: Option<(usize, usize)>) -> String {
+    use sax_engine::analysis::FEATURE_NAMES;
+    let mut map = serde_json::Map::new();
+    for (k, v) in FEATURE_NAMES.iter().zip(f.iter()) {
+        map.insert((*k).to_string(), serde_json::json!(*v as f64));
+    }
+    let mut obj = serde_json::json!({
+        "note": note,
+        "target_hz": target,
+        "features": map,
+        "vector": f.iter().map(|v| *v as f64).collect::<Vec<_>>(),
+    });
+    if let Some((a, b)) = seg {
+        obj["segment"] = serde_json::json!([a, b]);
+    }
+    obj.to_string()
+}
+
+/// Read a WAV (PCM 16/24/32-bit or float32; first channel).
+fn read_wav(path: &str) -> (Vec<f32>, f32) {
+    let b = std::fs::read(path).unwrap_or_else(|e| panic!("{path}: {e}"));
+    assert!(b.len() > 12 && &b[0..4] == b"RIFF" && &b[8..12] == b"WAVE", "{path}: not a WAV file");
+    let (mut fmt, mut ch, mut sr, mut bits) = (1u16, 1u16, 48000u32, 16u16);
+    let mut p = 12;
+    while p + 8 <= b.len() {
+        let id = &b[p..p + 4];
+        let len = u32::from_le_bytes([b[p + 4], b[p + 5], b[p + 6], b[p + 7]]) as usize;
+        let body = &b[p + 8..(p + 8 + len).min(b.len())];
+        if id == b"fmt " {
+            fmt = u16::from_le_bytes([body[0], body[1]]);
+            ch = u16::from_le_bytes([body[2], body[3]]);
+            sr = u32::from_le_bytes([body[4], body[5], body[6], body[7]]);
+            bits = u16::from_le_bytes([body[14], body[15]]);
+            if fmt == 0xFFFE && body.len() >= 26 {
+                fmt = u16::from_le_bytes([body[24], body[25]]);
+            }
+        } else if id == b"data" {
+            let bps = (bits / 8) as usize;
+            let frame = bps * ch as usize;
+            let n = body.len() / frame;
+            let mut x = Vec::with_capacity(n);
+            for i in 0..n {
+                let s = &body[i * frame..i * frame + bps];
+                let v = match (fmt, bits) {
+                    (3, 32) => f32::from_le_bytes([s[0], s[1], s[2], s[3]]),
+                    (_, 16) => i16::from_le_bytes([s[0], s[1]]) as f32 / 32768.0,
+                    (_, 24) => (((s[0] as i32) << 8 | (s[1] as i32) << 16 | (s[2] as i32) << 24) >> 8) as f32 / 8388608.0,
+                    (_, 32) => i32::from_le_bytes([s[0], s[1], s[2], s[3]]) as f32 / 2147483648.0,
+                    _ => panic!("{path}: unsupported WAV format {fmt}/{bits}"),
+                };
+                x.push(v);
+            }
+            return (x, sr as f32);
+        }
+        p += 8 + len + (len & 1);
+    }
+    panic!("{path}: no data chunk");
+}
+
+fn analyze_file(o: &Opts, geom: &str) {
+    let path = o.analyze.as_deref().unwrap();
+    let (x, sr) = read_wav(path);
+    let e = make_engine(o, geom);
+    let tgt = |note: Option<&str>| -> f64 {
+        o.target_hz.or_else(|| note.and_then(|n| target_any(&e, n)).map(|t| t * o.ref_a / 440.0)).unwrap_or(0.0)
+    };
+    if o.notes.is_empty() && o.fingering.is_some() {
+        let t = tgt(o.fingering.as_deref());
+        let f = sax_engine::analysis::analyze_with(&x, sr, t as f32, &sax_engine::analysis::AnalysisConfig::with_inst_t60(o.inst_t60));
+        println!("{}", features_json(o.fingering.as_deref(), t, &f, None));
+    } else {
+        // auto-segment; notes (if given) are assigned in order
+        let segs = sax_engine::analysis::segment(&x, sr);
+        let mut arr = Vec::new();
+        for (k, (a, b)) in segs.iter().enumerate() {
+            let note = o.notes.get(k).map(|s| s.as_str());
+            let t = if o.notes.is_empty() { o.target_hz.unwrap_or(0.0) } else { tgt(note) };
+            let f = sax_engine::analysis::analyze_with(&x[*a..*b], sr, t as f32, &sax_engine::analysis::AnalysisConfig::with_inst_t60(o.inst_t60));
+            arr.push(serde_json::from_str::<serde_json::Value>(&features_json(note, t, &f, Some((*a, *b)))).unwrap());
+        }
+        println!("{}", serde_json::json!({"file": path, "sample_rate": sr, "notes": arr}));
+    }
+}
+
+fn room_file(o: &Opts) {
+    let path = o.analyze.as_deref().unwrap();
+    let (x, sr) = read_wav(path);
+    let r = sax_engine::analysis::room_with(&x, sr, &sax_engine::analysis::AnalysisConfig::with_inst_t60(o.inst_t60));
+    let verdict = ["dry", "some room", "too reverberant", "uncertain"][r.verdict.min(3) as usize];
+    println!(
+        "{}",
+        serde_json::json!({
+            "file": path, "rt60": r.rt60, "rt60_spread": r.rt60_spread, "drr": r.drr,
+            "noise_floor": r.noise_floor, "n_tails": r.n_tails, "confidence": r.confidence,
+            "verdict": r.verdict, "verdict_text": verdict, "clap_rt60": r.clap_rt60, "tail_ratio": r.tail_ratio,
+            "vector": r.to_array().iter().map(|v| *v as f64).collect::<Vec<_>>(),
+        })
+    );
+}

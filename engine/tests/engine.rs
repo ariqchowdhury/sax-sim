@@ -212,3 +212,88 @@ fn beam_reed_plays_low_bb() {
     let s = &e.telemetry[sax_engine::telemetry::IDX_REED_SHAPE..];
     assert!(s.iter().all(|v| v.is_finite()) && s[0] != 0.0);
 }
+
+#[test]
+fn analysis_deterministic_with_seed() {
+    use sax_engine::analysis::{analyze, idx};
+    let Some(mut e) = engine_with(&["LH1", "LH2", "LH3"]) else { return };
+    e.set_param(Param::BreathNoise as u32, 0.3); // noise on: the seed must matter
+    let render = |e: &mut Engine| -> Vec<f32> {
+        e.set_param(Param::LungPressure as u32, 3.5);
+        let mut x = Vec::new();
+        for _ in 0..(2.0 * 48000.0 / 128.0) as usize {
+            x.extend_from_slice(e.process(128));
+        }
+        x
+    };
+    e.set_seed(7);
+    e.reset_offline();
+    let a = render(&mut e);
+    e.reset_offline();
+    let b = render(&mut e);
+    assert_eq!(a, b, "two renders after reset with the same seed must be bit-identical");
+    let fa = analyze(&a, 48000.0, 233.082);
+    let fb = analyze(&b, 48000.0, 233.082);
+    assert_eq!(fa, fb);
+    assert_eq!(fa[idx::VALID], 1.0);
+    assert!(fa[idx::CENTS].abs() < 30.0, "G4 cents {}", fa[idx::CENTS]);
+    // a fresh engine with the same seed renders the same note identically
+    let Some(mut e2) = engine_with(&["LH1", "LH2", "LH3"]) else { return };
+    e2.set_param(Param::BreathNoise as u32, 0.3);
+    e2.set_seed(7);
+    e2.reset_offline();
+    assert_eq!(render(&mut e2), a);
+    // a different seed changes the noise
+    e.set_seed(8);
+    e.reset_offline();
+    assert_ne!(render(&mut e), a);
+}
+
+/// `reset_offline` must make an engine indistinguishable from a fresh one:
+/// render note A, reset, render B == fresh engine (same seed) rendering B, and
+/// render B twice in a row with resets → bit-identical; at oversample 2 and 4.
+#[test]
+fn reset_equals_fresh_engine() {
+    let Some(g) = geometry() else { return };
+    let fing = |e: &Engine, n: &str| -> Vec<String> { e.inst.json.fingerings.iter().find(|f| f.note == n).unwrap().keys.clone() };
+    let setup = |e: &mut Engine, note: &str, os: f32, kpa: f32| {
+        e.set_param(Param::Oversample as u32, os);
+        e.set_param(Param::BreathNoise as u32, 0.3);
+        e.release_all_keys();
+        for k in fing(e, note) {
+            e.set_key_by_name(&k, 1.0);
+        }
+        e.set_param(Param::LungPressure as u32, kpa);
+        e.process(0); // apply an oversample change (rebuild) if any
+        e.reset_offline();
+    };
+    let render = |e: &mut Engine, secs: f64| -> Vec<f32> {
+        let mut x = Vec::new();
+        for _ in 0..(secs * 48000.0 / 128.0) as usize {
+            x.extend_from_slice(e.process(128));
+        }
+        x
+    };
+    for (os, beam) in [(2.0f32, 0.0f32), (4.0, 0.0), (4.0, 1.0)] {
+        let mut fresh = Engine::new(48000.0);
+        fresh.load_geometry_json(&g).unwrap();
+        fresh.set_param(Param::ReedModel as u32, beam);
+        fresh.set_seed(5);
+        setup(&mut fresh, "D5", os, 4.0);
+        let want = render(&mut fresh, 0.8);
+
+        let mut e = Engine::new(48000.0);
+        e.load_geometry_json(&g).unwrap();
+        e.set_param(Param::ReedModel as u32, beam);
+        e.set_seed(5);
+        setup(&mut e, "G4", os, 3.0);
+        let _ = render(&mut e, 0.7); // a different note first
+        setup(&mut e, "D5", os, 4.0);
+        let a = render(&mut e, 0.8);
+        setup(&mut e, "D5", os, 4.0);
+        let b = render(&mut e, 0.8);
+        let first_diff = |x: &[f32], y: &[f32]| x.iter().zip(y).position(|(p, q)| p != q);
+        assert_eq!(first_diff(&a, &b), None, "os {os} beam {beam}: render → reset → render differs");
+        assert_eq!(first_diff(&a, &want), None, "os {os} beam {beam}: reset engine differs from a fresh engine");
+    }
+}

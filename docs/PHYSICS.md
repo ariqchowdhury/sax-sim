@@ -637,7 +637,7 @@ characteristic is still worth having, but it is unlikely on its own to make the 
   5 kPa within ±21 cents; D7 is limited by the bore (≤ 8 MPa·s/m³ near 1.4 kHz). The engine and
   `tools/tract_tmm.py` agree on the glottis effect (≈ 2× tract peak at A_g = 0.15 vs 1.61 cm²); a narrowed
   glottis helps but is not required. Subglottal end: anechoic trachea (no subglottal resonances).
-* *Attack history*: the previous note's bore oscillation (τ ≈ 15–30 ms) and mouth pressure (lung release
+* *Attack history*: the previous note's bore oscillation (Q ≈ 52–66, τ = Q/(πf) ≈ 60–150 ms, T60 ≈ 120/f0 s — corrected in M9) and mouth pressure (lung release
   τ = 120 ms) seed the low regime if the altissimo attack follows within ~0.1–0.2 s; the player model's
   "voice, then attack" gate (tongue on the reed until the voicing ramp is complete and ≥ 0.1 s has
   passed; trims reset per attack) makes the attack independent of the previous state.

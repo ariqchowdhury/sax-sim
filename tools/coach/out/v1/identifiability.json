@@ -1,0 +1,89 @@
+{
+ "keys": [
+  "lip_force",
+  "lip_position",
+  "lip_damping",
+  "mouthpiece_insertion",
+  "baffle_height",
+  "chamber_size",
+  "tip_opening",
+  "reed_strength",
+  "tongue_y@low",
+  "tongue_x@low",
+  "jaw_open@low",
+  "tongue_y@mid",
+  "tongue_x@mid",
+  "jaw_open@mid",
+  "tongue_y@palm",
+  "tongue_x@palm",
+  "jaw_open@palm",
+  "lung_pressure"
+ ],
+ "posterior_sd_steps": {
+  "lip_force": 0.21995279823555874,
+  "lip_position": 0.1021337358875078,
+  "lip_damping": 0.31880648119209537,
+  "mouthpiece_insertion": 0.22261184316707297,
+  "baffle_height": 0.5601531766697602,
+  "chamber_size": 0.12517779686914204,
+  "tip_opening": 0.18147879325437594,
+  "reed_strength": 0.2567707126617178,
+  "tongue_y@low": 0.9324037735821118,
+  "tongue_x@low": 0.8693328269201075,
+  "jaw_open@low": 0.5196569373723344,
+  "tongue_y@mid": 0.9422660945969128,
+  "tongue_x@mid": 1.1069019320759734,
+  "jaw_open@mid": 1.4250261916306268,
+  "tongue_y@palm": 1.13127209383033,
+  "tongue_x@palm": 1.8849027359485804,
+  "jaw_open@palm": 1.8147737192103883,
+  "lung_pressure": 0.3127021944005818
+ },
+ "fisher_diag_sqrt": {
+  "lip_force": 13.411954568928866,
+  "lip_position": 14.849897446216904,
+  "lip_damping": 5.639031303851761,
+  "mouthpiece_insertion": 22.781792648133102,
+  "baffle_height": 10.402222523998848,
+  "chamber_size": 30.311076128411425,
+  "tip_opening": 12.369880172031564,
+  "reed_strength": 7.9507352548500245,
+  "tongue_y@low": 1.216559207722206,
+  "tongue_x@low": 1.7475464034546397,
+  "jaw_open@low": 4.179657022234914,
+  "tongue_y@mid": 1.523555041902079,
+  "tongue_x@mid": 1.4247143505483473,
+  "jaw_open@mid": 1.256807679027735,
+  "tongue_y@palm": 1.864098828874563,
+  "tongue_x@palm": 0.4364792455703958,
+  "jaw_open@palm": 0.9463677919175556,
+  "lung_pressure": 9.15246265166099
+ },
+ "confounds": [
+  [
+   "tongue_x@mid",
+   "jaw_open@mid",
+   -0.7060175945421502
+  ],
+  [
+   "jaw_open@low",
+   "lung_pressure",
+   0.7041178703348966
+  ],
+  [
+   "baffle_height",
+   "chamber_size",
+   0.6487982980141913
+  ],
+  [
+   "reed_strength",
+   "lung_pressure",
+   0.6256147968049397
+  ],
+  [
+   "lip_damping",
+   "reed_strength",
+   0.6151642769587765
+  ]
+ ]
+}

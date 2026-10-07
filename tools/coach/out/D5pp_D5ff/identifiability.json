@@ -1,0 +1,84 @@
+{
+ "keys": [
+  "lip_force",
+  "lip_position",
+  "lip_damping",
+  "mouthpiece_insertion",
+  "baffle_height",
+  "chamber_size",
+  "tip_opening",
+  "reed_strength",
+  "tongue_y@low",
+  "tongue_x@low",
+  "jaw_open@low",
+  "tongue_y@mid",
+  "tongue_x@mid",
+  "jaw_open@mid",
+  "tongue_y@palm",
+  "tongue_x@palm",
+  "jaw_open@palm",
+  "lung_pressure"
+ ],
+ "posterior_sd_steps": {
+  "lip_force": 0.1977303994789938,
+  "lip_position": 0.1003476994025604,
+  "lip_damping": 0.30592996074747186,
+  "mouthpiece_insertion": 0.2025546403780649,
+  "baffle_height": 0.534854838937309,
+  "chamber_size": 0.12101799716349032,
+  "tip_opening": 0.1789888155714787,
+  "reed_strength": 0.24258516854163104,
+  "tongue_y@low": 0.9129154699786041,
+  "tongue_x@low": 0.8521377640196249,
+  "jaw_open@low": 0.5054494509357034,
+  "tongue_y@mid": 0.9057753585741938,
+  "tongue_x@mid": 1.0028442467298697,
+  "jaw_open@mid": 1.410373323388075,
+  "tongue_y@palm": 1.118660433113967,
+  "tongue_x@palm": 1.874856280584352,
+  "jaw_open@palm": 1.8079613092849136,
+  "lung_pressure": 0.3013577856909036
+ },
+ "fisher_diag_sqrt": {
+  "lip_force": 14.35607465507035,
+  "lip_position": 14.946754663790188,
+  "lip_damping": 5.699128092954504,
+  "mouthpiece_insertion": 23.283327505223138,
+  "baffle_height": 10.858119812884786,
+  "chamber_size": 31.656238815885825,
+  "tip_opening": 12.959009985005347,
+  "reed_strength": 7.997790368230815,
+  "tongue_y@low": 1.230039455920931,
+  "tongue_x@low": 1.7666519269643897,
+  "jaw_open@low": 4.18370851580479,
+  "tongue_y@mid": 1.584302389779454,
+  "tongue_x@mid": 1.6695862319346364,
+  "jaw_open@mid": 1.3623522748271866,
+  "tongue_y@palm": 1.864126245481182,
+  "tongue_x@palm": 0.4366762051631968,
+  "jaw_open@palm": 0.9466378769320674,
+  "lung_pressure": 9.332348797750972
+ },
+ "confounds": [
+  [
+   "tongue_x@mid",
+   "jaw_open@mid",
+   -0.7329642583850621
+  ],
+  [
+   "jaw_open@low",
+   "lung_pressure",
+   0.6975427421573436
+  ],
+  [
+   "baffle_height",
+   "chamber_size",
+   0.6475769615928023
+  ],
+  [
+   "tongue_y@palm",
+   "jaw_open@palm",
+   0.605521851832276
+  ]
+ ]
+}

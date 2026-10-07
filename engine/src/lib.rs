@@ -3,6 +3,7 @@
 //! C ABI (docs/ARCHITECTURE.md "WASM ABI"). Single engine instance.
 
 pub mod air;
+pub mod analysis;
 pub mod engine;
 pub mod fdtd;
 pub mod flow;
@@ -247,4 +248,114 @@ pub extern "C" fn sax_compute_tract_impedance(n: u32, fmin: f32, fmax: f32) -> *
     }
     dft_log_grid(&z, dt, n, fmin, fmax, out);
     out.as_ptr()
+}
+
+// ------------------------------------------------------------------ M9 analysis (docs/COACHING.md)
+
+static mut FEATURES: [f32; analysis::FEATURE_LEN] = [0.0; analysis::FEATURE_LEN];
+static mut SEGMENTS: Vec<f32> = Vec::new();
+
+/// Analyse a mono single-note buffer (`analysis.rs`); returns the feature vector
+/// (`sax_analyze_len()` f32, layout in COACHING.md). `target_hz` = expected sounding
+/// pitch (≤ 0: unknown). Independent of the engine instance (no `sax_init` needed).
+/// # Safety
+/// `ptr..ptr+n` must be readable f32s.
+#[no_mangle]
+#[allow(static_mut_refs)]
+pub unsafe extern "C" fn sax_analyze(ptr: *const f32, n: u32, sample_rate: f32, target_hz: f32) -> *const f32 {
+    let out = &mut FEATURES;
+    if ptr.is_null() {
+        *out = [0.0; analysis::FEATURE_LEN];
+        return out.as_ptr();
+    }
+    let x = core::slice::from_raw_parts(ptr, n as usize);
+    *out = analysis::analyze_with(x, sample_rate, target_hz, &analysis_cfg());
+    out.as_ptr()
+}
+
+#[no_mangle]
+pub extern "C" fn sax_analyze_len() -> u32 {
+    analysis::FEATURE_LEN as u32
+}
+
+/// Split a multi-note recording into notes; returns `[count, start0, end0, start1, …]`
+/// (sample indices as f32).
+/// # Safety
+/// `ptr..ptr+n` must be readable f32s.
+#[no_mangle]
+#[allow(static_mut_refs)]
+pub unsafe extern "C" fn sax_segment(ptr: *const f32, n: u32, sample_rate: f32) -> *const f32 {
+    let out = &mut SEGMENTS;
+    out.clear();
+    if ptr.is_null() {
+        out.push(0.0);
+        return out.as_ptr();
+    }
+    let x = core::slice::from_raw_parts(ptr, n as usize);
+    let segs = analysis::segment(x, sample_rate);
+    out.push(segs.len() as f32);
+    for (a, b) in segs {
+        out.push(a as f32);
+        out.push(b as f32);
+    }
+    out.as_ptr()
+}
+
+/// Silence all acoustic / reed / lung / player run-time state (keep geometry,
+/// params and keys) for back-to-back deterministic offline renders.
+#[no_mangle]
+pub extern "C" fn sax_reset_state() {
+    if let Some(e) = engine() {
+        e.reset_offline();
+    }
+}
+
+/// Breath-noise RNG seed (deterministic fits); takes effect immediately and on every reset.
+#[no_mangle]
+pub extern "C" fn sax_set_seed(seed: u32) {
+    if let Some(e) = engine() {
+        e.set_seed(seed);
+    }
+}
+
+static mut ROOM: [f32; analysis::ROOM_LEN] = [0.0; analysis::ROOM_LEN];
+
+/// Blind room / recording-quality estimate of a (multi-note) recording from its
+/// release tails (and an optional clap before the first note). Returns
+/// `[rt60, rt60_spread, drr, noise_floor, n_tails, confidence, verdict, clap_rt60,
+/// tail_ratio]` (COACHING.md). No `sax_init` needed.
+/// # Safety
+/// `ptr..ptr+n` must be readable f32s.
+#[no_mangle]
+#[allow(static_mut_refs)]
+pub unsafe extern "C" fn sax_room(ptr: *const f32, n: u32, sample_rate: f32) -> *const f32 {
+    let out = &mut ROOM;
+    if ptr.is_null() {
+        *out = analysis::RoomSummary { rt60: -1.0, rt60_spread: -1.0, drr: -120.0, noise_floor: -120.0, verdict: 3, clap_rt60: -1.0, tail_ratio: -120.0, ..Default::default() }.to_array();
+        return out.as_ptr();
+    }
+    let x = core::slice::from_raw_parts(ptr, n as usize);
+    *out = analysis::room_with(x, sample_rate, &analysis_cfg()).to_array();
+    out.as_ptr()
+}
+
+/// Analysis configuration: instrument ring-down constant T60_inst·f0 (Hz·s) used
+/// by the release/room estimate — 120 for simulator output (default), ≈ 95 for
+/// real alto recordings (COACHING.md). Values ≤ 0 restore the default.
+#[no_mangle]
+pub extern "C" fn sax_analysis_config(inst_t60_hz: f32) {
+    ANALYSIS_T60.store((analysis::AnalysisConfig::with_inst_t60(inst_t60_hz as f64).inst_t60_hz).to_bits(), core::sync::atomic::Ordering::Relaxed);
+}
+
+/// ABI-level analysis configuration (`sax_analysis_config`); the analysis code
+/// itself takes it as a parameter.
+static ANALYSIS_T60: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+fn analysis_cfg() -> analysis::AnalysisConfig {
+    let bits = ANALYSIS_T60.load(core::sync::atomic::Ordering::Relaxed);
+    if bits == 0 {
+        analysis::AnalysisConfig::default()
+    } else {
+        analysis::AnalysisConfig::with_inst_t60(f64::from_bits(bits))
+    }
 }

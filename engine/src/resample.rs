@@ -82,6 +82,12 @@ impl Decimator {
         self.phase = 0;
     }
 
+    /// Reset including the ring position (state identical to a fresh `configure`).
+    pub fn reset_full(&mut self) {
+        self.reset();
+        self.pos = 0;
+    }
+
     /// Push one internal-rate sample; returns Some(output) every `factor` pushes.
     #[inline]
     pub fn push(&mut self, x: f32) -> Option<f32> {

@@ -196,9 +196,10 @@ pub const ALT_REARTIC_AFTER: f64 = 0.12;
 pub const ALT_DIP_TIME: f64 = 0.08;
 /// "voice, then attack" (PHYSICS.md §11): on a new altissimo fingering or a new
 /// attack the player keeps the tongue on the reed until the voicing ramp is in
-/// place and at least ALT_SETTLE has passed — long enough for the previous
-/// note's bore oscillation (Q ≈ 30 at 300–700 Hz → τ ≈ 15–30 ms) to ring down,
-/// so it cannot seed the low regime. Measured: pure physics locks 18/18 for
+/// place and at least ALT_SETTLE has passed — so the previous note's bore
+/// oscillation, ringing down with amplitude time constant τ = Q/(πf) ≈ 60–150 ms
+/// (Q ≈ 55, T60 ≈ 120/f0), has decayed enough (≳ 6–15 dB) that it no longer
+/// seeds the low regime. Measured: pure physics locks 18/18 for
 /// gaps ≥ 0.1 s, 6/18 at 0.05 s.
 pub const ALT_SETTLE: f64 = 0.1;
 /// lip-force pitch-trim gain (N/(cent·s)) and limit (N)
@@ -281,6 +282,20 @@ impl Player {
             self.emb_w += (w - self.emb_w) * (dt / DYN_EMB_TAU).min(1.0);
         }
         self.emb_w
+    }
+
+    /// Forget all run-time adaptation (register locking, dynamics learning,
+    /// altissimo ramps…) — keeps the note table, current fingering and the
+    /// player's base controls. For deterministic back-to-back offline renders.
+    pub fn reset_runtime(&mut self) {
+        let fresh = Player {
+            notes: core::mem::take(&mut self.notes),
+            current: self.current,
+            base: self.base,
+            out: PlayerOffsets { pressure_scale: 1.0, ..Default::default() },
+            ..Default::default()
+        };
+        *self = fresh;
     }
 
     /// Recognise the fingering from key press amounts.

@@ -191,6 +191,118 @@ try {
     console.log('SKIP altissimo checks: no Altissimo preset / G#6 register-3 fingering in the data');
   }
 
+  // ---- coach mode (M9): synthetic recording → upload → segmentation → analysis → fit → advice ---
+  {
+    const { EngineHost } = await import('../src/coach/fit/engineHost.ts');
+    const { TEST_SET, DYN_PRESSURE } = await import('../src/coach/fit/testset.ts');
+    const geoJson = fs.readFileSync(path.join(root, 'data/alto_sax.json'), 'utf8');
+    const host = new EngineHost(new WebAssembly.Module(fs.readFileSync(path.join(root, 'web/public/engine.wasm'))), geoJson);
+    const PLANTED_INSERTION = 3; // mm (default 10): mouthpiece pulled out → every note flat
+    // protocol v1 + the recommended G4push take (G4 with the mouthpiece pushed 5 mm further on)
+    const notes = [...TEST_SET.filter((n) => !n.optional), { id: 'G4push', note: 'G4', dynamic: 'mf', push: 5 }];
+    const SR = 48000, gap = Math.round(0.8 * SR);
+    const parts = notes.map((n, i) => host.render({ note: n.note, params: [[18, PLANTED_INSERTION + (n.push ?? 0)], [0, DYN_PRESSURE[n.dynamic]]], oversample: 2, seconds: 2.6, seed: 11 + i, wantAudio: true }).audio);
+    const total = parts.reduce((a, p) => a + p.length + gap, gap);
+    let x = new Float32Array(total);
+    let o = gap;
+    for (const p of parts) { x.set(p, o); o += p.length + gap; }
+    // simple room (Schroeder: 3 combs + 2 allpasses, 18 % wet) and a mic EQ (HP 90 Hz, LP 7 kHz)
+    const room = new Float32Array(total);
+    for (const [d, g] of [[1557, 0.72], [1617, 0.7], [1491, 0.74]]) {
+      const buf = new Float32Array(d); let k = 0;
+      for (let i = 0; i < total; i++) { const y = buf[k]; buf[k] = x[i] + y * g; k = (k + 1) % d; room[i] += y / 3; }
+    }
+    for (const [d, g] of [[225, 0.5], [556, 0.5]]) {
+      const buf = new Float32Array(d); let k = 0;
+      for (let i = 0; i < total; i++) { const b = buf[k]; const y = -g * room[i] + b; buf[k] = room[i] + g * y; k = (k + 1) % d; room[i] = y; }
+    }
+    let hp = 0, lp = 0, prev = 0, peak = 0;
+    const ah = Math.exp(-2 * Math.PI * 90 / SR), al = 1 - Math.exp(-2 * Math.PI * 7000 / SR);
+    for (let i = 0; i < total; i++) {
+      const v = x[i] + 0.18 * room[i];
+      hp = ah * (hp + v - prev); prev = v;
+      lp += al * (hp - lp);
+      x[i] = lp; peak = Math.max(peak, Math.abs(lp));
+    }
+    for (let i = 0; i < total; i++) x[i] = (x[i] / peak) * 0.5 + (Math.random() - 0.5) * 2e-4; // + noise floor
+    const wav = Buffer.alloc(44 + total * 2);
+    wav.write('RIFF', 0); wav.writeUInt32LE(36 + total * 2, 4); wav.write('WAVEfmt ', 8); wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
+    wav.writeUInt32LE(SR, 24); wav.writeUInt32LE(SR * 2, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(total * 2, 40);
+    for (let i = 0; i < total; i++) wav.writeInt16LE(Math.round(Math.max(-1, Math.min(1, x[i])) * 32767), 44 + i * 2);
+    const wavPath = path.join(fs.mkdtempSync(path.join((await import('node:os')).tmpdir(), 'saxcoach-')), 'synthetic-player.wav');
+    fs.writeFileSync(wavPath, wav);
+    x = null;
+
+    await page.click('#coach-btn');
+    await page.waitForSelector('#coach:not([hidden]) #coach-upload', { timeout: 15000 });
+    const input = await page.$('#coach-upload');
+    await input.uploadFile(wavPath);
+    await page.waitForFunction(() => document.querySelector('[data-act="analyze-segs"]'), { timeout: 60000 });
+    const nSeg = await page.evaluate(() => document.querySelectorAll('select[data-seg]').length);
+    check('coach: upload → auto-segmentation finds the notes', nSeg === notes.length, `${nSeg} segments for ${notes.length} notes`);
+    console.log(`INFO  coach: segments ${await page.evaluate(() => window.__sax.coach.segments.map((x) => `${x.assigned || '—'}:${Math.round(x.f0 ?? 0)}`).join(' '))}`);
+    await page.click('[data-act="analyze-segs"]');
+    await page.waitForFunction(() => window.__sax.coach.session.takes.length > 0 && document.querySelector('#pl-cents'), { timeout: 120000 });
+    const an = await page.evaluate(() => {
+      const t = window.__sax.coach.session.takes;
+      const v = t.filter((x) => x.features[25] > 0);
+      return { n: t.length, valid: v.length, meanCents: v.filter((x) => x.dynamic === 'mf').reduce((a, x) => a + x.features[1], 0) / Math.max(1, v.filter((x) => x.dynamic === 'mf').length), src: t[0]?.source };
+    });
+    const roomEst = await page.evaluate(() => window.__sax.coach.session.room);
+    const badge = await page.evaluate(() => document.querySelector('.room-badge')?.textContent ?? '');
+    check('coach: recording-quality badge (sax_room)', !!roomEst && roomEst.source === 'wasm' && roomEst.verdict >= 0 && roomEst.verdict <= 3 && badge.length > 0,
+      roomEst ? `${badge.slice(0, 90)}…` : 'none');
+    check('coach: per-note analysis', an.valid >= notes.length - 2, `${an.valid}/${an.n} valid, mean mf cents ${an.meanCents.toFixed(1)} (${an.src} extractor)`);
+    await page.click('[data-act="to-fit"]');
+    await page.click('[data-act="fit"]');
+    await page.waitForFunction(() => window.__sax.coach.session.fit && document.querySelector('[data-act="fit"]:not([disabled])'), { timeout: 180000 });
+    const res = await page.evaluate(() => {
+      const s = window.__sax.coach.session;
+      return { controls: s.fit.controls, method: s.fit.method, status: s.fit.status, problems: s.fit.problems, src: s.rulesSource,
+        sug: s.suggestions.map((x) => x.id), shown: document.querySelectorAll('.sug').length,
+        template: s.suggestions.filter((x) => x.source === 'template').map((x) => `${x.id} ${(x.confidence * 100).toFixed(0)}%`),
+        takes: s.takes.map((t) => t.id) };
+    });
+    check('coach: fit status ok', res.status === 'ok', res.status === 'ok' ? '' : (res.problems ?? []).join('; '));
+    const ins = res.controls.mouthpiece_insertion;
+    // pipeline check, control-agnostic: the fitted simulator reproduces the recording's intonation
+    const simMean = await page.evaluate(() => {
+      const s = window.__sax.coach.session;
+      const ids = s.takes.filter((t) => t.dynamic === 'mf' && t.features[25] > 0).map((t) => t.id);
+      const v = ids.map((id) => s.fit.simFeatures?.[id]).filter((f) => f && f[25] > 0).map((f) => f[1]);
+      return v.length ? v.reduce((a, b) => a + b, 0) / v.length : NaN;
+    });
+    const nSim = await page.evaluate(() => Object.keys(window.__sax.coach.session.fit.simFeatures ?? {}).length);
+    check('coach: fit returns controls + simulated features for every take', Object.keys(res.controls).length >= 10 && nSim === an.n, `${Object.keys(res.controls).length} controls, ${nSim}/${an.n} simulated notes — ${res.method}`);
+    // fit quality is the fitter's job (reported, not asserted): does the fitted simulator reproduce the intonation?
+    console.log(`${Math.abs(simMean - an.meanCents) < 15 ? 'INFO ' : 'WARN '} coach: fit quality — mean mf cents recorded ${an.meanCents.toFixed(1)}, fitted simulator ${Number.isFinite(simMean) ? simMean.toFixed(1) : 'no sounding notes'}`);
+    console.log(`INFO  coach: fitted mouthpiece_insertion ${ins?.toFixed(1)} mm (planted ${PLANTED_INSERTION}, default 10); controls ${JSON.stringify(Object.fromEntries(Object.entries(res.controls).map(([k, v]) => [k, +v.toFixed(2)])))}`);
+    check('coach: ranked suggestions shown', res.shown > 0 && res.shown === res.sug.length, `${res.sug.join(', ')}`);
+    check('coach: G4push reference take recorded', res.takes.includes('G4push'), res.takes.join(' '));
+    const top3 = res.template.slice(0, 3).some((x) => x.startsWith('mouthpiece_too_far_out '));
+    check('coach: planted cause (mouthpiece too far out) in the template top 3', top3, `${res.template.join(', ')} (${res.src})`);
+    // A/B buttons set simulator params
+    await page.click('[data-act="load-fitted"]');
+    const a = await page.evaluate(() => window.__sax.state.get(18));
+    await page.click('[data-act="load-sug"][data-i="0"]').catch(() => {});
+    const b = await page.evaluate(() => window.__sax.state.get(18));
+    check('coach: Load fitted player / suggested change set the simulator', Math.abs(a - ins) < 0.01, `insertion A ${a.toFixed(1)} → B ${b.toFixed(1)} mm`);
+    // pp/ff takes: the fitter's per-note params (incl. dynamic) are loaded
+    const ffId = await page.evaluate(() => window.__sax.coach.session.takes.find((t) => t.dynamic === 'ff')?.id);
+    if (ffId) {
+      await page.select('#ab-note', ffId);
+      await page.click('[data-act="load-fitted"]');
+      const dyn = await page.evaluate((id) => {
+        const pn = window.__sax.coach.session.fit.perNoteParams?.[id] ?? [];
+        const want = pn.find(([k]) => k === 24)?.[1];
+        return { want, got: window.__sax.state.get(24) };
+      }, ffId);
+      check('coach: Load fitted player uses the per-note params (dynamic)', dyn.want === undefined || Math.abs(dyn.got - dyn.want) < 1e-3, `${ffId}: dynamic ${dyn.got?.toFixed(2)} (fit ${dyn.want?.toFixed?.(2) ?? 'n/a'})`);
+    }
+    await page.click('[data-act="restore"]');
+    await page.click('[data-act="close"]');
+  }
+
   check('no page errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   const failed = results.filter((r) => !r.ok).length;
   console.log(`\ne2e: ${results.length - failed}/${results.length} checks passed`);

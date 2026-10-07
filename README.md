@@ -65,6 +65,10 @@ Other scripts
 * **Altissimo** (G6 and up): played with the data's `register: 3` fingerings and a tuned vocal
   tract; the impedance plot's *tract overlay* shows Z_tract and Z_bore + Z_tract (the series load
   the reed works against), and the 3D tract label turns green when the tract is tuned to the note.
+* **🎷 Coach**: record (or upload) a short test set on your own alto; the app measures every note,
+  fits the simulated player to it, ranks likely causes with concrete things to try, and lets you
+  A/B the fitted and suggested settings in the simulator. Audio never leaves the browser
+  ([docs/COACHING.md](docs/COACHING.md)).
 * **Tour** button: a guided first-run walkthrough.
 
 Full reference: **[docs/UI.md](docs/UI.md)**.

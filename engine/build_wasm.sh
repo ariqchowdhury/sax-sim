@@ -20,7 +20,7 @@ cp "$HERE/target/relaxed/wasm32-unknown-unknown/wasm/sax_engine.wasm" "$ROOT/web
 if command -v node >/dev/null 2>&1; then
   node -e '
     const fs = require("fs");
-    const need = ["memory","sax_alloc","sax_free","sax_init","sax_load_geometry","sax_set_param","sax_set_key","sax_process","sax_telemetry_ptr","sax_telemetry_len","sax_pad_openness_ptr","sax_compute_impedance"];
+    const need = ["memory","sax_alloc","sax_free","sax_init","sax_load_geometry","sax_set_param","sax_set_key","sax_process","sax_telemetry_ptr","sax_telemetry_len","sax_pad_openness_ptr","sax_compute_impedance","sax_compute_tract_impedance","sax_analyze","sax_analyze_len","sax_segment","sax_reset_state","sax_set_seed","sax_room","sax_analysis_config"];
     const sigs = [];
     for (const f of process.argv.slice(1)) {
       const m = new WebAssembly.Module(fs.readFileSync(f));

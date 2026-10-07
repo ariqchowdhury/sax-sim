@@ -122,6 +122,58 @@ keyboard or part of the current note-mode fingering.
   turn **green** when a strong (≥ 10 MPa·s/m³) tract resonance lies between 150 ¢ below and 450 ¢
   above the note (the series peak of Z_bore + Z_tract falls between them), amber within −500…+900 ¢. A *tract-supported* chip appears in the pitch card when it is.
 
+## Tone coach (M9, docs/COACHING.md)
+
+**🎷 Coach** in the top bar opens the coach (loaded on demand). Privacy: audio is analysed in the
+browser only (Web Audio + a Web Worker) and never uploaded; sessions store features, not audio.
+
+1. **Setup** — the protocol v1 test set (Bb3 D4 G4 C5 C♯5 D5 G5 C6 F6, G4 pp/ff), the recommended
+   ★ **G4push** reference take (G4 with the mouthpiece pushed 5 mm further onto the cork — it pins the
+   pitch-vs-length slope and separates reed strength / lip cushion / support; on by default), optional
+   D5 pp/ff and G6, reference A (default 440 Hz), mic tips (close-mic 30–50 cm or a dry room).
+   * **Record with the microphone**: `getUserMedia` mono, 48 kHz, echo cancellation / noise
+     suppression / auto-gain **off**; level meter and clip warning; per-note prompt with the
+     written note, dynamic, target pitch and the fingering diagram; 3-2-1 count-in, 3.4 s take,
+     automatic analysis, re-take by clicking the note in the list.
+   * **Upload**: one long file (auto-segmented with the engine's `sax_segment`; the detected notes
+     are aligned to the protocol by pitch, so a missing or extra note doesn't shift the rest) or
+     one file per note (note guessed from the file name, e.g. `03_G4_pp.wav`); any format the
+     browser decodes, resampled to 48 kHz; the assignment is editable before analysing.
+   * **Try with a simulated player** renders the test set with the engine (planted: mouthpiece
+     pulled out) — for exploring without a saxophone.
+2. **Analysis** — `sax_analyze` (engine `analysis.rs`, the same extractor the fitter uses) per
+   note: table of the main features with stability / scoop / breathiness / vibrato / register chips,
+   a tuner-style cents chart, harmonic spectrum (H1–H10, recorded vs fitted simulator) and
+   brightness pp → mf → ff. Room-sensitive features (attack, scoop, individual harmonics) are marked.
+3. **Fit & advice** — the fitter (`web/src/coach/fit/`, worker pool) with a progress bar; fitted
+   controls ± uncertainty; ranked suggestions (cause, what to try, why, what to listen for,
+   confidence, ⚑ model-gap / room flags) from `data/coach_model.json` rules — until that file's
+   rules land, a provisional rule set implementing the contract's example causes is used and
+   labelled as such. **A/B**: pick a note, *A · Load fitted player*, *B · Load suggested change*,
+   *▶ Play* (plays the note in the simulator), *Restore my previous settings*.
+   * **Recording quality**: the wizard asks for clean tongue stops (not fades) and offers an
+     optional **👏 room check** clap; the engine's blind room estimate (`sax_room`: RT60, DRR,
+     verdict dry / some room / too reverberant / uncertain) is shown as a badge with advice
+     ("move the mic closer to the bell or use a smaller, furnished room"). Room-sensitive
+     measurements (attack, scoop, single harmonics, tilt) are caveated for *some room* and greyed out
+     for *too reverberant*; room-sensitive suggestions are down-weighted or greyed accordingly.
+     Until `sax_room` is in the engine build the badge says the estimate is unavailable.
+   * **Advice** (`data/coach_model.json` rules, §Diagnosis): *Most likely causes* = the template
+     ranking (`fit/rankCauses`, instant, no fit needed; top 3 with softmax confidence); *Also
+     noticed* = observation rules whose machine-readable `trigger`s fire (port of
+     `tools/coach/triggers.py`); *From the fit* = the fit-based projection (secondary). Each control
+     cause lists its **look-alikes** (confounded controls from `identifiability`), the fitted
+     controls show whether the recording determines them. Rules whose `room` requirement the
+     verdict doesn't meet are hidden (listed as "not checked"), and the verdict's `room_notes` text
+     is shown. A failed fit (`status: failed`, e.g. a take silent in the simulation) lists its
+     `problems`; the template advice stays. *Load fitted player* uses the fitter's per-take engine
+     params (incl. `dynamic`, `player_assist`); *Load suggested change* moves the cause's controls
+     two steps back along its signature on top of that.
+   * Recordings are analysed with `sax_analysis_config(95)` (real-instrument ring-down) on a
+     dedicated analysis instance; simulated takes keep the engine default (120).
+4. **Sessions** — save to this browser, export/import JSON, list with date, takes and mean |¢| to
+   track progress.
+
 ## MIDI, vibrato
 
 Panel → **MIDI & vibrato** → *Connect MIDI input* (Web MIDI; Chrome/Edge).
@@ -159,6 +211,11 @@ Panel → **MIDI & vibrato** → *Connect MIDI input* (Web MIDI; Chrome/Edge).
 
 * `npm run test:unit` — `web/tests/keywork.test.ts`: `keywork.ts` vs the wasm engine's pad
   openness for all fingerings, alternates and 60 random fractional key states.
+* `npm run test:e2e` also runs the coach end to end: a synthetic player (engine renders of the
+  test set with the mouthpiece pulled out, a Schroeder room and a mic EQ) is written to a WAV and
+  uploaded → segmentation (11/11 notes) → analysis → fit → ranked suggestions → A/B params. The
+  planted cause in the top 3 is asserted once `data/coach_model.json` rules exist (reported
+  meanwhile); fit quality is reported, not asserted.
 * `npm run test:e2e` — `web/tests/e2e.mjs` (puppeteer-core + local Chrome, Vite dev server
   started programmatically): audio starts, a C4–G5 scale in note mode lands within ±50 ¢ of each
   fingering's `f_target`, lung/tongue drags change their params, the impedance plot recomputes on

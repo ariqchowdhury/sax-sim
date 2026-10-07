@@ -61,7 +61,7 @@ function main(): void {
   buildPanel($('panel'), state, scene, kb, { midi, vibrato, recorder, capture, ensureAudio });
 
   // debugging handle (console: __sax.state.set(0, 3) etc.)
-  (window as unknown as { __sax: unknown }).__sax = { state, scene, engine, kb, geo, midi, vibrato, recorder, capture, chart, get imp() { return imp; }, get impPlot() { return impPlot; } };
+  (window as unknown as { __sax: unknown }).__sax = { state, scene, engine, kb, geo, midi, vibrato, recorder, capture, chart, get coach() { return coach; }, get imp() { return imp; }, get impPlot() { return impPlot; } };
 
   // ---- status / start ------------------------------------------------------------------------
   const statusEl = $('status');
@@ -155,6 +155,15 @@ function main(): void {
     if (recorder.start()) { recBtn.textContent = '■ Stop'; recBtn.classList.add('rec'); }
   });
   const tour = setupTour(scene);
+  // Coach mode (M9) — loaded on demand (separate chunk)
+  let coach: import('./coach/CoachView').CoachView | null = null;
+  $('coach-btn').addEventListener('click', async () => {
+    if (!coach) {
+      const { CoachView } = await import('./coach/CoachView');
+      coach = new CoachView({ geo, geometryJson: json, wasmUrl: `${import.meta.env.BASE_URL}engine.wasm`, state, kb, engine, ensureAudio });
+    }
+    if (coach.isOpen) coach.close(); else coach.open();
+  });
   $('tour-btn').addEventListener('click', () => tour.open());
   const help = $('help');
   $('help-btn').addEventListener('click', () => (help.hidden = !help.hidden));

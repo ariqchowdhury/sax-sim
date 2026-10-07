@@ -865,6 +865,43 @@ impl Engine {
         self.resets += 1;
     }
 
+    /// Silence all acoustic / reed / lung / player run-time state, keeping geometry,
+    /// params and keys (`sax_reset_state`): two renders after a reset with the same
+    /// seed are bit-identical.
+    pub fn reset_offline(&mut self) {
+        // 1. bring every control to its target (params, pads, coefficients) …
+        if self.need_rebuild {
+            self.rebuild();
+        }
+        for i in 0..self.smooth.len() {
+            self.smooth[i].snap();
+        }
+        self.player.reset_runtime();
+        self.snap_pads();
+        self.update_coeffs(true);
+        // 2. … then clear every dynamic state, so nothing depends on the history
+        self.reset_state();
+        self.resets = self.resets.saturating_sub(1);
+        self.lungs.pressure = 0.0;
+        self.p_lung = 0.0;
+        self.lungs.set_target_pa(self.lung_target_pa);
+        self.ctrl_count = 0;
+        self.sample_count = 0;
+        self.scope_pos = 0;
+        self.rad_pos = 0;
+        self.dec.reset_full();
+        self.pitch.reset();
+        self.bank_capture = true;
+    }
+
+    /// Seed the breath-noise RNG (`sax_set_seed`).
+    pub fn set_seed(&mut self, seed: u32) {
+        self.lungs.set_seed(seed as u64);
+    }
+
+    /// Output scale: digital full scale per Pa at the 1 m listener.
+    pub const OUTPUT_PA_TO_FS: f64 = PA_TO_FS;
+
     /// Advance `n` output samples; returns the output buffer.
     pub fn process(&mut self, n: usize) -> &[f32] {
         #[cfg(not(target_arch = "wasm32"))]

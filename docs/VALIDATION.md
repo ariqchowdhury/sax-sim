@@ -251,7 +251,7 @@ previous notes/durations/gaps 0.05–0.4 s, os 2/4, finger-by-finger key changes
   tune; the 5 slow cases (Bb6/B6 at 3.5 kPa with a step attack) are in tune at the end but take > 0.6 s
   to settle; 120/120 and 60/60 (assist 1.0) with the round-5 voicings. Slurs from F#6 and from G4 lock.
 * pure physics (voicing set at the release): gap 0.05 s → 6/21, 0.1 s → 14/21, 0.2 s → 21/21. A stopped
-  reed does not help at 0.05 s. Mechanism: the previous note's bore oscillation (Q ≈ 30 → τ ≈ 15–30 ms at
+  reed does not help at 0.05 s. Mechanism: the previous note's bore oscillation (resonance Q ≈ 52–66 in TMM and engine → amplitude time constant τ = Q/(πf) ≈ 60–150 ms, T60 ≈ 120/f0 s; corrected in M9) at
   300–700 Hz) and the still-high mouth pressure (lung release τ = 120 ms) seed the low regime; with the
   weaker, more realistic tracts the seed must decay further.
 * The web report ("first attack after a held G4 locks low, the second works") could not be reproduced

@@ -1,0 +1,396 @@
+[
+ {
+  "id": "mouthpiece_too_far_out",
+  "kind": "control",
+  "cause": "Mouthpiece too far out on the cork",
+  "signature": {
+   "mouthpiece_insertion": -1
+  },
+  "evidence": "All notes flat by a similar amount (cents offset roughly uniform across both registers); tone otherwise normal.",
+  "advice": "Push the mouthpiece further onto the cork — about 1 mm per 2-3 cents flat (more in the upper register). Re-check with a tuner on G4 and C6.",
+  "why": "The mouthpiece position changes the length of the whole air column: every note moves together. Pushing in 1 mm raises pitch by ~1.4 cents on low Bb and ~3.3 cents on C#5.",
+  "listen_for": "With a drone or tuner the whole instrument sits low, low notes and high notes alike.",
+  "gaps": []
+ },
+ {
+  "id": "mouthpiece_too_far_in",
+  "kind": "control",
+  "cause": "Mouthpiece too far in on the cork",
+  "signature": {
+   "mouthpiece_insertion": 1
+  },
+  "evidence": "All notes sharp by a similar amount.",
+  "advice": "Pull the mouthpiece out a little — about 1 mm per 2-3 cents sharp. Do not 'lip down' to compensate.",
+  "why": "A shorter air column raises every note by roughly the same proportion.",
+  "listen_for": "Everything sits high on the tuner, and relaxing the lip does not fix the low notes.",
+  "gaps": []
+ },
+ {
+  "id": "biting",
+  "kind": "control",
+  "cause": "Biting / too much lip pressure",
+  "signature": {
+   "lip_force": 1
+  },
+  "evidence": "Upper register and palm-key notes increasingly sharp, a thinner, pinched sound; ff does not open up.",
+  "advice": "Relax the jaw and let the lower lip cushion the reed instead of pushing it; think 'drop the jaw, keep the corners firm'. Re-tune after relaxing.",
+  "why": "Lip force pre-bends the reed toward the lay: the reed becomes stiffer (the lip tissue stiffens as you press) and its opening smaller, which raises pitch most on short tubes and limits the flow.",
+  "listen_for": "Pitch rising as you go up the horn, high notes thin and 'tight'; when you relax, the pitch drops and the sound gets bigger.",
+  "gaps": []
+ },
+ {
+  "id": "loose_embouchure",
+  "kind": "control",
+  "cause": "Embouchure too loose (not enough lip support)",
+  "signature": {
+   "lip_force": -1
+  },
+  "evidence": "Upper notes flat and spread; low notes may honk; pitch unstable.",
+  "advice": "Firm the lip a little (corners in, chin flat) so the reed is supported; keep the air steady.",
+  "why": "Too little lip force leaves the reed very compliant and wide open: the reed's 'equivalent volume' grows, lowering high notes most.",
+  "listen_for": "High notes sagging flat and wide, the sound spreading at forte.",
+  "gaps": []
+ },
+ {
+  "id": "too_much_mouthpiece",
+  "kind": "control",
+  "cause": "Too much mouthpiece in the mouth",
+  "signature": {
+   "lip_position": 1
+  },
+  "evidence": "Notes flat (more in the upper register), loud and spread; low notes may crack to the octave.",
+  "advice": "Take a little less mouthpiece: place the lower lip about where the reed starts to leave the mouthpiece rail (mark it with a pencil line).",
+  "why": "The lip sits further from the reed tip, so the free vibrating reed is longer and softer: more reed compliance, lower pitch, less control.",
+  "listen_for": "A big but uncontrolled sound, flat and wobbly high notes.",
+  "gaps": []
+ },
+ {
+  "id": "too_little_mouthpiece",
+  "kind": "control",
+  "cause": "Too little mouthpiece in the mouth",
+  "signature": {
+   "lip_position": -1
+  },
+  "evidence": "Small, stuffy sound, low notes hard to start; slightly sharp.",
+  "advice": "Take a little more mouthpiece (a few millimetres) so the reed can vibrate freely.",
+  "why": "A short free reed is stiff: higher closing pressure, less flow, a smaller and darker sound.",
+  "listen_for": "Low notes refusing to speak softly, a pinched small tone.",
+  "gaps": [
+   "In the simulator, moving the lip toward the tip raises the reed's closing pressure, the opposite of some real set-ups — treat as a hint."
+  ]
+ },
+ {
+  "id": "too_much_lip_cushion",
+  "kind": "control",
+  "cause": "Heavy lip cushion / damping (subtone-like)",
+  "signature": {
+   "lip_damping": 1
+  },
+  "evidence": "Dark, soft-edged sound with little 2-5 kHz energy at every dynamic; slightly flat.",
+  "advice": "Use a little less lower lip over the reed and less pressure from the lip tissue; let the reed ring.",
+  "why": "Lip tissue on the reed absorbs its vibration (damping), which removes upper partials and lowers the effective reed resonance.",
+  "listen_for": "A muffled tone that stays dark even when you play louder.",
+  "gaps": []
+ },
+ {
+  "id": "too_little_lip_cushion",
+  "kind": "control",
+  "cause": "Too little lip cushion (thin lip, 'reed buzz')",
+  "signature": {
+   "lip_damping": -1
+  },
+  "evidence": "Edgy/buzzy tone with strong 2-5 kHz energy, especially loud.",
+  "advice": "Roll a little more of the lower lip over the teeth to cushion the reed.",
+  "why": "With little damping the reed's own resonance rings, adding high-frequency buzz.",
+  "listen_for": "A 'zzz' edge on every note.",
+  "gaps": []
+ },
+ {
+  "id": "reed_too_hard",
+  "kind": "control",
+  "cause": "Reed too hard for the set-up",
+  "signature": {
+   "reed_strength": 1
+  },
+  "evidence": "Stuffy, needs a lot of air; soft notes hard to start; dark; slightly sharp.",
+  "advice": "Try half a strength softer (or sand the reed slightly) and compare the low notes at pp.",
+  "why": "A stiffer reed raises the closing pressure, so more blowing pressure is needed before the reed sounds.",
+  "listen_for": "Effort and resistance; low notes cracking or not speaking softly.",
+  "gaps": []
+ },
+ {
+  "id": "reed_too_soft",
+  "kind": "control",
+  "cause": "Reed too soft",
+  "signature": {
+   "reed_strength": -1
+  },
+  "evidence": "Upper register flat, sound closes up or buzzes at ff, bright and thin.",
+  "advice": "Try half a strength harder.",
+  "why": "A soft reed closes easily: the pitch of high notes sags and loud notes choke.",
+  "listen_for": "High notes going flat as you crescendo; the sound 'shutting off' when you push.",
+  "gaps": []
+ },
+ {
+  "id": "tip_opening_large",
+  "kind": "control",
+  "cause": "Wide tip opening (jazz set-up) without the matching embouchure",
+  "signature": {
+   "tip_opening": 1
+  },
+  "evidence": "Loud and bright, wide intonation, low notes cracking; more air needed.",
+  "advice": "Either a closer facing / softer reed, or more lip support; check G4 pp holds pitch.",
+  "why": "A larger reed opening lets more air through: louder and brighter, but the reed is harder to control.",
+  "listen_for": "Big sound but unstable pitch, hard to play softly.",
+  "gaps": []
+ },
+ {
+  "id": "bright_baffle",
+  "kind": "control",
+  "cause": "Bright mouthpiece (high baffle / small chamber)",
+  "signature": {
+   "baffle_height": 1,
+   "chamber_size": -0.5
+  },
+  "evidence": "Bright, edgy tone across the range, more so than the embouchure explains; register 2 slightly sharp.",
+  "advice": "If you want a darker/classical sound: a lower-baffle, larger-chamber mouthpiece. Otherwise it is a style choice.",
+  "why": "A high baffle narrows the air path just behind the tip, which boosts upper partials.",
+  "listen_for": "A bright 'cutting' tone even at mf.",
+  "gaps": [
+   "Baffle and chamber are partly confounded with each other in this test set (|corr| ≈ 0.65-0.73)."
+  ]
+ },
+ {
+  "id": "large_chamber",
+  "kind": "control",
+  "cause": "Large-chamber (dark) mouthpiece",
+  "signature": {
+   "chamber_size": 1
+  },
+  "evidence": "Dark tone; the upper register flat relative to the low register (octaves narrow).",
+  "advice": "Adjust with the cork for the middle of the horn, then voice the upper register up (tongue higher) — or use a smaller-chamber mouthpiece for better octaves.",
+  "why": "A larger mouthpiece volume replaces the cut-off tip of the cone less well at high frequencies: the second register goes flat relative to the first.",
+  "listen_for": "Octaves (G4–G5, D4–D5) that are narrow (top note flat).",
+  "gaps": []
+ },
+ {
+  "id": "weak_support",
+  "kind": "control",
+  "cause": "Not enough air support",
+  "signature": {
+   "lung_pressure": -1
+  },
+  "evidence": "Soft, thin sound at mf, little brightening from pp to ff, notes slow to start.",
+  "advice": "Breathe lower and keep a steady, faster air stream; practise long tones crescendo pp→ff.",
+  "why": "Blowing pressure sets how far above the oscillation threshold the reed works: too little gives a weak, unstable note.",
+  "listen_for": "Notes that fade or wobble at the end of a phrase; small dynamic range.",
+  "gaps": []
+ },
+ {
+  "id": "over_blowing",
+  "kind": "control",
+  "cause": "Over-blowing (too much pressure for the set-up)",
+  "signature": {
+   "lung_pressure": 1
+  },
+  "evidence": "Loud and harsh at mf, low notes jumping up an octave, slight pitch drop.",
+  "advice": "Use less pressure and more air speed control; let the reed do the work.",
+  "why": "At high pressure the reed beats hard against the lay: a harsh spectrum and register jumps on the low notes.",
+  "listen_for": "Low Bb/C cracking to the octave, an edgy forte that you cannot soften.",
+  "gaps": []
+ },
+ {
+  "id": "closed_low_voicing",
+  "kind": "control",
+  "cause": "Closed throat / jaw in the low register",
+  "signature": {
+   "jaw_open@low": -1
+  },
+  "evidence": "Low notes slightly sharp and pinched compared with the middle register.",
+  "advice": "Open the throat and drop the jaw for the low notes ('aw' or 'oh' vowel).",
+  "why": "The mouth cavity is in series with the horn at the reed; a smaller cavity slightly raises the pitch and thins the low notes.",
+  "listen_for": "Low notes thinner and higher than the middle register.",
+  "gaps": [
+   "Weakly identifiable from the test set (the tract mainly matters in the upper register)."
+  ],
+  "validate": false
+ },
+ {
+  "id": "cracking_low",
+  "kind": "observation",
+  "cause": "Low notes cracking to the octave (air/lip balance)",
+  "signature": {},
+  "evidence": "regime ≠ 1 on Bb3 or D4 (sounds an octave or twelfth up).",
+  "advice": "Less pressure and a slightly looser lip for the low notes, more mouth cavity ('aw'); start them softly with a gentle tongue.",
+  "why": "For the lowest notes the 2nd air-column resonance is as strong as the 1st; too much pressure or lip force tips the reed into the upper regime.",
+  "listen_for": "The note popping up an octave as you push.",
+  "gaps": [],
+  "room": "any",
+  "evidence_features": [
+   "regime"
+  ],
+  "trigger": {
+   "any": [
+    {
+     "type": "any_note",
+     "feature": "regime",
+     "notes": [
+      "Bb3",
+      "D4"
+     ],
+     "op": "!=",
+     "value": 1
+    }
+   ]
+  }
+ },
+ {
+  "id": "open_csharp_unstable",
+  "kind": "observation",
+  "cause": "Unstable / sharp open C#5",
+  "signature": {},
+  "evidence": "C#5 sharp by > 15 cents or pitch_std high relative to C5.",
+  "advice": "Relax the lip and voice lower on C#5; try adding the low C# key or RH fingers (standard alternate) to stabilise it.",
+  "why": "Open C# vents through a small hole with a very short tube: its resonances are weak and inharmonic.",
+  "listen_for": "A thin, wavering C#5.",
+  "gaps": [],
+  "room": "any",
+  "evidence_features": [
+   "cents",
+   "pitch_std"
+  ],
+  "trigger": {
+   "any": [
+    {
+     "type": "value",
+     "x": "cents@C#5",
+     "op": ">",
+     "value": 15
+    },
+    {
+     "type": "diff",
+     "a": "pitch_std@C#5",
+     "b": "pitch_std@C5",
+     "op": ">",
+     "value": 5
+    }
+   ]
+  }
+ },
+ {
+  "id": "late_voicing",
+  "kind": "observation",
+  "cause": "Voicing set late (scooping into notes)",
+  "signature": {},
+  "evidence": "Large |scoop| (> 25 cents) at the start of notes, mostly on palm-key / upper notes.",
+  "advice": "Set the tongue/throat shape before you start the note ('voice, then attack'), then release the tongue.",
+  "why": "The vocal tract is in series with the horn; if its shape changes during the attack the pitch slides.",
+  "listen_for": "A pitch 'swoop' at the start of high notes.",
+  "gaps": [
+   "Attack/scoop features are unreliable in reverberant recordings; only trust with a close, dry recording."
+  ],
+  "room": "dry",
+  "evidence_features": [
+   "scoop"
+  ],
+  "trigger": {
+   "any": [
+    {
+     "type": "max_abs",
+     "feature": "scoop",
+     "notes": [
+      "G5",
+      "C6",
+      "F6"
+     ],
+     "op": ">",
+     "value": 25
+    }
+   ]
+  }
+ },
+ {
+  "id": "breathy",
+  "kind": "observation",
+  "cause": "Breathy / air leaking",
+  "signature": {},
+  "evidence": "Low harmonic-to-noise ratio (hnr) on most notes relative to the other notes.",
+  "advice": "Seal the corners of the mouth around the mouthpiece; keep the air focused; check the reed for leaks.",
+  "why": "Air that does not pass the reed channel as a modulated jet adds broadband noise.",
+  "listen_for": "A 'hiss' under the tone.",
+  "gaps": [],
+  "room": "dry_or_some",
+  "evidence_features": [
+   "hnr_rel"
+  ],
+  "trigger": {
+   "any": [
+    {
+     "type": "mean",
+     "feature": "hnr",
+     "notes": "mf",
+     "op": "<",
+     "value": 25
+    }
+   ]
+  }
+ },
+ {
+  "id": "flat_dynamic_range",
+  "kind": "observation",
+  "cause": "Small dynamic range (pp too loud or ff too weak)",
+  "signature": {},
+  "evidence": "G4 ff − pp level < 5 dB (the default simulated player gives ~7 dB on this protocol; real players typically 15-25 dB), little brightening.",
+  "advice": "For pp: more lip support and less mouthpiece pressure-air (firmer, smaller opening); for ff: more air with a looser, undamped lip.",
+  "why": "Dynamics on a reed instrument come mainly from the embouchure: the lip sets the reed's closing pressure, which scales the whole oscillation; pressure alone only changes the level by ~6-12 dB.",
+  "listen_for": "pp and ff sounding almost the same.",
+  "gaps": [
+   "The simulator's pp intonation in register 2 is up to +40-60 cents sharp (A5, Bb5) — pp pitch advice is suppressed there."
+  ],
+  "room": "dry_or_some",
+  "evidence_features": [
+   "level_ff-pp",
+   "centroid_rel_ff-pp"
+  ],
+  "trigger": {
+   "any": [
+    {
+     "type": "diff",
+     "a": "level@G4ff",
+     "b": "level@G4pp",
+     "op": "<",
+     "value": 5
+    }
+   ]
+  }
+ },
+ {
+  "id": "pp_sharp",
+  "kind": "observation",
+  "cause": "Pinching at soft dynamics",
+  "signature": {},
+  "room": "any",
+  "evidence_features": [
+   "cents@G4pp",
+   "cents@G4"
+  ],
+  "trigger": {
+   "any": [
+    {
+     "type": "diff",
+     "a": "cents@G4pp",
+     "b": "cents@G4",
+     "op": ">",
+     "value": 15
+    }
+   ]
+  },
+  "evidence": "The pp note is more than 15 cents sharper than the same note at mf.",
+  "advice": "For soft notes keep the jaw relaxed and support the sound with air and lip corners rather than biting; drop the jaw slightly as you get softer.",
+  "why": "Playing softly with a firmer lip reduces the reed opening and stiffens the reed (strain-stiffening lip tissue): the pitch rises, most in the upper register.",
+  "listen_for": "Soft notes drifting sharp on a tuner, especially G5–C6.",
+  "gaps": [
+   "The simulator's pp intonation in register 2 runs +40-60 cents sharp on A5/Bb5 — G4 is used for this check."
+  ]
+ }
+]
