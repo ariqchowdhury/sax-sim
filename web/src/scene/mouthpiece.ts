@@ -56,6 +56,8 @@ export class MouthpieceModel {
   private reedHeel: number;
   private profile: [number, number][];
   cutaway = false;
+  /** shape or position changed in the last update (shadow refresh) */
+  moved = true;
   /** anchor below the reed tip for the flow readout */
   readonly reedAnchor = new THREE.Object3D();
   /** +1: the cutaway keeps local +Z (away from the default camera); -1: keeps -Z */
@@ -135,33 +137,61 @@ export class MouthpieceModel {
       return g;
     };
     this.outer = new THREE.Mesh(mkGrid(ST, AR, true), mats.rubber.clone());
+    mats.addXray(this.outer.material as THREE.Material);
+    // stable UVs for the micro-grain normal map: u along, v around
+    {
+      const uv = new Float32Array(ST * AR * 2);
+      for (let i = 0; i < ST; i++) for (let j = 0; j < AR; j++) { uv[(i * AR + j) * 2] = (i / (ST - 1)) * 3; uv[(i * AR + j) * 2 + 1] = j / AR; }
+      this.outer.geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    }
     this.inner = new THREE.Mesh(mkGrid(ST, AR, true), mats.mpInterior.clone());
     this.cutTop = new THREE.Mesh(mkGrid(ST, 2, false), mats.cutFace.clone());
     this.cutBot = new THREE.Mesh(mkGrid(ST, 2, false), mats.cutFace.clone());
     this.reedMat = mats.reed.clone();
     this.reed = new THREE.Mesh(mkGrid(40, 8, true), this.reedMat);
+    {
+      // reed UVs: u = tip → heel (fibres run along u), v across
+      const uv = new Float32Array(40 * 8 * 2);
+      for (let i = 0; i < 40; i++) for (let j = 0; j < 8; j++) { uv[(i * 8 + j) * 2] = i / 39; uv[(i * 8 + j) * 2 + 1] = j / 8; }
+      this.reed.geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    }
     for (const m of [this.outer, this.inner, this.cutTop, this.cutBot]) {
       (m.material as THREE.Material).clippingPlanes = [this.clipPlane];
       m.frustumCulled = false;
+      m.userData.noAO = true; // clipped: the AO G-buffer would see the removed half
+      m.receiveShadow = true;
     }
+    this.outer.castShadow = true;
+    this.reed.userData.noAO = true;
     this.reed.frustumCulled = false;
     this.root.add(this.outer, this.inner, this.cutTop, this.cutBot, this.reed, this.ligature, this.reedAnchor);
     this.reedAnchor.position.set(0.004, -0.03, 0);
 
-    // ligature: two bands + screws, around the rear of the reed
+    // ligature: two metal bands with rolled edges, a screw bar under the reed with knurled thumb screws
     for (const u of [0.05, 0.066]) {
-      const band = new THREE.Mesh(new THREE.TorusGeometry(1, 0.0012, 8, 40), mats.ligature);
-      band.rotation.y = Math.PI / 2;
+      const R = 0.0143;
+      const bandG = new THREE.CylinderGeometry(R, R, 0.0038, 48, 1, true).rotateZ(Math.PI / 2);
+      const band = new THREE.Mesh(bandG, mats.ligature);
       band.position.x = u;
-      band.scale.set(0.0142, 0.0142, 1);
       band.userData.u = u;
       this.ligature.add(band);
+      for (const dx of [-0.0019, 0.0019]) {
+        const edge = new THREE.Mesh(new THREE.TorusGeometry(R, 0.00045, 6, 48).rotateY(Math.PI / 2), mats.ligature);
+        edge.position.x = u + dx;
+        this.ligature.add(edge);
+      }
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.0011, 0.0011, 0.036, 12).rotateX(Math.PI / 2), mats.ligature);
+      bar.position.set(u, -HB - 0.0062, 0);
+      this.ligature.add(bar);
       for (const s of [-1, 1]) {
-        const screw = new THREE.Mesh(new THREE.CylinderGeometry(0.0013, 0.0013, 0.009, 10), mats.ligature);
-        screw.position.set(u, -HB - 0.004, s * 0.0135);
-        this.ligature.add(screw);
+        const ear = new THREE.Mesh(new THREE.BoxGeometry(0.0034, 0.005, 0.0022), mats.ligature);
+        ear.position.set(u, -HB - 0.0042, s * 0.0128);
+        const head = new THREE.Mesh(new THREE.CylinderGeometry(0.0027, 0.0027, 0.0034, 20).rotateX(Math.PI / 2), mats.ligature);
+        head.position.set(u, -HB - 0.0062, s * 0.0185);
+        this.ligature.add(ear, head);
       }
     }
+    this.ligature.traverse((o) => { o.castShadow = true; });
     // neck cork
     const cork = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 32, 1, true), mats.cork);
     const xN = path.xNeck;
@@ -240,6 +270,7 @@ export class MouthpieceModel {
     return out;
   }
 
+  private lastIns = NaN;
   private sec = { w: 0, top: 0, bot: 0, flat: 0 };
   private sec2 = { w: 0, top: 0, bot: 0, flat: 0 };
   /** outer beak top height (local v) at u — used to seat the upper teeth/lip */
@@ -352,7 +383,8 @@ export class MouthpieceModel {
     this.reed.geometry.computeVertexNormals();
     const s = this.state.get(P.reed_strength);
     const t = (s - 1.5) / 3.5;
-    this.reedMat.color.setRGB(0.95 - 0.25 * t, 0.85 - 0.35 * t, 0.55 - 0.4 * t);
+    // tint over the cane texture: softer reeds paler, harder reeds deeper/amber
+    this.reedMat.color.setRGB(1.0 - 0.12 * t, 0.97 - 0.22 * t, 0.9 - 0.35 * t);
   }
 
   /** dt seconds; reedDisp telemetry (m) or null when no engine */
@@ -369,9 +401,11 @@ export class MouthpieceModel {
       if (v !== this.last[i]) { this.last[i] = v; dirty = true; }
     }
     if (dirty) this.rebuild();
+    this.moved = dirty;
     this.updateReed();
     // insertion: push the mouthpiece (and the player) along the axis
     const ins = (s.get(P.mouthpiece_insertion) - 10) / 1000;
+    if (ins !== this.lastIns) { this.lastIns = ins; this.moved = true; }
     this.root.position.copy(this.basePos).addScaledVector(this.axisW, ins);
     this.root.updateMatrixWorld();
     // clip plane: keep -Z half when cutaway
@@ -386,6 +420,11 @@ export class MouthpieceModel {
   }
 
   // ---- interaction -----------------------------------------------------------------------------
+  /** the cutaway's drag handles — for the UI's declutter rule */
+  get handleMeshes(): THREE.Object3D[] {
+    return this.handles.map((h) => h.mesh);
+  }
+
   registerHandles(ix: Interaction): void {
     const st = this.state;
     const X = new THREE.Vector3(1, 0, 0), Yv = new THREE.Vector3(0, 1, 0);
@@ -401,22 +440,22 @@ export class MouthpieceModel {
       });
     };
     add([P.tip_opening], 'Tip opening (drag ↕)', (m) => m.position.set(0.0005, this.rail(0) + 0.0004, this.zNear),
-      axisDrag(this.root, Yv, st, [P.tip_opening], (d, s0) => st.set(P.tip_opening, s0[0] + d * 1000 * 0.5, 'drag')), 0xffc04a);
+      axisDrag(this.root, Yv, st, [P.tip_opening], (d, s0) => st.set(P.tip_opening, s0[0] + d * 1000 * 0.5, 'drag'), 0.004), 0xffc04a);
     add([P.facing_length], 'Facing length (drag ↔)', (m) => m.position.set(this.facing(), -HB + 0.0003, this.zNear),
-      axisDrag(this.root, X, st, [P.facing_length], (d, s0) => st.set(P.facing_length, s0[0] + d * 1000, 'drag')), 0xffc04a);
+      axisDrag(this.root, X, st, [P.facing_length], (d, s0) => st.set(P.facing_length, s0[0] + d * 1000, 'drag'), 0.015), 0xffc04a);
     add([P.baffle_height], 'Baffle (drag ↕)', (m) => { const u = this.landmarks.baffle_end * 0.5; this.interior(u, this.sec); m.position.set(u, this.sec.top, this.zNear); },
-      axisDrag(this.root, Yv, st, [P.baffle_height], (d, s0) => st.set(P.baffle_height, s0[0] - d / 0.006, 'drag')));
+      axisDrag(this.root, Yv, st, [P.baffle_height], (d, s0) => st.set(P.baffle_height, s0[0] - d / 0.006, 'drag'), 0.006));
     add([P.chamber_size], 'Chamber (drag ↕)', (m) => { const u = 0.5 * (this.landmarks.chamber_start + this.landmarks.chamber_end); this.interior(u, this.sec); m.position.set(u, this.sec.top, this.zNear); },
-      axisDrag(this.root, Yv, st, [P.chamber_size], (d, s0) => st.set(P.chamber_size, s0[0] + d / 0.0035, 'drag')));
+      axisDrag(this.root, Yv, st, [P.chamber_size], (d, s0) => st.set(P.chamber_size, s0[0] + d / 0.0035, 'drag'), 0.0035));
     add([P.throat_diameter], 'Throat (drag ↕)', (m) => { this.interior(this.landmarks.throat_x, this.sec); m.position.set(this.landmarks.throat_x, this.sec.top, this.zNear); },
-      axisDrag(this.root, Yv, st, [P.throat_diameter], (d, s0) => st.set(P.throat_diameter, s0[0] + d * 1000 * 1.5, 'drag')));
+      axisDrag(this.root, Yv, st, [P.throat_diameter], (d, s0) => st.set(P.throat_diameter, s0[0] + d * 1000 * 1.5, 'drag'), 0.008 / 1.5));
     add([P.mouthpiece_insertion], 'Mouthpiece on cork (drag ↔)', (m) => m.position.set(this.L - 0.004, 0.0142, this.zNear),
-      axisDrag(this.root, X, st, [P.mouthpiece_insertion], (d, s0) => st.set(P.mouthpiece_insertion, s0[0] + d * 1000, 'drag')), 0x9be15d);
+      axisDrag(this.root, X, st, [P.mouthpiece_insertion], (d, s0) => st.set(P.mouthpiece_insertion, s0[0] + d * 1000, 'drag'), 0.02), 0x9be15d);
     // reed: hover shows strength; drag ↕ at the reed changes strength (stiffer = up)
     ix.add({
       objects: [this.reed],
       tooltip: paramTooltip(st, [P.reed_strength, P.reed_damping], 'Reed (drag ↕ = strength)'),
-      drag: axisDrag(this.root, Yv, st, [P.reed_strength], (d, s0) => st.set(P.reed_strength, s0[0] + d * 300, 'drag')),
+      drag: axisDrag(this.root, Yv, st, [P.reed_strength], (d, s0) => st.set(P.reed_strength, s0[0] + d * 300, 'drag'), 3.5 / 300),
       hover: (on) => this.reedMat.emissive.setHex(on ? 0x332200 : 0),
     });
   }

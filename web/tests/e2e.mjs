@@ -4,6 +4,8 @@
 //    f_target (±50 cents — a regression net, not an accuracy test)
 //  • drags the lung and tongue handles and checks the params change
 //  • checks the input-impedance plot recomputes after a fingering change
+//  • progressive-disclosure UI: drawers closed by default + toggle, drag readout, context card, Blow button,
+//    drag gain consistent across zoom, lower-lip axis lock, mouthpiece handle cluster collapse
 // Needs Chrome/Chromium: set CHROME_PATH, or it looks in the usual install locations. If none is
 // found the test is skipped (exit 0) unless E2E_REQUIRE=1.
 import fs from 'node:fs';
@@ -86,7 +88,10 @@ try {
   const camTo = async (c) => { await page.click(`[data-cam="${c}"]`); await wait(200); await page.waitForFunction(() => !window.__sax.scene.tween, { timeout: 20000 }); await wait(300); };
   const screenOf = (expr) => page.evaluate((expr) => {
     const s = window.__sax; const o = expr.split('.').reduce((a, k) => a[k], s);
-    const v = s.scene.camera.position.clone(); o.getWorldPosition(v); v.project(s.scene.camera);
+    // a mesh: its bounding-box centre (handles: their origin)
+    const v = s.scene.camera.position.clone();
+    if (o.geometry && !o.userData.isHandle) { o.geometry.computeBoundingBox(); o.geometry.boundingBox.getCenter(v); o.localToWorld(v); } else o.getWorldPosition(v);
+    v.project(s.scene.camera);
     const r = s.scene.renderer.domElement.getBoundingClientRect();
     return { x: r.left + (v.x + 1) / 2 * r.width, y: r.top + (1 - v.y) / 2 * r.height };
   }, expr);
@@ -99,14 +104,91 @@ try {
   const param = (id) => page.evaluate((id) => window.__sax.state.get(id), id);
   await camTo('player');
   let before = await param(0);
-  await drag('scene.player.hLung', 0, -50);
+  // the lungs are the grab target (the pressure gauge beside the chest appears on hover / drag)
+  await drag('scene.player.lungL', 0, -50);
   let after = await param(0);
-  check('drag lung handle → lung_pressure', after > before + 0.5, `${before.toFixed(2)} → ${after.toFixed(2)} kPa`);
+  check('drag lungs → lung_pressure', after > before + 0.5, `${before.toFixed(2)} → ${after.toFixed(2)} kPa`);
   before = await param(6);
   await drag('scene.player.hTongueBody', 0, -25);
   after = await param(6);
   check('drag tongue body → tongue_y', after > before + 0.05, `${before.toFixed(2)} → ${after.toFixed(2)}`);
   await page.evaluate(() => window.__sax.state.set(0, 0, 'test'));
+
+  // ---- progressive-disclosure UI (docs/UX_REVIEW.md) ---------------------------------------------
+  {
+    const tongueY0 = await param(6);
+    const closed = await page.evaluate(() => !document.getElementById('drawer').classList.contains('open') && !document.getElementById('viz').classList.contains('open'));
+    check('ui: Controls and Scopes drawers closed by default', closed);
+    await page.click('#scopes-btn'); await wait(250);
+    const open = await page.evaluate(() => document.getElementById('viz').classList.contains('open') && document.getElementById('scopes-btn').getAttribute('aria-expanded') === 'true' && JSON.parse(localStorage.getItem('saxsim.ui.v1')).scopes === true);
+    await page.click('#scopes-btn'); await wait(250);
+    check('ui: Scopes drawer toggles (aria-expanded, remembered)', open && await page.evaluate(() => !document.getElementById('viz').classList.contains('open')));
+    // mid-drag: the large readout next to the cursor names the part and the param it changes; the
+    // context card switches to the part's detail (tongue → tract)
+    const p = await screenOf('scene.player.hTongueBody');
+    await page.mouse.move(p.x, p.y); await wait(80); await page.mouse.down();
+    for (let i = 1; i <= 6; i++) { await page.mouse.move(p.x, p.y + 3 * i); await wait(40); }
+    await wait(150);
+    const ro = await page.evaluate(() => { const t = document.querySelector('.tooltip.readout'); return { text: t?.textContent ?? '', vis: t ? getComputedStyle(t).opacity : '0', ctx: window.__sax.ctx.kind, ctxOpen: window.__sax.ctx.isOpen }; });
+    await page.mouse.up(); await wait(200);
+    check('ui: drag readout shows the part and the changed value', ro.vis === '1' && /Tongue body/.test(ro.text) && /Tongue low\/high/.test(ro.text), ro.text.slice(0, 80));
+    check('ui: grabbing the tongue opens the tract context card', ro.ctxOpen && ro.ctx === 'tract', `${ro.ctx}`);
+    // the primary action: Hold to blow
+    const b = await page.$('#blow-btn');
+    const bb = await b.boundingBox();
+    await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2); await page.mouse.down(); await wait(400);
+    const blowing = await page.evaluate(() => [window.__sax.kb.isBlowing, window.__sax.state.get(0)]);
+    await page.mouse.up(); await wait(400);
+    const after = await page.evaluate(() => window.__sax.kb.isBlowing);
+    check('ui: Hold to blow button blows while held', blowing[0] && blowing[1] > 1 && !after, `lung ${blowing[1].toFixed(2)} kPa while held`);
+    await page.evaluate((v) => { window.__sax.state.set(6, v, 'test'); window.__sax.state.set(0, 0, 'test'); }, tongueY0);
+
+    // screen-space drag gain: the same 40 px drag of the tongue gives about the same change at two
+    // zoom levels (full range ≈ 200–250 px), instead of scaling with the zoom
+    const tongueDelta = async () => {
+      await page.evaluate(() => { window.__sax.state.set(5, 0.5, 'test'); window.__sax.state.set(6, 0.4, 'test'); });
+      await wait(250);
+      const b0 = await param(6);
+      const q = await screenOf('scene.player.hTongueBody');
+      await page.mouse.move(q.x, q.y); await wait(80); await page.mouse.down();
+      for (let i = 1; i <= 8; i++) { await page.mouse.move(q.x, q.y - 5 * i); await wait(30); }
+      await page.mouse.up(); await wait(200);
+      return (await param(6)) - b0;
+    };
+    const d1 = await tongueDelta();
+    await page.evaluate(() => { const s = window.__sax.scene; s.camera.position.lerp(s.controls.target, 0.45); s.controls.update(); });
+    await wait(400);
+    const d2 = await tongueDelta();
+    check('ui: drag gain — 40 px moves the tongue about the same at two zoom levels', d1 > 0.12 && d1 < 0.26 && d2 > 0.12 && d2 < 0.26 && Math.abs(d1 - d2) < 0.3 * Math.max(d1, d2),
+      `Δ tongue height ${d1.toFixed(3)} (Player view) vs ${d2.toFixed(3)} (zoomed in 1.8×)`);
+    await page.evaluate((v) => window.__sax.state.set(6, v, 'test'), tongueY0);
+
+    // lower lip: a diagonal drag commits to ONE axis (take-in or lip force) and the card says which
+    await camTo('mouthpiece');
+    check('ui: mouthpiece handles shown individually in the Mouthpiece view', await page.evaluate(() => !window.__sax.clusters.isCollapsed('mouthpiece ✋')));
+    const lip0 = await page.evaluate(() => [window.__sax.state.get(2), window.__sax.state.get(3)]);
+    const lp = await screenOf('scene.player.lowerLip');
+    await page.mouse.move(lp.x, lp.y); await wait(80); await page.mouse.down();
+    for (let i = 1; i <= 8; i++) { await page.mouse.move(lp.x + 4 * i, lp.y + 4 * i); await wait(30); }
+    await wait(120);
+    const lockTxt = await page.evaluate(() => document.querySelector('.tooltip.readout .dr-lock')?.textContent ?? '');
+    await page.mouse.up(); await wait(200);
+    const lip1 = await page.evaluate(() => [window.__sax.state.get(2), window.__sax.state.get(3)]);
+    const movedPos = Math.abs(lip1[0] - lip0[0]) > 0.05, movedForce = Math.abs(lip1[1] - lip0[1]) > 0.01;
+    const stillPos = lip1[0] === lip0[0], stillForce = lip1[1] === lip0[1];
+    check('ui: lower-lip drag locks to one axis', ((movedPos && stillForce) || (movedForce && stillPos)) && /locked to/.test(lockTxt),
+      `lip position ${lip0[0].toFixed(2)} → ${lip1[0].toFixed(2)}, lip force ${lip0[1].toFixed(2)} → ${lip1[1].toFixed(2)}; "${lockTxt}"`);
+    await page.evaluate((v) => { window.__sax.state.set(2, v[0], 'test'); window.__sax.state.set(3, v[1], 'test'); }, lip0);
+
+    // Instrument view: the mouthpiece handles are too close together → one "mouthpiece ✋" tag
+    await camTo('full');
+    const cl = await page.evaluate(() => {
+      const s = window.__sax;
+      const tag = [...document.querySelectorAll('.grabtag.cluster')].find((e) => e.textContent.startsWith('mouthpiece'));
+      return { collapsed: s.clusters.isCollapsed('mouthpiece ✋'), all: s.scene.mp.handleMeshes.every((h) => h.userData.collapsed), tag: !!tag && tag.style.display !== 'none' };
+    });
+    check('ui: mouthpiece handle cluster collapses to one tag in the Instrument view', cl.collapsed && cl.all && cl.tag, JSON.stringify(cl));
+  }
 
   // ---- impedance plot updates on fingering change --------------------------------------------
   await page.waitForFunction(() => window.__sax.imp?.result, { timeout: 20000 });

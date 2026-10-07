@@ -2,6 +2,7 @@
 // Speed ∝ volume-flow telemetry. Allocation-free per frame.
 import * as THREE from 'three';
 import type { BorePath } from './borePath';
+import { softDot } from './render/textures';
 
 const MAX_PTS = 160;
 
@@ -59,12 +60,15 @@ export class Airflow {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
     g.setAttribute('color', new THREE.BufferAttribute(this.col, 3));
+    // soft round sprites, additive, slightly HDR so they catch a touch of bloom
     this.mat = new THREE.PointsMaterial({
-      size: 0.0032, vertexColors: true, transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true,
+      size: 0.0042, map: softDot(), vertexColors: true, transparent: true, opacity: 0.85, depthWrite: false,
+      blending: THREE.AdditiveBlending, sizeAttenuation: true, color: new THREE.Color(1.6, 1.6, 1.6),
     });
     this.points = new THREE.Points(g, this.mat);
     this.points.frustumCulled = false;
     this.points.renderOrder = 8;
+    this.points.userData.noAO = true;
   }
 
   /** playerPath: world points lungs→lips (count = playerLen) */

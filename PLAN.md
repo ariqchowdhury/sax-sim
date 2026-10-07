@@ -84,9 +84,11 @@ Status of each milestone is tracked at the bottom of this file.
 - M7 mostly done (subglottal adds ~7.5 % CPU).
 - M8 done.
 - M9 done (v1): coach regenerated on round-7 physics (template top-3 80 % v1 / 83 % with G4push); recording guard (silent/cracked/wrong-note takes left out and reported); swell-proof segmentation; clap-primary room estimate. Not yet validated on real recordings.
+- UX/graphics pass: 3D view full-screen with progressive disclosure (drawers, context cards, grab hints, zoom-independent drag gain, axis-locked lips, handle-cluster collapse), studio render pipeline with PBR materials and auto quality tiers. Review: docs/UX_REVIEW.md.
 - Player docs: docs/ALTISSIMO.md, docs/OVERTONES.md.
 
 ## Next (proposed)
 1. Validate the coach on real recordings (calibrate confidence, room thresholds, ring-down).
 2. Physics: palm-key fragility (F6 drops register near default controls at assist 0.5; palm pp only 10–14 dB); A5 sharp at mf vs palm locking (neck vent); C#7 flat; G4 pp needs embouchure change (pure physics 2.2 kPa below threshold).
-3. Coach: report alternative solutions from parallel fitter starts; player-facing docs/TONE.md.
+3. UX: auto close-up when grabbing head handles on phones; usability test with 3–5 first-time users.
+4. Coach: report alternative solutions from parallel fitter starts; player-facing docs/TONE.md.

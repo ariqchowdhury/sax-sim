@@ -8,6 +8,7 @@ import type { MidiInput } from './midi';
 import type { Vibrato } from './vibrato';
 import type { TelemetryCapture, WavRecorder } from '../engine/Recorder';
 import { download, stamp } from '../engine/Recorder';
+import { getRenderQuality, onRenderQualityChange, setRenderQuality, type RenderQualityMode } from '../scene/render/quality';
 import { PRESETS, applyPreset, capturePreset, loadUserPresets, parsePresetFile, saveUserPresets, type Preset } from './presets';
 
 export interface PanelExtras {
@@ -22,7 +23,7 @@ export interface PanelExtras {
 const GROUPS: ParamGroup[] = ['Air', 'Embouchure', 'Tongue & Tract', 'Reed', 'Mouthpiece', 'Instrument', 'Environment', 'Engine'];
 
 export function buildPanel(container: HTMLElement, state: AppState, scene: SceneApp, kb: KeyboardPlayer, x: PanelExtras): GUI {
-  const gui = new GUI({ container, title: 'Controls', width: 300 });
+  const gui = new GUI({ container, title: 'All parameters', width: 320 });
   const proxy: Record<string, number> = {};
   const ctrls: Controller[] = [];
 
@@ -63,7 +64,7 @@ export function buildPanel(container: HTMLElement, state: AppState, scene: Scene
       ctrls[d.id] = c;
     }
     if (g === 'Air') {
-      blowCtrl = f.add(kb.opts, 'blowPressure', 0, 10, 0.05).name('Blow target (kPa) [space]');
+      blowCtrl = f.add(kb.opts, 'blowPressure', 0, 10, 0.05).name('Blow target (kPa) [space]').listen();
       f.add(kb.opts, 'attackMs', 1, 400, 1).name('Blow attack (ms)');
       f.add(kb.opts, 'releaseMs', 1, 600, 1).name('Blow release (ms)');
     }
@@ -91,6 +92,14 @@ export function buildPanel(container: HTMLElement, state: AppState, scene: Scene
   view.add(scene.opts, 'airflow').name('Air-flow particles [⇧F]').listen();
   view.add(scene.opts, 'wave').name('Standing wave line');
   view.add(scene.opts, 'player').name('Show player').onChange((v: boolean) => scene.setPlayerVisible(v));
+  // render quality tiers (scene/render/quality.ts): auto steps down while frames are slow
+  const rq = { quality: getRenderQuality().mode as RenderQualityMode, status: '' };
+  const fmtRq = (): string => { const i = getRenderQuality(); return `${i.level}${i.mode === 'auto' ? ' (auto)' : ''} · ${i.fps.toFixed(0)} fps`; };
+  rq.status = fmtRq();
+  view.add(rq, 'quality', { 'Auto': 'auto', 'High': 'high', 'Medium': 'medium', 'Low (fastest)': 'low' }).name('Render quality')
+    .onChange((m: RenderQualityMode) => setRenderQuality(m));
+  const rqStatus = view.add(rq, 'status').name('Rendering at').disable();
+  onRenderQualityChange(() => { rq.status = fmtRq(); rqStatus.updateDisplay(); });
 
   const play = gui.addFolder('Keyboard play');
   play.add(kb.opts, 'mode', { 'Notes (fingering chart)': 'note', 'Direct keys': 'keys' }).name('Mode [`]').onChange((m: 'note' | 'keys') => kb.setMode(m));

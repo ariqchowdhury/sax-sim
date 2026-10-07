@@ -19,6 +19,8 @@ export class BorePath {
   readonly xNeck: number;
   readonly xBody: number;
   private profile: Vec2[];
+  /** outer wall (inner surface of the metal) where the data gives it: body.wall_profile (bell flare) */
+  private wall: Vec2[] | null;
 
   constructor(g: SaxGeometry) {
     const neckP = g.neck.profile, bodyP = g.body.profile;
@@ -27,6 +29,8 @@ export class BorePath {
     this.xStart = 0;
     this.xEnd = Math.max(bodyP[bodyP.length - 1][0], g.bell?.end_x ?? 0);
     this.profile = mergeProfiles([g.mouthpiece.profile, neckP, bodyP]);
+    const wp = g.body.wall_profile as Vec2[] | undefined;
+    this.wall = Array.isArray(wp) && wp.length > 1 ? wp : null;
 
     const xs: number[] = [];
     const pts: THREE.Vector3[] = [];
@@ -103,6 +107,12 @@ export class BorePath {
   }
 
   radiusAt(x: number): number {
+    return interp(this.profile, x);
+  }
+
+  /** radius of the metal wall (graphics): body.wall_profile on the body, else the acoustic profile */
+  wallRadiusAt(x: number): number {
+    if (this.wall && x >= this.wall[0][0]) return interp(this.wall, x);
     return interp(this.profile, x);
   }
 

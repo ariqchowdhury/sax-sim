@@ -1,7 +1,6 @@
 // Three.js scene orchestration: renderer, camera presets, models, picking, per-frame update.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { P } from '../engine/params';
 import type { EngineClient, Telemetry } from '../engine/EngineClient';
 import { KEY_SRC, type AppState } from '../state';
@@ -13,6 +12,7 @@ import { Keywork } from './keywork';
 import { Materials } from './materials';
 import { MouthpieceModel } from './mouthpiece';
 import { PlayerModel } from './player';
+import { RenderPipeline } from './render/RenderPipeline';
 import { SaxModel } from './sax';
 
 /** telemetry: reed deflection samples appended after the scope (engine telemetry.rs REED_SHAPE_LEN) */
@@ -31,6 +31,8 @@ export interface SceneOptions {
 
 export class SceneApp {
   readonly renderer: THREE.WebGLRenderer;
+  /** render pipeline (lights, IBL, shadows, post, quality tiers) — see render/quality.ts for the settings API */
+  readonly render: RenderPipeline;
   readonly scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
   readonly controls: OrbitControls;
@@ -58,24 +60,11 @@ export class SceneApp {
     private engine: EngineClient,
   ) {
     const r = (this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }));
-    r.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    r.toneMapping = THREE.ACESFilmicToneMapping;
-    r.toneMappingExposure = 1.05;
-    r.outputColorSpace = THREE.SRGBColorSpace;
     r.localClippingEnabled = true;
     container.appendChild(r.domElement);
 
-    this.scene.background = new THREE.Color(0x0b0e14);
-    const pmrem = new THREE.PMREMGenerator(r);
-    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    pmrem.dispose();
-    const key = new THREE.DirectionalLight(0xfff1dd, 1.6);
-    key.position.set(1.5, 2, 1);
-    const rim = new THREE.DirectionalLight(0x88aaff, 0.8);
-    rim.position.set(-1, 1, -1.5);
-    this.scene.add(key, rim, new THREE.HemisphereLight(0x8899bb, 0x221a10, 0.35));
-
     this.camera = new THREE.PerspectiveCamera(38, 1, 0.005, 20);
+    this.render = new RenderPipeline(r, this.scene, this.camera);
     this.controls = new OrbitControls(this.camera, r.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.09;
@@ -111,6 +100,7 @@ export class SceneApp {
     this.mp.update(0, null);
     this.player.update(0, 0, 0, 0);
     this.goto('full', true);
+    this.render.frame([this.sax.group], [this.sax.group]);
     window.addEventListener('resize', () => this.resize());
     this.resize();
     state.onKeys(() => this.keywork.evaluate(state.keyDown, this.predicted));
@@ -172,16 +162,33 @@ export class SceneApp {
 
   resize(): void {
     const w = this.container.clientWidth, h = this.container.clientHeight;
-    this.renderer.setSize(w, h, false);
+    this.render.setSize(w, h);
     this.camera.aspect = w / Math.max(1, h);
-    // shift the projection centre into the area not covered by the side panel / bottom strip
-    if (w > 900) this.camera.setViewOffset(w, h, 160, 85, w, h);
+    // shift the projection centre into the part of the window not covered by open UI (drawers,
+    // now-playing bar); see setViewInsets
+    const v = this.insets;
+    const ox = (v.right - v.left) / 2, oy = (v.bottom - v.top) / 2;
+    if (ox || oy) this.camera.setViewOffset(w, h, ox, oy, w, h);
     else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();
   }
 
+  // ---- camera / controls (UI-owned) --------------------------------------------------------------
+  private insets = { left: 0, right: 0, top: 0, bottom: 0 };
+  /** respect prefers-reduced-motion: camera presets jump instead of flying */
+  reducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /** px of the window covered by UI on each side; the model is centred in the remaining area */
+  setViewInsets(i: Partial<{ left: number; right: number; top: number; bottom: number }>): void {
+    const n = { ...this.insets, ...i };
+    if (n.left === this.insets.left && n.right === this.insets.right && n.top === this.insets.top && n.bottom === this.insets.bottom) return;
+    this.insets = n;
+    this.resize();
+  }
+
   /** camera presets (computed from the actual model placement) */
   goto(preset: CameraPreset, instant = false): void {
+    instant ||= this.reducedMotion;
     const tgt = new THREE.Vector3(), cam = new THREE.Vector3();
     this.mp.root.updateWorldMatrix(true, true);
     switch (preset) {
@@ -190,7 +197,7 @@ export class SceneApp {
         if (this.opts.player) box.expandByObject(this.player.head).expandByObject(this.player.torso);
         box.getCenter(tgt);
         const sz = box.getSize(new THREE.Vector3());
-        const dist = (Math.max(sz.y, sz.z / Math.max(0.5, this.camera.aspect)) / 2 / Math.tan(fovRad(this.camera) / 2)) * 1.45;
+        const dist = (Math.max(sz.y, sz.z / Math.max(0.5, this.camera.aspect)) / 2 / Math.tan(fovRad(this.camera) / 2)) * 1.2;
         cam.copy(tgt).add(new THREE.Vector3(0.92, 0.12, 0.36).normalize().multiplyScalar(dist));
         break;
       }
@@ -212,8 +219,9 @@ export class SceneApp {
         for (const k of this.sax.keys) box.expandByObject(k.group);
         box.getCenter(tgt);
         const sz = box.getSize(new THREE.Vector3());
-        const dist = (Math.max(sz.y, sz.z / Math.max(0.5, this.camera.aspect)) / 2 / Math.tan(fovRad(this.camera) / 2)) * 1.25;
-        cam.copy(tgt).add(new THREE.Vector3(1, 0.15, 0.35).normalize().multiplyScalar(dist));
+        const dist = (Math.max(sz.y, sz.z / Math.max(0.5, this.camera.aspect)) / 2 / Math.tan(fovRad(this.camera) / 2)) * 1.75;
+        // from the player's right-front, so the torso/lungs sit behind the body tube rather than beside it
+        cam.copy(tgt).add(new THREE.Vector3(1, 0.12, -0.2).normalize().multiplyScalar(dist));
         break;
       }
     }
@@ -250,7 +258,7 @@ export class SceneApp {
     // pad targets: engine pad openness when live (local prediction right after key changes for snappy feedback)
     const usePred = !live || now - this.state.keyChangedAt < 90 || tel.pads.length !== this.predicted.length;
     this.padTarget.set(usePred ? this.predicted : tel.pads);
-    this.sax.update(dt, this.padTarget, this.state.keyDown);
+    if (this.sax.update(dt, this.padTarget, this.state.keyDown)) this.render.invalidateShadows();
 
     // reed + mouthpiece
     this.mp.reedGain = this.opts.reedGain;
@@ -277,7 +285,8 @@ export class SceneApp {
     }
 
     this.interaction.update();
-    this.renderer.render(this.scene, this.camera);
+    if (this.mp.moved || (this.opts.player && this.player.moved)) this.render.invalidateShadows();
+    this.render.render();
   }
 }
 

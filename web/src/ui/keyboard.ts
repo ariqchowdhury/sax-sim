@@ -101,6 +101,19 @@ export class KeyboardPlayer {
     return this.blowing;
   }
 
+  /** on-screen "Hold to blow" button: same as holding Space */
+  blow(on: boolean): void {
+    if (this.blowSpace === on) return;
+    this.blowSpace = on;
+    this.updateBlow();
+  }
+
+  /** a lung-pressure drag while blowing moves the blow target (instead of fighting the envelope) */
+  setBlowTarget(kPa: number): void {
+    this.opts.blowPressure = kPa;
+    if (this.noteBlow > 0) this.noteBlow = kPa;
+  }
+
   setMode(m: KeyboardMode): void {
     this.releaseAll();
     this.opts.mode = m;
@@ -109,14 +122,17 @@ export class KeyboardPlayer {
 
   private isTyping(e: KeyboardEvent): boolean {
     const t = e.target as HTMLElement | null;
-    return !!t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+    if (!t) return false;
+    // only text entry blocks play; a focused checkbox, slider or button must not swallow note keys
+    if (t.tagName === 'INPUT') return !/^(checkbox|radio|range|button|submit|reset|color|file)$/.test((t as HTMLInputElement).type);
+    return t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable;
   }
 
   private onDown = (e: KeyboardEvent): void => {
     if (this.isTyping(e) || e.metaKey || e.ctrlKey || e.altKey) return;
     const code = e.code;
     if (e.shiftKey) {
-      const cmd: Record<string, string> = { Digit1: 'cam:full', Digit2: 'cam:mouthpiece', Digit3: 'cam:player', Digit4: 'cam:keys', KeyX: 'xray', KeyC: 'cutaway', KeyF: 'airflow', Slash: 'help' };
+      const cmd: Record<string, string> = { Digit1: 'cam:full', Digit2: 'cam:mouthpiece', Digit3: 'cam:player', Digit4: 'cam:keys', KeyX: 'xray', KeyC: 'cutaway', KeyF: 'airflow', Slash: 'help', KeyS: 'scopes', KeyP: 'controls' };
       if (cmd[code]) {
         e.preventDefault();
         if (!e.repeat) this.onCommand?.(cmd[code]);

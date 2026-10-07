@@ -29,7 +29,10 @@ abstract class CanvasView {
     this.h = Math.max(10, r.height);
     this.canvas.width = Math.round(this.w * this.dpr);
     this.canvas.height = Math.round(this.h * this.dpr);
+    this.afterResize();
   }
+  /** resizing clears the canvas: views that only redraw on change must redraw */
+  protected afterResize(): void {}
   protected begin(): CanvasRenderingContext2D {
     const g = this.ctx;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -231,6 +234,10 @@ export class ImpedancePlot extends CanvasView {
   status = 'computing…';
   private dbMin = 0;
   private dbMax = 50;
+
+  protected override afterResize(): void {
+    this.dirty = true;
+  }
 
   setData(d: ImpedanceData): void {
     this.data = d;

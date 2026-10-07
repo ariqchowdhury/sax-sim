@@ -11,6 +11,8 @@ import type { AppState } from '../state';
 import { handleMesh, paramTooltip, planarDrag, setHandleHover } from './handles';
 import type { Interaction } from './interaction';
 import { HB, type MouthpieceModel } from './mouthpiece';
+import { cutMaterial, tissue } from './render/tissue';
+import { fineGrainNormal, papillaeNormal } from './render/textures';
 
 type V2 = [number, number];
 const TMJ: V2 = [-0.102, 0.03];
@@ -35,6 +37,120 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
+function smoothstep(a: number, b: number, x: number): number {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+}
+
+interface ShellMats { skin: THREE.Material; inner: THREE.Material; cutSkin: THREE.Material; cutFat: THREE.Material }
+
+/**
+ * Half of a head-like volume from a sagittal outline: the outline is "inflated" toward far·Z with a
+ * superelliptic profile (rounded sides, fuller middle), giving a smooth sculpted skin. Returns the
+ * outer skin, the inside of the shell (seen through the cut), a mirrored near half (shown when the
+ * cutaway is off) and flat cut bands (skin, subcutaneous fat) along the exterior part of the outline.
+ * `internal` lists outline segments (start indices) that are not skin (e.g. where the jaw joins).
+ */
+function shell(pts: V2[], c: V2, depth: (y: number) => number, far: number, m: ShellMats, internal: number[]):
+  { group: THREE.Group; outer: THREE.Mesh; inner: THREE.Mesh; near: THREE.Mesh } {
+  const N = 192, NR = 20, PW = 2.6;
+  const B = smoothShape(pts).getSpacedPoints(N).slice(0, N);
+  const nv = N * NR + 1;
+  const pos = new Float32Array(nv * 3), uv = new Float32Array(nv * 2);
+  for (let r = 0; r < NR; r++) {
+    const a = (r / NR) * (Math.PI / 2);
+    const sc = Math.pow(Math.cos(a), 2 / PW), zf = Math.pow(Math.sin(a), 2 / PW);
+    for (let j = 0; j < N; j++) {
+      const k = r * N + j;
+      const px = c[0] + (B[j].x - c[0]) * sc, py = c[1] + (B[j].y - c[1]) * sc;
+      pos[k * 3] = px; pos[k * 3 + 1] = py; pos[k * 3 + 2] = far * depth(py) * zf;
+      uv[k * 2] = (j / N) * 10; uv[k * 2 + 1] = (r / NR) * 3;
+    }
+  }
+  const ap = N * NR;
+  pos[ap * 3] = c[0]; pos[ap * 3 + 1] = c[1]; pos[ap * 3 + 2] = far * depth(c[1]);
+  uv[ap * 2] = 0; uv[ap * 2 + 1] = 3;
+  const idx: number[] = [];
+  for (let r = 0; r < NR - 1; r++)
+    for (let j = 0; j < N; j++) {
+      const a = r * N + j, b = r * N + ((j + 1) % N), cc = a + N, d = b + N;
+      idx.push(a, cc, b, b, cc, d);
+    }
+  for (let j = 0; j < N; j++) idx.push((NR - 1) * N + j, ap, (NR - 1) * N + ((j + 1) % N));
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  if ((g.getAttribute('normal') as THREE.BufferAttribute).getZ(ap) * far < 0) {
+    for (let i = 0; i < idx.length; i += 3) { const t = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t; }
+    g.setIndex(idx);
+    g.computeVertexNormals();
+  }
+  const outer = new THREE.Mesh(g, m.skin);
+  const inner = new THREE.Mesh(g, m.inner);
+  const near = new THREE.Mesh(g, m.skin);
+  near.scale.z = -1;
+  near.visible = false;
+  outer.castShadow = true;
+  outer.receiveShadow = inner.receiveShadow = true;
+  const group = new THREE.Group();
+  group.add(outer, inner, near);
+  // which outline samples are exterior skin
+  const n = pts.length;
+  const ext: boolean[] = B.map((p) => {
+    let best = Infinity, bi = 0;
+    for (let i = 0; i < n; i++) {
+      const a = pts[i], b = pts[(i + 1) % n];
+      const vx = b[0] - a[0], vy = b[1] - a[1];
+      const t = Math.max(0, Math.min(1, ((p.x - a[0]) * vx + (p.y - a[1]) * vy) / (vx * vx + vy * vy || 1)));
+      const d = Math.hypot(a[0] + vx * t - p.x, a[1] + vy * t - p.y);
+      if (d < best) { best = d; bi = i; }
+    }
+    return !internal.includes(bi);
+  });
+  const band = (t0: number, t1: number, mat: THREE.Material): THREE.Mesh => {
+    const at = (j: number, t: number): [number, number] => {
+      const dx = B[j].x - c[0], dy = B[j].y - c[1];
+      const L = Math.hypot(dx, dy) || 1;
+      const f = 1 - t / L;
+      return [c[0] + dx * f, c[1] + dy * f];
+    };
+    const p: number[] = [];
+    for (let j = 0; j < N; j++) {
+      const j1 = (j + 1) % N;
+      if (!ext[j] || !ext[j1]) continue;
+      const a0 = at(j, t0), a1 = at(j1, t0), b0 = at(j, t1), b1 = at(j1, t1);
+      p.push(a0[0], a0[1], 0, b0[0], b0[1], 0, a1[0], a1[1], 0, a1[0], a1[1], 0, b0[0], b0[1], 0, b1[0], b1[1], 0);
+    }
+    const bg = new THREE.BufferGeometry();
+    bg.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+    bg.computeVertexNormals();
+    return new THREE.Mesh(bg, mat);
+  };
+  group.add(band(0, 0.0018, m.cutSkin), band(0.0018, 0.0058, m.cutFat));
+  return { group, outer, inner, near };
+}
+
+/** rounded block centred in XY, extruded from z = 0 toward far·Z (caps = group 0, sides = group 1) */
+function roundedSlab(w: number, h: number, d: number, r: number, far: number): THREE.BufferGeometry {
+  const s = new THREE.Shape();
+  const x0 = -w / 2, y0 = -h / 2;
+  r = Math.min(r, w / 2, h / 2);
+  s.moveTo(x0 + r, y0);
+  s.lineTo(x0 + w - r, y0);
+  s.quadraticCurveTo(x0 + w, y0, x0 + w, y0 + r);
+  s.lineTo(x0 + w, y0 + h - r);
+  s.quadraticCurveTo(x0 + w, y0 + h, x0 + w - r, y0 + h);
+  s.lineTo(x0 + r, y0 + h);
+  s.quadraticCurveTo(x0, y0 + h, x0, y0 + h - r);
+  s.lineTo(x0, y0 + r);
+  s.quadraticCurveTo(x0, y0, x0 + r, y0);
+  const g = new THREE.ExtrudeGeometry(s, { depth: d, bevelEnabled: true, bevelSize: r * 0.5, bevelThickness: r * 0.5, bevelSegments: 3, curveSegments: 8 });
+  if (far < 0) g.scale(1, 1, -1);
+  return g;
+}
+
 /** Deformable half-"pillow" between an upper and lower contour (used for the tongue). */
 class Pillow {
   readonly mesh: THREE.Mesh;
@@ -53,7 +169,11 @@ class Pillow {
         if (far > 0) idx.push(a, c, b, b, c, d); else idx.push(a, b, c, b, d, c);
       }
     g.setIndex(idx);
+    const uv = new Float32Array(K * (M + 1) * 2);
+    for (let i = 0; i < K; i++) for (let j = 0; j <= M; j++) { uv[(i * (M + 1) + j) * 2] = (i / (K - 1)) * 3; uv[(i * (M + 1) + j) * 2 + 1] = j / M; }
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
     this.mesh = new THREE.Mesh(g, mat);
+    this.mesh.castShadow = true;
     const cg = new THREE.BufferGeometry();
     cg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(K * 2 * 3), 3));
     const ci: number[] = [];
@@ -155,9 +275,9 @@ export class PlayerModel {
   private lungR: THREE.Mesh;
   private diaphragm: THREE.Mesh;
   private gaugeFill: THREE.Mesh;
-  private skinMat: THREE.MeshPhysicalMaterial;
+  /** near (camera-side) halves of the skin shells, shown only when the cutaway is off */
+  private nearHalves: THREE.Object3D[] = [];
   private tongueMat: THREE.MeshStandardMaterial;
-  private jawSkin: THREE.Mesh;
   private mandible: THREE.Mesh;
 
   // handles
@@ -192,6 +312,8 @@ export class PlayerModel {
   tractCue = 0;
   private lastGeom = new Float64Array(GEOM_IDS.length).fill(NaN);
   mouthPressure = 0;
+  /** head geometry changed in the last update (shadow refresh) */
+  moved = true;
 
   constructor(private mp: MouthpieceModel, private state: AppState, worldAxis: THREE.Vector3) {
     this.far = mp.far;
@@ -201,84 +323,101 @@ export class PlayerModel {
     this.head.rotation.z = -this.thetaM;
     mp.root.add(this.head);
 
-    const skin = (this.skinMat = new THREE.MeshPhysicalMaterial({
-      color: 0xf0b9a0, roughness: 0.55, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide, sheen: 0.5,
-    }));
-    const bone = new THREE.MeshStandardMaterial({ color: 0xece3cf, roughness: 0.7 });
-    const tooth = new THREE.MeshPhysicalMaterial({ color: 0xfbfaf4, roughness: 0.25, clearcoat: 0.6 });
-    const flesh = new THREE.MeshStandardMaterial({ color: 0xd9727a, roughness: 0.6 });
-    const lipMat = new THREE.MeshStandardMaterial({ color: 0xc8636a, roughness: 0.45 });
-    const cart = new THREE.MeshStandardMaterial({ color: 0xa9c7d6, roughness: 0.5 });
-    this.tongueMat = new THREE.MeshStandardMaterial({ color: 0xe0707f, roughness: 0.5, emissive: 0x000000 });
-    const cutMat = new THREE.MeshStandardMaterial({ color: 0xb3424f, roughness: 0.7, side: THREE.DoubleSide });
+    // ---- materials: soft tissue (subsurface-ish), bone, enamel, cartilage; flat cut-section colours --
+    const grain = fineGrainNormal();
+    const skin = tissue({ color: 0xe0a084, scatter: 0xd0483a, sss: 0.55, roughness: 0.52, sheen: 0.45, normalMap: grain, normalScale: 0.12 });
+    const shellInner = new THREE.MeshStandardMaterial({ color: 0xc7aca4, roughness: 0.9, side: THREE.BackSide });
+    const cutSkin = cutMaterial(0xf2bca6, 0.55);
+    const cutFat = cutMaterial(0xf8e4bd, 0.55);
+    const bone = new THREE.MeshPhysicalMaterial({ color: 0xede2c8, roughness: 0.55, sheen: 0.25, sheenColor: new THREE.Color(0xfff4e0), normalMap: grain, normalScale: new THREE.Vector2(0.2, 0.2) });
+    const cutBone = cutMaterial(0xf4ead0, 0.5);
+    const tooth = new THREE.MeshPhysicalMaterial({ color: 0xfbf8ef, roughness: 0.16, clearcoat: 1, clearcoatRoughness: 0.08 });
+    const cutTooth = cutMaterial(0xefe0bb, 0.5);
+    const flesh = tissue({ color: 0xc65a5f, scatter: 0xb02a2a, sss: 0.5, roughness: 0.45, wet: 0.5 });
+    const cutFlesh = cutMaterial(0xa53a45);
+    const lipMat = tissue({ color: 0xc4616a, scatter: 0xc0303a, sss: 0.6, roughness: 0.4, wet: 0.6 });
+    const cart = tissue({ color: 0xb9d2de, scatter: 0x7fa6c8, sss: 0.35, roughness: 0.4, wet: 0.35 });
+    const cutCart = cutMaterial(0x9cbccc);
+    this.tongueMat = tissue({ color: 0xd86876, scatter: 0xc03040, sss: 0.55, roughness: 0.42, wet: 0.85, normalMap: papillaeNormal(), normalScale: 0.35 });
+    const cutMat = cutMaterial(0xa8394a);
 
-    const slab = (pts: V2[], depth: number, mat: THREE.Material, bevel = 0.0015): THREE.Mesh => {
-      const g = new THREE.ExtrudeGeometry(smoothShape(pts), { depth, bevelEnabled: bevel > 0, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 2, curveSegments: 6 });
+    // extruded half-section (cut face at z = 0 gets the flat section colour, the rounded rest the tissue)
+    const slab = (pts: V2[], depth: number, mat: THREE.Material, bevel = 0.0015, cut: THREE.Material = cutFlesh): THREE.Mesh => {
+      const g = new THREE.ExtrudeGeometry(smoothShape(pts), { depth, bevelEnabled: bevel > 0, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 4, curveSegments: 16 });
       if (f < 0) g.scale(1, 1, -1);
-      const m = new THREE.Mesh(g, mat);
+      const m = new THREE.Mesh(g, [cut, mat]);
+      m.castShadow = true;
+      m.receiveShadow = true;
       return m;
     };
 
-    // --- skin outline (half head, translucent) -------------------------------------------------
+    // --- skin: inflated half-head shell (far half), its inside, and the cut rim (skin + fat bands) ---
     const headPts: V2[] = [
       [-0.005, 0.15], [0.01, 0.1], [0.012, 0.082], [0.006, 0.068], [0.022, 0.05], [0.034, 0.034], [0.018, 0.026],
       [0.014, 0.016], [0.006, 0.004], [-0.03, -0.01], [-0.066, -0.07], [-0.062, -0.12], [-0.064, -0.17],
       [-0.15, -0.17], [-0.15, -0.1], [-0.185, -0.03], [-0.19, 0.05], [-0.16, 0.14], [-0.085, 0.18],
     ];
-    const headSkin = slab(headPts, 0.07, skin, 0.01);
-    headSkin.renderOrder = 5;
-    this.head.add(headSkin);
-    const outline = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(smoothShape(headPts).getPoints(16).map((p) => new THREE.Vector3(p.x, p.y, 0))),
-      new THREE.LineBasicMaterial({ color: 0xf5c4ad, transparent: true, opacity: 0.8 }),
-    );
-    this.head.add(outline);
+    const headDepth = (y: number): number => 0.074 - 0.022 * smoothstep(-0.05, -0.12, y);
+    const headShell = shell(headPts, [-0.085, 0.02], headDepth, f, { skin, inner: shellInner, cutSkin, cutFat }, [8, 9]);
+    this.nearHalves.push(headShell.near);
+    this.head.add(headShell.group);
 
     // --- jaw (rotates about the TMJ): chin skin, mandible, lower incisors ----------------------
     this.jaw.position.set(TMJ[0], TMJ[1], 0);
     this.head.add(this.jaw);
     const toJaw = (p: V2): V2 => [p[0] - TMJ[0], p[1] - TMJ[1]];
     const jawPts: V2[] = ([[0.006, 0.0], [0.012, -0.014], [0.0, -0.028], [0.008, -0.048], [-0.01, -0.066], [-0.045, -0.072], [-0.066, -0.07], [-0.03, -0.01]] as V2[]).map(toJaw);
-    this.jawSkin = slab(jawPts, 0.065, skin, 0.008);
-    this.jawSkin.renderOrder = 5;
-    this.jaw.add(this.jawSkin);
+    const jawShell = shell(jawPts, toJaw([-0.018, -0.042]), () => 0.058, f, { skin, inner: shellInner, cutSkin, cutFat }, [6, 7]);
+    this.nearHalves.push(jawShell.near);
+    this.jaw.add(jawShell.group);
     // midline section of the mandible = the symphysis (chin bone); the rami are lateral
     const mandPts: V2[] = ([[-0.007, -0.02], [0.0, -0.034], [0.002, -0.05], [-0.008, -0.062], [-0.022, -0.062], [-0.028, -0.048], [-0.02, -0.028]] as V2[]).map(toJaw);
-    this.mandible = slab(mandPts, 0.012, bone, 0.001);
+    this.mandible = slab(mandPts, 0.012, bone, 0.0012, cutBone);
     this.jaw.add(this.mandible);
     const floor = slab(([[-0.026, -0.05], [-0.045, -0.058], [-0.06, -0.066], [-0.062, -0.07], [-0.044, -0.064], [-0.026, -0.058]] as V2[]).map(toJaw), 0.02, flesh, 0.001);
     this.jaw.add(floor);
-    const lowerTooth = slab(([[-0.006, -0.006], [-0.002, -0.006], [-0.003, -0.02], [-0.009, -0.022], [-0.01, -0.012]] as V2[]).map(toJaw), 0.016, tooth, 0.0008);
+    const lowerTooth = slab(([[-0.006, -0.006], [-0.002, -0.006], [-0.003, -0.02], [-0.009, -0.022], [-0.01, -0.012]] as V2[]).map(toJaw), 0.016, tooth, 0.0009, cutTooth);
     this.jaw.add(lowerTooth);
 
     // --- upper jaw: incisors + hard palate, soft palate, spine, pharynx, larynx --------------
-    const upTooth = slab([[0.0, 0.0], [-0.0035, 0.0], [-0.0075, 0.013], [-0.002, 0.015], [0.002, 0.008]], 0.016, tooth, 0.0008);
+    const upTooth = slab([[0.0, 0.0], [-0.0035, 0.0], [-0.0075, 0.013], [-0.002, 0.015], [0.002, 0.008]], 0.016, tooth, 0.0009, cutTooth);
     this.upperTeeth.add(upTooth);
     this.head.add(this.upperTeeth);
-    const palate = slab([[-0.006, 0.026], [-0.012, 0.022], [-0.03, 0.031], [-0.055, 0.034], [-0.072, 0.03], [-0.072, 0.038], [-0.05, 0.044], [-0.02, 0.042], [0.0, 0.034]], 0.018, bone, 0.001);
-    const velum = slab([[-0.072, 0.03], [-0.08, 0.022], [-0.088, 0.008], [-0.084, 0.006], [-0.076, 0.018], [-0.068, 0.034]], 0.014, flesh, 0.001);
-    const pharWall = slab([[-0.094, 0.04], [-0.098, -0.02], [-0.092, -0.085], [-0.1, -0.09], [-0.108, -0.02], [-0.104, 0.04]], 0.03, flesh, 0.001);
+    const palate = slab([[-0.006, 0.026], [-0.012, 0.022], [-0.03, 0.031], [-0.055, 0.034], [-0.072, 0.03], [-0.072, 0.038], [-0.05, 0.044], [-0.02, 0.042], [0.0, 0.034]], 0.018, bone, 0.0012, cutBone);
+    const velum = slab([[-0.072, 0.03], [-0.08, 0.022], [-0.088, 0.008], [-0.084, 0.006], [-0.076, 0.018], [-0.068, 0.034]], 0.014, flesh, 0.0012);
+    const pharWall = slab([[-0.094, 0.04], [-0.098, -0.02], [-0.092, -0.085], [-0.1, -0.09], [-0.108, -0.02], [-0.104, 0.04]], 0.03, flesh, 0.0012);
     this.head.add(palate, velum, pharWall);
+    // cervical spine: rounded vertebral bodies with intervertebral discs
+    const vbG = roundedSlab(0.018, 0.011, 0.014, 0.003, f);
+    const discG = roundedSlab(0.017, 0.0032, 0.012, 0.0012, f);
     for (let i = 0; i < 6; i++) {
-      const vb = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.012, 0.014), bone);
-      vb.position.set(-0.118, 0.02 - i * 0.02, f * 0.007);
-      this.head.add(vb);
+      const vb = new THREE.Mesh(vbG, [cutBone, bone]);
+      vb.position.set(-0.118, 0.02 - i * 0.02, 0);
+      vb.castShadow = true;
+      const disc = new THREE.Mesh(discG, [cutCart, cart]);
+      disc.position.set(-0.118, 0.02 - i * 0.02 - 0.0098, 0);
+      this.head.add(vb, disc);
     }
-    const epiglottis = slab([[-0.074, -0.05], [-0.078, -0.07], [-0.074, -0.075], [-0.07, -0.056]], 0.012, cart, 0.0008);
-    const thyroid = slab([[-0.062, -0.075], [-0.07, -0.1], [-0.085, -0.104], [-0.09, -0.096], [-0.078, -0.09], [-0.068, -0.072]], 0.018, cart, 0.001);
-    const hyoid = new THREE.Mesh(new THREE.CapsuleGeometry(0.0025, 0.008, 4, 8).rotateZ(Math.PI / 2), bone);
+    const epiglottis = slab([[-0.074, -0.05], [-0.078, -0.07], [-0.074, -0.075], [-0.07, -0.056]], 0.012, cart, 0.0008, cutCart);
+    const thyroid = slab([[-0.062, -0.075], [-0.07, -0.1], [-0.085, -0.104], [-0.09, -0.096], [-0.078, -0.09], [-0.068, -0.072]], 0.018, cart, 0.001, cutCart);
+    const hyoid = new THREE.Mesh(new THREE.CapsuleGeometry(0.0025, 0.008, 6, 12).rotateZ(Math.PI / 2), bone);
     hyoid.position.set(-0.066, -0.068, f * 0.004);
     this.head.add(epiglottis, thyroid, hyoid);
     // vocal folds (open laterally with glottis_open)
-    const foldG = new THREE.BoxGeometry(0.016, 0.003, 0.004);
+    const foldG = new THREE.CapsuleGeometry(0.0018, 0.013, 6, 12).rotateZ(Math.PI / 2);
     this.foldL = new THREE.Mesh(foldG, flesh);
     this.foldR = new THREE.Mesh(foldG, flesh);
     this.head.add(this.foldL, this.foldR);
 
-    // --- lips: capsules wrapping the mouthpiece (lateral axis) ------------------------------
-    const lipG = new THREE.CapsuleGeometry(0.0058, 0.026, 6, 14).rotateX(Math.PI / 2).translate(0, 0, f * 0.013);
+    // --- lips: soft rolls wrapping the mouthpiece (lateral axis), moist ------------------------
+    const lipG = new THREE.CapsuleGeometry(0.0058, 0.026, 10, 24).rotateX(Math.PI / 2).translate(0, 0, f * 0.013);
     this.lowerLip = new THREE.Mesh(lipG, lipMat.clone());
     this.upperLip = new THREE.Mesh(lipG, lipMat.clone());
+    for (const l of [this.lowerLip, this.upperLip]) {
+      // the clone drops the subsurface hook: re-create it with the same look
+      l.material = tissue({ color: 0xc4616a, scatter: 0xc0303a, sss: 0.6, roughness: 0.4, wet: 0.6 });
+      l.castShadow = true;
+    }
     this.head.add(this.lowerLip, this.upperLip);
 
     // --- tongue + airway ------------------------------------------------------------------------
@@ -294,24 +433,32 @@ export class PlayerModel {
     this.head.add(this.airway.mesh);
 
     // --- torso (world, upright) ---------------------------------------------------------------
-    const lungMat = new THREE.MeshPhysicalMaterial({ color: 0xf28fa0, roughness: 0.6, transparent: true, opacity: 0.5, depthWrite: false, sheen: 1, sheenColor: new THREE.Color(0xffd0d8) });
-    const lungG = new THREE.SphereGeometry(1, 28, 20);
+    const lungMat = tissue({ color: 0xf0909f, scatter: 0xe04050, sss: 0.7, roughness: 0.55, sheen: 1, transparent: true, opacity: 0.6 });
+    const lungG = new THREE.SphereGeometry(1, 40, 28);
     this.lungL = new THREE.Mesh(lungG, lungMat);
     this.lungR = new THREE.Mesh(lungG, lungMat);
     this.lungL.position.set(-0.01, -0.2, -0.065);
     this.lungR.position.set(-0.01, -0.2, 0.065);
-    const tracheaG = new THREE.CylinderGeometry(0.009, 0.009, 0.14, 16, 1, true).translate(0, -0.07, 0);
+    const tracheaG = new THREE.CylinderGeometry(0.009, 0.009, 0.14, 24, 1, true).translate(0, -0.07, 0);
     const trachea = new THREE.Mesh(tracheaG, cart);
-    const bronL = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.07, 10), cart);
+    // cartilage rings along the trachea
+    const ringG = new THREE.TorusGeometry(0.0094, 0.0013, 8, 28).rotateX(Math.PI / 2);
+    for (let i = 0; i < 9; i++) {
+      const rg = new THREE.Mesh(ringG, cart);
+      rg.position.y = -0.012 - i * 0.0145;
+      trachea.add(rg);
+    }
+    const bronL = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.07, 16), cart);
     bronL.position.set(-0.005, -0.16, -0.025); bronL.rotation.x = -0.75;
     const bronR = bronL.clone(); bronR.position.z = 0.025; bronR.rotation.x = 0.75;
-    this.diaphragm = new THREE.Mesh(new THREE.SphereGeometry(0.12, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2.6),
-      new THREE.MeshStandardMaterial({ color: 0xb9505d, roughness: 0.7, transparent: true, opacity: 0.7, side: THREE.DoubleSide }));
+    this.diaphragm = new THREE.Mesh(new THREE.SphereGeometry(0.12, 48, 16, 0, Math.PI * 2, 0, Math.PI / 2.6),
+      tissue({ color: 0xb9505d, scatter: 0xa02030, sss: 0.4, roughness: 0.6, transparent: true, opacity: 0.75, side: THREE.DoubleSide }));
     this.diaphragm.scale.set(0.85, 0.55, 1.1);
     const ribs = new THREE.Group();
-    const ribMat = new THREE.MeshStandardMaterial({ color: 0xece3cf, roughness: 0.7, transparent: true, opacity: 0.28, depthWrite: false });
+    const ribMat = new THREE.MeshPhysicalMaterial({ color: 0xece3cf, roughness: 0.5, sheen: 0.3, transparent: true, opacity: 0.55, depthWrite: false });
     for (let i = 0; i < 7; i++) {
-      const rib = new THREE.Mesh(new THREE.TorusGeometry(0.11 - Math.abs(i - 3) * 0.006, 0.0018, 6, 40), ribMat);
+      const rib = new THREE.Mesh(new THREE.TorusGeometry(0.11 - Math.abs(i - 3) * 0.006, 0.0032, 12, 64), ribMat);
+      rib.castShadow = false;
       rib.rotation.x = Math.PI / 2;
       rib.rotation.z = 0.25;
       rib.scale.set(0.8, 1.15, 1);
@@ -319,7 +466,7 @@ export class PlayerModel {
       ribs.add(rib);
     }
     // pressure gauge column in front of the chest
-    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.26, 12), new THREE.MeshStandardMaterial({ color: 0x334055, transparent: true, opacity: 0.6 }));
+    const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.26, 16), new THREE.MeshPhysicalMaterial({ color: 0x8090a8, roughness: 0.15, transparent: true, opacity: 0.35, clearcoat: 1 }));
     rail.position.set(0.14, -0.2, 0);
     this.gaugeFill = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 1, 16).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: 0x4aa8ff, transparent: true, opacity: 0.6 }));
     this.gaugeFill.position.set(0.14, -0.33, 0);
@@ -362,6 +509,7 @@ export class PlayerModel {
       const v = s.get(GEOM_IDS[i]);
       if (v !== this.lastGeom[i]) { this.lastGeom[i] = v; dirty = true; }
     }
+    this.moved = dirty;
     if (dirty) {
       this.head.position.set(lp, 0, 0);
       this.jaw.rotation.z = jawA;
@@ -501,9 +649,12 @@ export class PlayerModel {
   pathLen = 0;
 
   setCutaway(on: boolean): void {
-    this.skinMat.opacity = on ? 0.14 : 0.85;
-    this.skinMat.depthWrite = !on;
-    this.skinMat.needsUpdate = true;
+    for (const n of this.nearHalves) n.visible = !on;
+  }
+
+  /** drag handles of the head (tongue, tip, jaw, glottis) — for the UI's declutter rule */
+  get headHandles(): THREE.Object3D[] {
+    return [this.hTongueBody, this.hTongueTip, this.hJaw, this.hGlottis];
   }
 
   registerHandles(ix: Interaction): void {
@@ -513,10 +664,12 @@ export class PlayerModel {
       ix.add({ objects, priority, tooltip: paramTooltip(st, ids, title), drag, hover: (on) => setHandleHover(mesh, on) });
     };
     add(this.hTongueBody, [P.tongue_x, P.tongue_y], 'Tongue body (drag ↔ front/back, ↕ low/high)',
-      planarDrag(frame, st, [P.tongue_x, P.tongue_y], (l) => {
-        st.set(P.tongue_x, (l.x - -0.03) / (-0.062 - -0.03), 'drag');
-        st.set(P.tongue_y, (l.y + st.get(P.jaw_open) * 0.012 - 0.002 - -0.014) / 0.038, 'drag');
-      }));
+      // relative to the value at the grab (no jump); 2-D on purpose: front/back × low/high is the
+      // vowel-space gesture players think in. Screen-space gain: full range ≈ 200–250 px at any zoom.
+      planarDrag(frame, st, [P.tongue_x, P.tongue_y], (l, l0, s0) => {
+        st.set(P.tongue_x, s0[0] + (l.x - l0.x) / (-0.062 - -0.03), 'drag');
+        st.set(P.tongue_y, s0[1] + (l.y - l0.y) / 0.038, 'drag');
+      }, { ranges: [0.032, 0.038] }));
     add(this.hTongueTip, [P.tongue_tip, P.tongue_reed_contact], 'Tongue tip (↕ height; drag onto the reed to tongue)',
       planarDrag(frame, st, [P.tongue_tip, P.tongue_reed_contact], (l) => {
         const d = Math.hypot(l.x - this.contactPt.x, l.y - this.contactPt.y);
@@ -524,17 +677,17 @@ export class PlayerModel {
         st.set(P.tongue_reed_contact, c, 'drag');
         // tip height from vertical position (relative to the rest arc)
         if (c < 0.999) st.set(P.tongue_tip, (l.y - -0.017) / 0.031, 'drag');
-      }));
+      }, { ranges: [0.031, 0.031] }));
     add(this.hJaw, [P.jaw_open], 'Jaw (drag ↕)',
-      planarDrag(frame, st, [P.jaw_open], (l, l0, s0) => st.set(P.jaw_open, s0[0] - (l.y - l0.y) / 0.02, 'drag')),
+      planarDrag(frame, st, [P.jaw_open], (l, l0, s0) => st.set(P.jaw_open, s0[0] - (l.y - l0.y) / 0.02, 'drag'), { ranges: [0, 0.02] }),
       [this.hJaw, this.mandible], 1);
     add(this.hGlottis, [P.glottis_open], 'Glottis (drag ↕: up = open)',
-      planarDrag(frame, st, [P.glottis_open], (l, l0, s0) => st.set(P.glottis_open, s0[0] + (l.y - l0.y) / 0.01, 'drag')));
+      planarDrag(frame, st, [P.glottis_open], (l, l0, s0) => st.set(P.glottis_open, s0[0] + (l.y - l0.y) / 0.01, 'drag'), { ranges: [0, 0.01] }));
     // lung pressure: vertical drag in torso plane
     ix.add({
       objects: [this.hLung, this.lungL, this.lungR, this.gaugeFill], priority: 2,
       tooltip: paramTooltip(st, [P.lung_pressure], 'Lungs (drag ↕ = blowing pressure)'),
-      drag: planarDrag(this.torso, st, [P.lung_pressure], (l, l0, s0) => st.set(P.lung_pressure, s0[0] + ((l.y - l0.y) / 0.24) * 10, 'drag')),
+      drag: planarDrag(this.torso, st, [P.lung_pressure], (l, l0, s0) => st.set(P.lung_pressure, s0[0] + ((l.y - l0.y) / 0.24) * 10, 'drag'), { ranges: [0, 0.24] }),
       hover: (on) => setHandleHover(this.hLung, on),
     });
     // lips: ↔ along the mouthpiece = lip position (take-in), ↕ = lip force (lower) / damping (upper)
@@ -545,7 +698,7 @@ export class PlayerModel {
       drag: planarDrag(mpRoot, st, [P.lip_position, P.lip_force], (l, l0, s0) => {
         st.set(P.lip_position, s0[0] + (l.x - l0.x) * 1000, 'drag');
         st.set(P.lip_force, s0[1] + (l.y - l0.y) / 0.004, 'drag');
-      }),
+      }, { ranges: [0.02, 0.012], lock: ['take-in (lip position)', 'lip force'] }),
       hover: (on) => (this.lowerLip.material as THREE.MeshStandardMaterial).emissive.setHex(on ? 0x331111 : 0),
     });
     ix.add({
@@ -554,7 +707,7 @@ export class PlayerModel {
       drag: planarDrag(mpRoot, st, [P.lip_position, P.lip_damping], (l, l0, s0) => {
         st.set(P.lip_position, s0[0] + (l.x - l0.x) * 1000, 'drag');
         st.set(P.lip_damping, s0[1] - (l.y - l0.y) / 0.006, 'drag');
-      }),
+      }, { ranges: [0.02, 0.006], lock: ['take-in (lip position)', 'firmness (lip damping)'] }),
       hover: (on) => (this.upperLip.material as THREE.MeshStandardMaterial).emissive.setHex(on ? 0x331111 : 0),
     });
     ix.add({
@@ -563,7 +716,7 @@ export class PlayerModel {
       drag: planarDrag(frame, st, [P.tongue_x, P.tongue_y], (l, l0, s0) => {
         st.set(P.tongue_x, s0[0] + (l.x - l0.x) / (-0.032), 'drag');
         st.set(P.tongue_y, s0[1] + (l.y - l0.y) / 0.038, 'drag');
-      }),
+      }, { ranges: [0.032, 0.038] }),
       hover: (on) => this.tongueMat.emissive.setHex(on ? 0x331018 : 0),
     });
   }

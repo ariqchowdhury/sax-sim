@@ -12,80 +12,124 @@
       <div id="viewport"></div>
 
       <header id="topbar">
-        <div class="brand">
-          <span class="logo"></span>
-          <div>
-            <div class="title">Alto Sax — physical simulation</div>
-            <div class="subtitle" id="geo-name"></div>
+        <div class="brand" title="Alto saxophone — first-principles physical simulation">
+          <span class="logo" aria-hidden="true"></span>
+          <span class="title">Alto Sax</span>
+          <button class="status" id="status" title="Audio engine — click to pause / resume"><span class="dot" aria-hidden="true"></span><span id="status-text">audio off</span></button>
+          <button class="rec-pill" id="rec-pill" hidden title="Recording the output — click to stop and save the WAV">● REC <span id="rec-time">0:00</span></button>
+        </div>
+        <nav class="cams seg" id="cams" aria-label="Camera view">
+          <button data-cam="full" title="Whole instrument and player (Shift+1)">Instrument</button>
+          <button data-cam="mouthpiece" title="Mouthpiece cutaway close-up: lips, reed, mouthpiece interior (Shift+2)">Mouthpiece</button>
+          <button data-cam="player" title="Player cutaway: tongue, throat, lungs (Shift+3)">Player</button>
+          <button data-cam="keys" title="Keys and fingering (Shift+4)">Keys</button>
+        </nav>
+        <div class="tools">
+          <div class="menu" id="layers-menu">
+            <button class="tool" id="layers-btn" aria-haspopup="true" aria-expanded="false" aria-controls="layers-pop" title="What to show in the 3D view">Layers <span class="caret" aria-hidden="true">▾</span></button>
+            <div class="menu-pop" id="layers-pop" role="menu" hidden>
+              <button role="menuitemcheckbox" data-toggle="cutaway" title="Shift+C">Cutaway <kbd>Shift C</kbd></button>
+              <button role="menuitemcheckbox" data-toggle="xray" title="Shift+X">X-ray brass <kbd>Shift X</kbd></button>
+              <button role="menuitemcheckbox" data-toggle="airflow" title="Shift+F">Air-flow particles <kbd>Shift F</kbd></button>
+              <button role="menuitemcheckbox" data-toggle="hints">Grab hints</button>
+              <button role="menuitemcheckbox" data-toggle="labels">Airway readouts</button>
+            </div>
+          </div>
+          <button class="tool" id="scopes-btn" aria-expanded="false" aria-controls="viz" title="Oscilloscope, spectrum, standing wave, input impedance (Shift+S)">Scopes</button>
+          <button class="tool" id="controls-btn" aria-expanded="false" aria-controls="drawer" title="Every parameter, presets, MIDI, recording & export (Shift+P)">Controls</button>
+          <button class="tool" id="coach-btn" title="Tone coach: record your own playing, get it analysed and fitted, and get advice">Coach</button>
+          <div class="menu" id="more-menu">
+            <button class="tool icon" id="more-btn" aria-haspopup="true" aria-expanded="false" aria-controls="more-pop" title="More" aria-label="More">⋯</button>
+            <div class="menu-pop right" id="more-pop" role="menu" hidden>
+              <button role="menuitem" class="phone-only" id="coach-menu">Coach</button>
+              <button role="menuitem" id="rec-btn" title="Record the output to a WAV file">● Record WAV</button>
+              <button role="menuitem" id="tour-btn">Quick tour</button>
+              <button role="menuitem" id="help-btn">Help &amp; shortcuts <kbd>?</kbd></button>
+            </div>
           </div>
         </div>
-        <div class="status" id="status"><span class="dot"></span><span id="status-text">audio off</span></div>
-        <nav class="cams" id="cams">
-          <button data-cam="full" title="Shift+1">Instrument</button>
-          <button data-cam="mouthpiece" title="Shift+2">Mouthpiece</button>
-          <button data-cam="player" title="Shift+3">Player</button>
-          <button data-cam="keys" title="Shift+4">Keys</button>
-          <span class="sep"></span>
-          <button data-toggle="xray" title="Shift+X">X-ray</button>
-          <button data-toggle="cutaway" title="Shift+C">Cutaway</button>
-          <button id="coach-btn" title="Tone coach: record your own playing, get it analysed and fitted, and get advice">🎷 Coach</button>
-          <button id="rec-btn" title="Record the output to a WAV file">● Rec</button>
-          <button id="tour-btn" title="Guided tour">Tour</button>
-          <button id="help-btn" title="?">Help</button>
-        </nav>
       </header>
 
-      <aside id="panel"></aside>
-
-      <section id="readouts">
-        <div class="pitch">
-          <div class="note" id="r-note">—</div>
-          <div class="freq"><span id="r-freq">0.0</span> Hz <span class="muted">concert</span></div>
-          <div class="written">written <span id="r-written">—</span> <span class="muted">(E♭ alto)</span></div>
-          <div class="cents"><div class="cents-bar"><span id="r-cents-needle"></span></div><span id="r-cents">±0¢</span></div>
-        </div>
-        <div class="grid">
-          <div><label>Lung</label><span id="r-lung">0.00</span> kPa</div>
-          <div><label>Mouth</label><span id="r-mouth">0.00</span> kPa</div>
-          <div><label>Mouthpiece</label><span id="r-mp">0.00</span> kPa</div>
-          <div><label>Flow U</label><span id="r-flow">0.0</span> L/s</div>
-          <div><label>Reed gap h</label><span id="r-h">0.00</span> mm</div>
-          <div><label>Output</label><span id="r-rms">-∞</span> dBFS</div>
-        </div>
-        <div class="regime" id="r-regime"><span class="chip">silent</span></div>
-        <div class="delta muted" id="r-delta"></div>
-        <div class="fingering"><label>Fingering</label><span id="r-fingering">—</span> <span class="mode" id="r-mode"></span></div>
-        <div class="perf muted" id="r-perf"></div>
+      <!-- context card: detail for the part the user grabbed -->
+      <section id="context" class="ctx" hidden aria-label="Selected part" tabindex="-1">
+        <div class="ctx-head"><h2 class="ctx-title"></h2><button class="ctx-close" aria-label="Close">×</button></div>
+        <p class="ctx-blurb"></p>
+        <canvas class="ctx-viz ctx-scope" hidden></canvas>
+        <canvas class="ctx-viz ctx-spectrum" hidden></canvas>
+        <canvas class="ctx-viz ctx-imp" hidden></canvas>
+        <div class="ctx-note"></div>
+        <div class="ctx-chart"><section id="fchart" title="Fingering chart — click a key to hold it"></section></div>
+        <div class="ctx-sliders"></div>
       </section>
 
-      <section id="fchart" title="Fingering chart — click a key to hold it"></section>
+      <!-- now playing + the primary action -->
+      <section id="hud" aria-label="Now playing">
+        <div class="np">
+          <div class="np-note"><span id="r-written">—</span><small>written</small></div>
+          <div class="np-mid">
+            <div class="cents" title="Deviation from the nearest equal-tempered note"><div class="cents-bar"><span id="r-cents-needle"></span></div><span id="r-cents">±0¢</span></div>
+            <div class="np-sub"><span id="r-note">—</span> concert · <span id="r-freq">0.0</span> Hz</div>
+            <div class="np-sub"><span id="r-fingering">—</span> <span class="mode" id="r-mode"></span></div>
+          </div>
+          <div class="np-right">
+            <div class="regime" id="r-regime"><span class="chip">audio off</span></div>
+            <div class="level" title="Output level"><span id="r-level"></span></div>
+          </div>
+        </div>
+        <div class="blowbox">
+          <button id="blow-btn" class="blow" aria-pressed="false" title="Hold to blow (or hold Space)"><span class="blow-dot" aria-hidden="true"></span><span>Hold to blow</span><kbd>Space</kbd></button>
+          <label class="air" title="Blowing pressure used by Hold to blow, Space and the note keys (drag the lungs for the same)"><span>Air</span><input type="range" id="air-range" min="0.5" max="8" step="0.1" value="3" aria-label="Blowing pressure (kPa)" /><output id="air-out">3.0 kPa</output></label>
+        </div>
+        <div class="delta" id="r-delta" aria-live="polite"></div>
+      </section>
 
-      <section id="viz">
-        <div class="viz-head"><span>Observation</span><label class="viz-opt" title="Overlay the vocal-tract impedance seen from the reed and the series sum Z_bore + Z_tract on the impedance plot"><input type="checkbox" id="tract-overlay" checked /> tract overlay</label><button id="viz-toggle" title="collapse">▾</button></div>
+      <!-- drawers (closed by default; state remembered) -->
+      <aside id="drawer" class="drawer right" aria-label="Controls">
+        <div class="drawer-head"><h2>Controls</h2><button class="drawer-close" data-close="controls" aria-label="Close controls">×</button></div>
+        <div id="panel"></div>
+      </aside>
+
+      <section id="viz" class="drawer bottom" aria-label="Scopes">
+        <div class="viz-head">
+          <h2>Scopes</h2>
+          <div class="grid" id="r-grid">
+            <div><label>Lung</label><span id="r-lung">0.00</span> kPa</div>
+            <div><label>Mouth</label><span id="r-mouth">0.00</span> kPa</div>
+            <div><label>Mouthpiece</label><span id="r-mp">0.00</span> kPa</div>
+            <div><label>Flow U</label><span id="r-flow">0.0</span> L/s</div>
+            <div><label>Reed gap h</label><span id="r-h">0.00</span> mm</div>
+            <div><label>Output</label><span id="r-rms">-∞</span> dBFS</div>
+            <div class="regime2" id="r-regime2"></div>
+          </div>
+          <label class="viz-opt" title="Overlay the vocal-tract impedance seen from the reed and the series sum Z_bore + Z_tract on the impedance plot"><input type="checkbox" id="tract-overlay" checked /> tract overlay</label>
+          <span class="perf muted" id="r-perf"></span>
+          <button class="drawer-close" data-close="scopes" aria-label="Close scopes">×</button>
+        </div>
         <div class="viz-body">
-          <canvas id="scope"></canvas>
-          <canvas id="spectrum"></canvas>
-          <canvas id="boreplot"></canvas>
-          <canvas id="impedance"></canvas>
+          <canvas id="scope" aria-label="Oscilloscope: mouthpiece pressure and reed displacement"></canvas>
+          <canvas id="spectrum" aria-label="Output spectrum"></canvas>
+          <canvas id="boreplot" aria-label="Standing wave along the bore"></canvas>
+          <canvas id="impedance" aria-label="Input impedance of the current fingering"></canvas>
         </div>
       </section>
 
       <div id="labels"></div>
+      <div id="grabtags" aria-hidden="true"></div>
 
       <div id="overlay">
         <div class="card">
           <h1>Alto saxophone, from first principles</h1>
-          <p>Lungs → vocal tract → lips → reed → mouthpiece → bore &amp; tone holes → bell. Grab anything in the 3D view: lips, tongue, jaw, lungs, keys, mouthpiece interior.</p>
+          <p>Grab the player and the horn — tongue, lips, jaw, lungs, keys, the inside of the mouthpiece — and hear what the physics does.</p>
           <button id="start" class="big">▶ Start audio</button>
           <button id="explore" class="ghost">Explore without sound</button>
-          <p class="hint">Hold <kbd>Space</kbd> to blow · play notes with the keyboard (<kbd>Z</kbd>…<kbd>M</kbd>, <kbd>Q</kbd>…<kbd>U</kbd>) · <kbd>?</kbd> for help</p>
+          <p class="hint">Hold <kbd>Space</kbd> to blow · notes on <kbd>Z</kbd>…<kbd>M</kbd> and <kbd>Q</kbd>…<kbd>U</kbd> · <kbd>?</kbd> help</p>
           <p class="err" id="overlay-msg"></p>
         </div>
       </div>
 
       <div id="tour" hidden>
-        <div class="card tour-card">
-          <div class="tour-step" id="tour-step"></div>
+        <div class="card tour-card" role="dialog" aria-labelledby="tour-title">
+          <div class="tour-step"><span id="tour-step"></span><span class="tour-dots" id="tour-dots"></span></div>
           <h2 id="tour-title"></h2>
           <div id="tour-body"></div>
           <div class="tour-nav">
@@ -98,36 +142,39 @@
       </div>
 
       <div id="help" hidden>
-        <div class="card">
-          <button class="close" id="help-close">×</button>
-          <h2>Controls</h2>
+        <div class="card" role="dialog" aria-labelledby="help-title">
+          <button class="close" id="help-close" aria-label="Close help">×</button>
+          <h2 id="help-title">Help &amp; shortcuts</h2>
           <div class="cols">
             <div>
-              <h3>Mouse</h3>
+              <h3>Grab the parts</h3>
               <ul>
-                <li><b>Keys</b>: click = hold/release, <kbd>Shift</kbd>+click = momentary</li>
-                <li><b>Lower lip</b>: drag along mouthpiece = take-in (lip position), toward reed = lip force</li>
-                <li><b>Upper lip</b>: drag along = take-in, ↕ = lip damping</li>
-                <li><b>Jaw / chin</b>: drag ↕ = jaw opening</li>
-                <li><b>Tongue body</b> (pink handle): drag = front/back &amp; low/high</li>
-                <li><b>Tongue tip</b> (orange): ↕ = tip height; drop onto the reed = tonguing</li>
-                <li><b>Glottis</b> (violet): ↕ = glottal opening</li>
-                <li><b>Lungs / gauge</b> (blue): drag ↕ = lung pressure</li>
-                <li><b>Mouthpiece cutaway</b>: tip opening, facing length, baffle, chamber, throat, insertion handles; reed ↕ = strength</li>
-                <li>Orbit: left-drag empty space · pan: right-drag · zoom: wheel</li>
+                <li>Parts you can grab glow softly and show a <b>tag</b> (Layers → Grab hints); the cursor turns into a hand. While dragging, the card next to the cursor shows the value you are changing and what it does to the pitch.</li>
+                <li><b>Lungs</b> ↕ = blowing pressure (while blowing it sets the blow target) · <b>Tongue</b> ↔ front/back, ↕ low/high · <b>tongue tip</b> ↕, drop it on the reed to tongue · <b>jaw</b> ↕ · <b>glottis</b> ↕</li>
+                <li><b>Lower lip</b>: along the mouthpiece = take-in, toward the reed = lip force · <b>upper lip</b>: ↕ = firmness</li>
+                <li><b>Mouthpiece</b> (cutaway): tip opening, facing, baffle, chamber, throat, cork position; <b>reed</b> ↕ = strength</li>
+                <li><b>Keys</b>: click = hold / release, <kbd>Shift</kbd>+click = momentary · <kbd>Esc</kbd> releases all</li>
+                <li><kbd>Shift</kbd> while dragging = fine adjustment · empty space: drag = orbit, right-drag = pan, wheel / pinch = zoom</li>
+              </ul>
+              <h3>Panels</h3>
+              <ul>
+                <li><b>Scopes</b> <kbd>Shift+S</kbd>: oscilloscope, spectrum, standing wave, input impedance (+ tract overlay) and the pressure / flow numbers</li>
+                <li><b>Controls</b> <kbd>Shift+P</kbd>: every parameter, presets (save / import / export), MIDI &amp; vibrato, keyboard options, WAV / CSV recording</li>
+                <li><b>Coach</b>: record your own playing and get it analysed</li>
               </ul>
             </div>
             <div>
-              <h3>Keyboard</h3>
+              <h3>Play</h3>
               <ul>
-                <li><kbd>Space</kbd> blow (attack/release envelope) · <kbd>/</kbd> tongue on reed</li>
-                <li><kbd>`</kbd> toggle Note ↔ Direct-key mode · <kbd>Esc</kbd> release all</li>
-                <li><b>Note mode</b>: <kbd>Z S X D C V G B H N J M</kbd> = C4…B4, <kbd>Q 2 W 3 E R 5 T 6 Y 7 U</kbd> = C5…B5, <kbd>I 9 O 0 P [ = ] ⌫ \</kbd> = C6…A6 (written; G6+ use the altissimo fingerings); <kbd>↑</kbd>/<kbd>↓</kbd> octave shift (↓ gives B♭3/B3 on <kbd>J</kbd>/<kbd>M</kbd>)</li>
+                <li><kbd>Space</kbd> or the <b>Hold to blow</b> button · <kbd>/</kbd> tongue on reed · <kbd>`</kbd> Note ↔ Direct-key mode</li>
+                <li><b>Note mode</b>: <kbd>Z S X D C V G B H N J M</kbd> = C4…B4, <kbd>Q 2 W 3 E R 5 T 6 Y 7 U</kbd> = C5…B5, <kbd>I 9 O 0 P [ = ] ⌫ \</kbd> = C6…A6 (written; G6+ altissimo); <kbd>↑</kbd>/<kbd>↓</kbd> octave shift</li>
                 <li><b>Direct keys</b>: <kbd>Q</kbd> octave · <kbd>A S D</kbd> LH1-3 · <kbd>G</kbd> bis · <kbd>J K L</kbd> RH1-3 · <kbd>W E R</kbd> palm D/E♭/F · <kbd>T</kbd> front F · <kbd>Z X C V</kbd> LH pinky G♯/C♯/B/B♭ · <kbd>;</kbd> <kbd>'</kbd> RH pinky E♭/C · <kbd>U I O</kbd> side E/C/B♭ · <kbd>P</kbd> high F♯</li>
-                <li><b>MIDI</b> (panel → MIDI &amp; vibrato): notes finger + blow, CC2/CC11 breath, mod wheel = vibrato</li>
-                <li><b>● Rec</b> records a WAV; panel → Presets &amp; export for CSV telemetry and preset files</li>
-                <li><kbd>Shift</kbd>+<kbd>1-4</kbd> camera · <kbd>Shift</kbd>+<kbd>X</kbd> X-ray · <kbd>Shift</kbd>+<kbd>C</kbd> cutaway · <kbd>Shift</kbd>+<kbd>F</kbd> air flow</li>
+                <li><b>MIDI</b> (Controls → MIDI &amp; vibrato): notes finger + blow, CC2/CC11 breath, mod wheel = vibrato</li>
+                <li><kbd>Shift</kbd>+<kbd>1-4</kbd> camera · <kbd>Shift+X</kbd> X-ray · <kbd>Shift+C</kbd> cutaway · <kbd>Shift+F</kbd> air flow · <kbd>Shift+S</kbd> scopes · <kbd>Shift+P</kbd> controls · <kbd>?</kbd> this help</li>
               </ul>
+              <h3>Altissimo: the tract in series</h3>
+              <p>The reed works against Z<sub>bore</sub> + Z<sub>tract</sub>. Above the normal range the bore resonances are weak, but a <b>high, front tongue</b> with a narrower glottis makes a strong tract resonance. Grab the tongue: the card shows the tract resonance (cyan) against the note; the airway turns <b style="color:#5fd38d">green</b> when it is tuned to it. Try preset <b>Altissimo setup</b>, then <kbd>↑</kbd> and <kbd>T</kbd>/<kbd>6</kbd>/<kbd>Y</kbd> (G6/G♯6/A6).</p>
+              <p class="muted small">Model: <span id="geo-name"></span></p>
             </div>
           </div>
         </div>

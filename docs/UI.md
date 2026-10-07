@@ -3,29 +3,78 @@
 Owner: graphics / interaction. Code: `web/src/` (scene in `scene/`, panels and visualizers in `ui/`,
 audio bridge in `engine/`). Run with `npm run dev`; build with `npm run build`.
 
+## Layout (progressive disclosure — see docs/UX_REVIEW.md)
+
+The 3D view fills the window; everything else is one deliberate click away.
+
+* **Top bar**: brand + status pill · camera views (*Instrument · Mouthpiece · Player · Keys*) ·
+  **Layers ▾** (Cutaway, X-ray, Air-flow particles, Grab hints, Airway readouts) · **Scopes** ·
+  **Controls** · **Coach** · **⋯** (Record WAV, Quick tour, Help & shortcuts).
+* **Now playing** (bottom centre): written note (large), cents meter, concert note + Hz, recognised
+  fingering, register chip (1st / 2nd register, altissimo, squeak?, tract-supported), output level,
+  a transient *what changed* line, and the primary action **Hold to blow** (mouse, touch, Enter or
+  <kbd>Space</kbd>) with the docked **Air** slider (the blow target, kPa).
+* **Context card** (left): opens when a part is grabbed or its camera view is chosen and shows only
+  that part's detail — *Tongue & throat*: impedance with the tract overlay + the tract resonance in
+  words; *Lips & embouchure*: scope; *Air & lungs*: scope + blow target; *Mouthpiece & reed*:
+  spectrum; *Keys & fingering*: the fingering chart + bore impedance — plus that part's sliders.
+  × closes it; it reopens on the next grab.
+* **Drawers** (closed by default; open/closed state remembered in `localStorage` `saxsim.ui.v1`):
+  **Controls** (right; <kbd>Shift</kbd>+<kbd>P</kbd>) holds the full parameter panel; **Scopes**
+  (bottom; <kbd>Shift</kbd>+<kbd>S</kbd>) the four visualizers, the tract-overlay checkbox and the
+  pressure / flow / gap / level numbers. Esc closes a focused drawer. On phones (≤ 700 px) both are
+  bottom sheets and Coach moves into ⋯.
+
 ## Start-up
 
 * A **Start audio** button (an AudioContext needs a user gesture) loads `web/public/engine.wasm`
   into an AudioWorklet. **Explore without sound** dismisses the overlay; the 3D model and all
   controls still work (pads/keys follow the local keywork evaluation).
-* The status pill (top bar) shows `audio off` / `engine running` / `engine not built`
+* The status pill (top bar, next to the name) shows `audio off` / `engine running` / `engine not built`
   (run `npm run build:engine`) / `engine error`. Click it to suspend or resume audio.
 * Geometry comes from `data/alto_sax.json` (imported through the `@data` alias); the same JSON
   text is handed to the engine with `sax_load_geometry`.
 
 ## 3D view
 
-Orbit: left-drag on empty space · pan: right-drag · zoom: wheel (zooms toward the cursor).
-Hovering anything interactive shows a tooltip with the param name and live value.
-Drag handles are drawn on top of everything (no depth test) and always win the pick.
+Orbit: left-drag on empty space · pan: right-drag · zoom: wheel / pinch (zooms toward the cursor).
+
+Manipulation (`scene/interaction.ts`, `scene/handles.ts`, `ui/grabHints.ts`):
+* **Affordances**: drag handles breathe softly until that part has been dragged once, and ✋ tags
+  name the grabbable parts (tongue, lips, jaw, lungs, keys; the detail tags — reed, tongue tip,
+  glottis, mouthpiece handles — only in close-ups). A tag retires after its part has been dragged
+  (remembered in `saxsim.grabbed.v1`); *Layers → Grab hints* turns hints off, or on again for all
+  parts. Handles never shrink below ~6 px radius on screen.
+* **Hover** shows a short tag (*part · gesture*) and a `grab` cursor; **while dragging** a large
+  readout beside the cursor shows the part, the params it is changing (start → now), the written
+  note, its cents and the pitch change since the grab; the handle grows (active state).
+* **Hit targets**: drag handles are drawn on top (no depth test) and always win the pick; when the
+  ray misses, the nearest handle within 22 px (34 px for touch) is taken.
+* **No orbit fights**: a pointer-down that lands on a part is consumed in the capture phase and
+  never reaches the orbit controls.
+* **Consistent drag gain**: pointer motion is scaled per value axis so a part's full range spans
+  200–250 px on screen at any zoom. Ranges are declared with the handle (`planarDrag(…, { ranges })`,
+  `axisDrag(…, range)`). Handles are grabbed at their centre; values move relative to the grab.
+* <kbd>Shift</kbd> while dragging = fine adjustment (¼ of the pointer motion).
+* **Axis lock (lips)**: after 6 px the lip drag commits to *take-in* (along the mouthpiece) or
+  *lip force* / *firmness* (toward the reed). The drag card shows the active axis; grab again to
+  switch. The tongue body (front/back × low/high) and tongue tip stay 2-D.
+* **Declutter**: when a handle cluster is packed closer than 24 px on screen (e.g. the mouthpiece
+  handles in the Instrument view), its handles are hidden and not pickable. One tag —
+  **mouthpiece ✋** or **tongue & throat ✋** — flies the camera to that view on click. A cluster is
+  never collapsed in its own view; the parts' meshes stay grabbable (`ui/clusters.ts`).
 
 Camera presets (top bar, or <kbd>Shift</kbd>+<kbd>1</kbd>…<kbd>4</kbd>):
 **Instrument**, **Mouthpiece** (cutaway close-up), **Player** (mid-sagittal cutaway incl. lungs),
-**Keys**.
+**Keys**. Choosing Mouthpiece / Player / Keys also opens that context card. With
+`prefers-reduced-motion` the presets jump instead of flying. The projection centre follows the open
+UI (`SceneApp.setViewInsets`) so the model stays centred in the free area.
 
-Toggles: **X-ray** (<kbd>Shift</kbd>+<kbd>X</kbd>, translucent brass: shows the inner bore coloured by the
-standing wave), **Cutaway** (<kbd>Shift</kbd>+<kbd>C</kbd>, mouthpiece and head cut in the mid-sagittal plane,
-shows the mouthpiece handles), air-flow particles (<kbd>Shift</kbd>+<kbd>F</kbd>), standing-wave line, player.
+Layers (*Layers ▾*): **Cutaway** (<kbd>Shift</kbd>+<kbd>C</kbd>, mouthpiece and head cut in the mid-sagittal
+plane, shows the mouthpiece handles), **X-ray** (<kbd>Shift</kbd>+<kbd>X</kbd>, translucent brass: shows the
+inner bore coloured by the standing wave), **Air-flow particles** (<kbd>Shift</kbd>+<kbd>F</kbd>), **Grab
+hints**, **Airway readouts** (the 3D pressure/flow labels, off by default). Standing-wave line and
+player visibility: Controls → View.
 
 ### Mouse → param mapping
 
@@ -41,7 +90,7 @@ shows the mouthpiece handles), air-flow particles (<kbd>Shift</kbd>+<kbd>F</kbd>
 | Tongue tip (orange handle) | drag ↕ | `tongue_tip` |
 |  | drop onto the underside of the reed tip (within ~2 mm, ramps over 7 mm) | `tongue_reed_contact` → 1 |
 | Glottis (violet handle) | drag ↕ (up = open) | `glottis_open` |
-| Lungs / pressure gauge (blue handle in front of the chest) | drag ↕ (full rail = 10 kPa) | `lung_pressure` |
+| Lungs (the lungs themselves; the pressure gauge beside the chest appears while they are hovered / dragged) | drag ↕ (full rail = 10 kPa); while blowing (Space, note, Blow button) the drag sets the blow target instead | `lung_pressure` |
 | Mouthpiece tip rail (amber, cutaway) | drag ↕ | `tip_opening` (0.5 mm per mm of drag) |
 | Facing break point (amber, on the table) | drag along the axis | `facing_length` |
 | Baffle (blue, roof behind the tip) | drag ↕ (down = higher baffle) | `baffle_height` |
@@ -50,7 +99,9 @@ shows the mouthpiece handles), air-flow particles (<kbd>Shift</kbd>+<kbd>F</kbd>
 | Shank (green, on the ligature end) | drag along the axis | `mouthpiece_insertion` (mouthpiece and player slide on the cork) |
 | Reed | drag ↕ | `reed_strength` (colour darkens / reed thickens with strength) |
 
-All of these are synchronised both ways with the side panel (dragging moves the sliders; moving
+(The "per mm" figures are the natural mapping in the part's own frame; the screen-space drag gain then rescales pointer motion so each full range spans 200–250 px.)
+
+All of these are synchronised both ways with the Controls panel and the context card (dragging moves the sliders; moving
 a slider moves the 3D geometry). The mouthpiece interior is drawn with the same equivalent-area
 radius the engine uses (PHYSICS.md §9: baffle / chamber bumps, throat window), so dragging the
 handles reshapes exactly what the engine simulates.
@@ -67,7 +118,10 @@ Physical keys (`KeyboardEvent.code`), so the layout works on non-QWERTY keyboard
 | <kbd>Esc</kbd> | release all keys (latched, keyboard and note) |
 | <kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>4</kbd> | camera presets |
 | <kbd>Shift</kbd>+<kbd>X</kbd> / <kbd>C</kbd> / <kbd>F</kbd> | X-ray / cutaway / air-flow particles |
-| <kbd>?</kbd> | help overlay |
+| <kbd>Shift</kbd>+<kbd>S</kbd> / <kbd>P</kbd> | Scopes drawer / Controls drawer |
+| <kbd>?</kbd> | help & shortcuts |
+
+Only text fields stop keyboard play; a focused checkbox, slider or button does not.
 
 (Tip: the blow envelope runs at control rate (8 ms timer), independent of the frame rate.)
 
@@ -113,18 +167,18 @@ keyboard or part of the current note-mode fingering.
   `embouchure` (or the *Altissimo* preset's) and blows at ≥ the preset's pressure, and restores your
   previous settings when you play a normal note again.
 * **Why it works — series impedance**: the reed sees Z_bore + Z_tract. The impedance plot's
-  *tract overlay* (checkbox in the Observation header) adds Z_tract seen from the reed (cyan,
+  *tract overlay* (checkbox in the Scopes header; always on in the tongue context card) adds Z_tract seen from the reed (cyan,
   `sax_compute_tract_impedance` on the worker's engine instance, recomputed ~100 ms after a tongue /
   jaw / glottis change so it follows live drags) and |Z_bore + Z_tract| (white), with a marker at the
   dominant tract resonance.
 * **3D cue**: the *vocal-tract resonance* label in the head shows the resonance, its strength and
   its distance in cents from the note (playing pitch, else the fingering's target); label and airway
   turn **green** when a strong (≥ 10 MPa·s/m³) tract resonance lies between 150 ¢ below and 450 ¢
-  above the note (the series peak of Z_bore + Z_tract falls between them), amber within −500…+900 ¢. A *tract-supported* chip appears in the pitch card when it is.
+  above the note (the series peak of Z_bore + Z_tract falls between them), amber within −500…+900 ¢. A *tract-supported* chip appears in the now-playing bar when it is; the tongue context card says it in words.
 
 ## Tone coach (M9, docs/COACHING.md)
 
-**🎷 Coach** in the top bar opens the coach (loaded on demand). Privacy: audio is analysed in the
+**Coach** in the top bar (⋯ → Coach on phones) opens the coach (loaded on demand). Privacy: audio is analysed in the
 browser only (Web Audio + a Web Worker) and never uploaded; sessions store features, not audio.
 
 1. **Setup** — the protocol v1 test set (Bb3 D4 G4 C5 C♯5 D5 G5 C6 F6, G4 pp/ff), the recommended
@@ -176,7 +230,7 @@ browser only (Web Audio + a Web Worker) and never uploaded; sessions store featu
 
 ## MIDI, vibrato
 
-Panel → **MIDI & vibrato** → *Connect MIDI input* (Web MIDI; Chrome/Edge).
+Controls → **MIDI & vibrato** → *Connect MIDI input* (Web MIDI; Chrome/Edge).
 * Note-on/off → fingering of that note (MIDI numbers are *written* pitch by default; switch to
   *concert* to add 9 semitones) and blow; *Velocity → blow*: with Player assist > 0, velocity sets the **Dynamic (pp–ff)** control (the player model moves pressure, lip and jaw together); with assist = 0 (pure physics) it scales the blow target 0.7…1.3×.
 * CC2 (breath) / CC11 (expression) → lung pressure directly (0…*Breath max* kPa) — once a breath
@@ -189,7 +243,7 @@ Panel → **MIDI & vibrato** → *Connect MIDI input* (Web MIDI; Chrome/Edge).
 
 ## Recording & export
 
-* **● Rec** (top bar) or panel → *Record WAV*: records the engine output (16-bit mono WAV at the
+* **⋯ → ● Record WAV** (a red *REC m:ss* pill in the top bar shows it is running; click it to stop) or Controls → *Record WAV*: records the engine output (16-bit mono WAV at the
   audio sample rate) via a tap processor in the engine's worklet module; stop to download.
 * *Capture telemetry CSV*: one row per telemetry block (~60 Hz; time, lung/mouth/mouthpiece
   pressure, reed displacement & opening, flow, f0, RMS, recognised fingering, all params).
@@ -201,11 +255,12 @@ Panel → **MIDI & vibrato** → *Connect MIDI input* (Web MIDI; Chrome/Edge).
 
 ## Fingering chart & tour
 
-* The small chart (left) is a schematic of the key layout from the data's key ids: pressed keys
+* The chart (in the *Keys & fingering* context card — click a key or choose the Keys view) is a schematic of the key layout from the data's key ids: pressed keys
   are brass, latched keys have an orange ring, the recognised fingering (incl. alternates) is
   named on top; click a key to latch it.
-* **Tour** (top bar; also shown once on first run): six steps — blow, fingers, lips & jaw, tongue &
-  throat, mouthpiece, what to watch — each moving the camera to the relevant view.
+* **Quick tour** (⋯ menu; also shown once on first run, `saxsim.tour.v1`): four steps — *Blow*,
+  *Grab the tongue*, *Lips & mouthpiece*, *Keys — and everything else* — each moving the camera to
+  the relevant view. Altissimo and the series-impedance explanation are in Help.
 
 ## Tests
 
@@ -218,23 +273,27 @@ Panel → **MIDI & vibrato** → *Connect MIDI input* (Web MIDI; Chrome/Edge).
   meanwhile); fit quality is reported, not asserted.
 * `npm run test:e2e` — `web/tests/e2e.mjs` (puppeteer-core + local Chrome, Vite dev server
   started programmatically): audio starts, a C4–G5 scale in note mode lands within ±50 ¢ of each
-  fingering's `f_target`, lung/tongue drags change their params, the impedance plot recomputes on
-  a fingering change, no page errors. Skips (exit 0) without Chrome unless `E2E_REQUIRE=1`.
+  fingering's `f_target`, lung/tongue drags change their params, the UI checks (drawers closed by
+  default and toggling with `aria-expanded`, drag readout, tongue → tract context card, Hold to
+  blow), the impedance plot recomputes on a fingering change, no page errors. Skips (exit 0) without Chrome unless `E2E_REQUIRE=1`.
 
-## Panel (right)
+## Controls drawer (right)
 
 lil-gui, grouped exactly like the param table: **Air** (+ blow target/attack/release),
 **Embouchure**, **Tongue & Tract**, **Reed** (+ visual reed-motion gain), **Mouthpiece**,
-**Instrument**, **Environment**, **Engine**; then **View** and **Keyboard play**.
+**Instrument**, **Environment**, **Engine**; then **View** (camera, layers, standing-wave line,
+player, **Render quality** Auto / High / Medium / Low with the current tier and fps —
+`scene/render/quality.ts`) and **Keyboard play**.
 **Preset** dropdown: Default, Jazz bright, Subtone, Altissimo setup, Classical dark
 (`web/src/ui/presets.ts`; presets set every non-Engine/Environment param and the blow target).
 
 ## Readouts & visualizers
 
-* Pitch card: estimated playing frequency (telemetry 6), concert note name + cents, written
-  note for E♭ alto (+9 semitones); lung / mouth / mouthpiece pressure, reed-channel flow U
-  (L/s), reed gap h, output level; the current fingering name (matched against `fingerings` and
-  `alternate_fingerings`); frame rate and engine µs/block (native builds only).
+* Now-playing bar: written note for E♭ alto (+9 semitones, large), cents, concert note + estimated
+  playing frequency (telemetry 6), the current fingering name (matched against `fingerings` and
+  `alternate_fingerings`), register chip, output level. Scopes header: lung / mouth / mouthpiece
+  pressure, reed-channel flow U (L/s), reed gap h, output dBFS, beating / non-beating chip, frame
+  rate, engine µs/block (native builds only) and the telemetry transport.
 * Oscilloscope: the 64-sample mouthpiece pressure and reed-tip displacement traces from telemetry
   (auto-scaled).
 * Spectrum: `AnalyserNode` on the output (log frequency, harmonic markers at k·f0).
@@ -259,12 +318,13 @@ lil-gui, grouped exactly like the param table: **Air** (+ blow target/attack/rel
   (`web/src/engine/impedance.worker.ts`, ~0.2 s per curve), recomputed 120 ms after a key change /
   250 ms after an acoustic param change, so the audio thread is never touched. Works without
   starting audio.
-* **Register / regime chips** (pitch card): which impedance peak the note sits on
+* **Register / regime chips** (now-playing bar; beating reed in the Scopes header): which impedance peak the note sits on
   (1st register, 2nd register, altissimo = peak ≥ 3, or off-resonance → squeak/multiphonic?),
   beating vs non-beating reed (reed scope reaches the tip opening), silent / tongue on reed.
-* **What changed**: while you drag or move a slider, the card shows `param old → new · pitch Δ¢`
-  measured from the start of the gesture (a gesture ends after 1.5 s without changes).
-* **Vocal-tract readouts**: labels anchored in 3D (lungs: p_lung; glottis: opening and
+* **What changed**: while you drag, the drag readout shows `param old → new` and the pitch Δ¢ since
+  the grab; after a drag or a slider / preset change, a line above the now-playing bar shows the
+  param that moved most in the gesture (a gesture ends after 1.5 s without changes).
+* **Vocal-tract readouts** (Layers → Airway readouts, off by default): labels anchored in 3D (lungs: p_lung; glottis: opening and
   transglottal Δp; mouth: p_mouth; reed channel: U, h, p_mp), shown when the camera is within
   ~1.9 m (Player / Mouthpiece views).
 * **Beam reed**: when the engine appends the 32-sample reed deflection profile (tip → ligature
@@ -283,7 +343,7 @@ lil-gui, grouped exactly like the param table: **Air** (+ blow target/attack/rel
   fractional key states.
 * Telemetry transport: a `SharedArrayBuffer` seqlock written by the worklet every 2 render quanta
   and read once per animation frame (`EngineClient.poll`) when `crossOriginIsolated`; otherwise
-  `postMessage`. The pitch card shows which transport is active.
+  `postMessage`. The Scopes header shows which transport is active.
 * Per-frame paths allocate nothing: telemetry is decoded into preallocated arrays, the head
   geometry is rebuilt in place only when one of its params changes, particle and wave buffers are
   updated in place.

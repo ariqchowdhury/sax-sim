@@ -45,31 +45,44 @@ Other scripts
 |---|---|
 | `npm run build` | type-check + production build to `dist/` (serve with `npm run preview`; the server must send COOP/COEP for SharedArrayBuffer) |
 | `npm test` | `test:unit` (keywork.ts ≡ engine keywork on all fingerings) + `test:e2e` |
-| `npm run test:e2e` | headless-Chrome smoke test: starts audio, plays a scale (pitch within ±50 ¢ of target), drags lung/tongue handles, checks the impedance plot recomputes. Uses a local Chrome/Chromium (`CHROME_PATH` to override); skipped if none is found |
+| `npm run test:e2e` | headless-Chrome smoke test: starts audio, plays a scale (pitch within ±50 ¢ of target), drags the lungs / tongue, checks the drawers, drag readout, context card and Blow button, checks the impedance plot recomputes, runs the coach end to end. Uses a local Chrome/Chromium (`CHROME_PATH` to override); skipped if none is found |
 | `npm run typecheck` | `tsc --noEmit` |
 | `cargo test` (in `engine/`) | engine unit tests |
 
 ## Controls (summary)
 
-* **Mouse**: click keys (Shift = momentary); drag the lower lip (take-in / force), upper lip,
-  chin (jaw), tongue body & tip (drop it on the reed to tongue), glottis, lung handle (pressure);
-  in the mouthpiece cutaway drag tip opening, facing, baffle, chamber, throat, insertion; drag the
-  reed for strength. Orbit with left-drag on empty space.
+The 3D view is the instrument: everything you can grab glows softly and carries a ✋ tag, and
+while you drag, a readout next to the cursor shows the value and what it does to the pitch.
+Everything else is one click away and closed by default (state remembered).
+
+* **Mouse / touch**: drag the lungs (pressure), tongue body & tip (drop the tip on the reed to
+  tongue), lower lip (take-in / force), upper lip, jaw, glottis; in the mouthpiece cutaway the tip
+  opening, facing, baffle, chamber, throat and cork position; the reed (strength). Click keys
+  (Shift = momentary). Shift while dragging = fine adjust. Empty space: orbit / pan / zoom.
+* **Bottom bar**: the note you play (written), cents, register, and **Hold to blow** with the
+  **Air** (blow pressure) slider.
+* **Context card**: grabbing a part (or picking its camera view) shows just that part's sliders and
+  the one plot that explains it (tongue → tract impedance, mouthpiece → spectrum, keys → fingering
+  chart + impedance, …).
+* **Top bar**: camera views · **Layers** (cutaway, X-ray, air flow, grab hints, airway readouts) ·
+  **Scopes** drawer (scope, spectrum, standing wave, impedance + tract overlay) · **Controls**
+  drawer (every parameter, presets, MIDI & vibrato, recording / export, render quality) · **Coach** ·
+  **⋯** (record WAV, quick tour, help).
 * **Keyboard**: Space = blow · `/` = tongue · `` ` `` toggles note mode (piano layout `Z…M`,
   `Q…U`, `I…=` → written C4…F♯6) and direct-key mode (`Q` octave, `ASD` LH, `JKL` RH, …) · Esc
-  releases all · Shift+1–4 cameras.
+  releases all · Shift+1–4 cameras · Shift+S scopes · Shift+P controls · `?` help.
 * **MIDI**: note-on → fingering + blow (velocity → pp–ff dynamic, or pressure in pure-physics mode), CC2/CC11 breath controller → lung
   pressure, mod wheel → jaw vibrato depth (or tongue height); legato keeps the air on.
-* **Panel**: every parameter, presets (incl. your own, saved locally and exportable as JSON),
-  jaw vibrato, WAV recording and telemetry CSV capture.
+* **Controls drawer**: every parameter, presets (incl. your own, saved locally and exportable as
+  JSON), jaw vibrato, WAV recording and telemetry CSV capture.
 * **Altissimo** (G6 and up): played with the data's `register: 3` fingerings and a tuned vocal
   tract; the impedance plot's *tract overlay* shows Z_tract and Z_bore + Z_tract (the series load
   the reed works against), and the 3D tract label turns green when the tract is tuned to the note.
-* **🎷 Coach**: record (or upload) a short test set on your own alto; the app measures every note,
+* **Coach**: record (or upload) a short test set on your own alto; the app measures every note,
   fits the simulated player to it, ranks likely causes with concrete things to try, and lets you
   A/B the fitted and suggested settings in the simulator. Audio never leaves the browser
   ([docs/COACHING.md](docs/COACHING.md)).
-* **Tour** button: a guided first-run walkthrough.
+* **Quick tour** (⋯ menu): a 4-step first-run walkthrough. UX rationale: [docs/UX_REVIEW.md](docs/UX_REVIEW.md).
 
 Full reference: **[docs/UI.md](docs/UI.md)**.
 
