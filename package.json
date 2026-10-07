@@ -1,0 +1,28 @@
+{
+  "name": "sax-sim",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Real-time first-principles physical simulation of an alto saxophone and its player",
+  "scripts": {
+    "dev": "vite --config web/vite.config.ts",
+    "build": "tsc --noEmit && vite build --config web/vite.config.ts",
+    "preview": "vite preview --config web/vite.config.ts",
+    "build:engine": "bash engine/build_wasm.sh",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "node web/tests/keywork.test.ts",
+    "test:e2e": "node web/tests/e2e.mjs",
+    "test": "npm run test:unit && npm run test:e2e"
+  },
+  "dependencies": {
+    "lil-gui": "^0.21.0",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "@types/three": "^0.186.0",
+    "puppeteer-core": "^25.12.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.3"
+  }
+}

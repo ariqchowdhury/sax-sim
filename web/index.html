@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>Alto Sax Physical Simulation</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23d9a84e'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="viewport"></div>
+
+      <header id="topbar">
+        <div class="brand">
+          <span class="logo"></span>
+          <div>
+            <div class="title">Alto Sax — physical simulation</div>
+            <div class="subtitle" id="geo-name"></div>
+          </div>
+        </div>
+        <div class="status" id="status"><span class="dot"></span><span id="status-text">audio off</span></div>
+        <nav class="cams" id="cams">
+          <button data-cam="full" title="Shift+1">Instrument</button>
+          <button data-cam="mouthpiece" title="Shift+2">Mouthpiece</button>
+          <button data-cam="player" title="Shift+3">Player</button>
+          <button data-cam="keys" title="Shift+4">Keys</button>
+          <span class="sep"></span>
+          <button data-toggle="xray" title="Shift+X">X-ray</button>
+          <button data-toggle="cutaway" title="Shift+C">Cutaway</button>
+          <button id="rec-btn" title="Record the output to a WAV file">● Rec</button>
+          <button id="tour-btn" title="Guided tour">Tour</button>
+          <button id="help-btn" title="?">Help</button>
+        </nav>
+      </header>
+
+      <aside id="panel"></aside>
+
+      <section id="readouts">
+        <div class="pitch">
+          <div class="note" id="r-note">—</div>
+          <div class="freq"><span id="r-freq">0.0</span> Hz <span class="muted">concert</span></div>
+          <div class="written">written <span id="r-written">—</span> <span class="muted">(E♭ alto)</span></div>
+          <div class="cents"><div class="cents-bar"><span id="r-cents-needle"></span></div><span id="r-cents">±0¢</span></div>
+        </div>
+        <div class="grid">
+          <div><label>Lung</label><span id="r-lung">0.00</span> kPa</div>
+          <div><label>Mouth</label><span id="r-mouth">0.00</span> kPa</div>
+          <div><label>Mouthpiece</label><span id="r-mp">0.00</span> kPa</div>
+          <div><label>Flow U</label><span id="r-flow">0.0</span> L/s</div>
+          <div><label>Reed gap h</label><span id="r-h">0.00</span> mm</div>
+          <div><label>Output</label><span id="r-rms">-∞</span> dBFS</div>
+        </div>
+        <div class="regime" id="r-regime"><span class="chip">silent</span></div>
+        <div class="delta muted" id="r-delta"></div>
+        <div class="fingering"><label>Fingering</label><span id="r-fingering">—</span> <span class="mode" id="r-mode"></span></div>
+        <div class="perf muted" id="r-perf"></div>
+      </section>
+
+      <section id="fchart" title="Fingering chart — click a key to hold it"></section>
+
+      <section id="viz">
+        <div class="viz-head"><span>Observation</span><button id="viz-toggle" title="collapse">▾</button></div>
+        <div class="viz-body">
+          <canvas id="scope"></canvas>
+          <canvas id="spectrum"></canvas>
+          <canvas id="boreplot"></canvas>
+          <canvas id="impedance"></canvas>
+        </div>
+      </section>
+
+      <div id="labels"></div>
+
+      <div id="overlay">
+        <div class="card">
+          <h1>Alto saxophone, from first principles</h1>
+          <p>Lungs → vocal tract → lips → reed → mouthpiece → bore &amp; tone holes → bell. Grab anything in the 3D view: lips, tongue, jaw, lungs, keys, mouthpiece interior.</p>
+          <button id="start" class="big">▶ Start audio</button>
+          <button id="explore" class="ghost">Explore without sound</button>
+          <p class="hint">Hold <kbd>Space</kbd> to blow · play notes with the keyboard (<kbd>Z</kbd>…<kbd>M</kbd>, <kbd>Q</kbd>…<kbd>U</kbd>) · <kbd>?</kbd> for help</p>
+          <p class="err" id="overlay-msg"></p>
+        </div>
+      </div>
+
+      <div id="tour" hidden>
+        <div class="card tour-card">
+          <div class="tour-step" id="tour-step"></div>
+          <h2 id="tour-title"></h2>
+          <div id="tour-body"></div>
+          <div class="tour-nav">
+            <button class="ghost small" id="tour-skip">Skip</button>
+            <span class="grow"></span>
+            <button class="ghost small" id="tour-back">Back</button>
+            <button class="primary small" id="tour-next">Next</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="help" hidden>
+        <div class="card">
+          <button class="close" id="help-close">×</button>
+          <h2>Controls</h2>
+          <div class="cols">
+            <div>
+              <h3>Mouse</h3>
+              <ul>
+                <li><b>Keys</b>: click = hold/release, <kbd>Shift</kbd>+click = momentary</li>
+                <li><b>Lower lip</b>: drag along mouthpiece = take-in (lip position), toward reed = lip force</li>
+                <li><b>Upper lip</b>: drag along = take-in, ↕ = lip damping</li>
+                <li><b>Jaw / chin</b>: drag ↕ = jaw opening</li>
+                <li><b>Tongue body</b> (pink handle): drag = front/back &amp; low/high</li>
+                <li><b>Tongue tip</b> (orange): ↕ = tip height; drop onto the reed = tonguing</li>
+                <li><b>Glottis</b> (violet): ↕ = glottal opening</li>
+                <li><b>Lungs / gauge</b> (blue): drag ↕ = lung pressure</li>
+                <li><b>Mouthpiece cutaway</b>: tip opening, facing length, baffle, chamber, throat, insertion handles; reed ↕ = strength</li>
+                <li>Orbit: left-drag empty space · pan: right-drag · zoom: wheel</li>
+              </ul>
+            </div>
+            <div>
+              <h3>Keyboard</h3>
+              <ul>
+                <li><kbd>Space</kbd> blow (attack/release envelope) · <kbd>/</kbd> tongue on reed</li>
+                <li><kbd>`</kbd> toggle Note ↔ Direct-key mode · <kbd>Esc</kbd> release all</li>
+                <li><b>Note mode</b>: <kbd>Z S X D C V G B H N J M</kbd> = C4…B4, <kbd>Q 2 W 3 E R 5 T 6 Y 7 U</kbd> = C5…B5, <kbd>I 9 O 0 P [ =</kbd> = C6…F#6 (written); <kbd>↑</kbd>/<kbd>↓</kbd> octave shift (↓ gives B♭3/B3 on <kbd>J</kbd>/<kbd>M</kbd>)</li>
+                <li><b>Direct keys</b>: <kbd>Q</kbd> octave · <kbd>A S D</kbd> LH1-3 · <kbd>G</kbd> bis · <kbd>J K L</kbd> RH1-3 · <kbd>W E R</kbd> palm D/E♭/F · <kbd>T</kbd> front F · <kbd>Z X C V</kbd> LH pinky G♯/C♯/B/B♭ · <kbd>;</kbd> <kbd>'</kbd> RH pinky E♭/C · <kbd>U I O</kbd> side E/C/B♭ · <kbd>P</kbd> high F♯</li>
+                <li><b>MIDI</b> (panel → MIDI &amp; vibrato): notes finger + blow, CC2/CC11 breath, mod wheel = vibrato</li>
+                <li><b>● Rec</b> records a WAV; panel → Presets &amp; export for CSV telemetry and preset files</li>
+                <li><kbd>Shift</kbd>+<kbd>1-4</kbd> camera · <kbd>Shift</kbd>+<kbd>X</kbd> X-ray · <kbd>Shift</kbd>+<kbd>C</kbd> cutaway · <kbd>Shift</kbd>+<kbd>F</kbd> air flow</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
