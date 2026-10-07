@@ -99,9 +99,13 @@ export class AltissimoList {
     this.timer = window.setTimeout(() => this.stop(), PLAY_MS);
   }
 
+  /** stop playback: the air stops and ▶ lifts its fingering (it leaves no keys down) */
   stop(): void {
     window.clearTimeout(this.timer);
-    if (this.playing !== null) this.kb.noteOff(this.entries[this.playing].midi);
+    if (this.playing !== null) {
+      this.kb.noteOff(this.entries[this.playing].midi);
+      this.kb.liftFingers();
+    }
     this.playing = null;
     this.light([]);
     this.root.querySelectorAll('.alt-item.on').forEach((el) => el.classList.remove('on'));

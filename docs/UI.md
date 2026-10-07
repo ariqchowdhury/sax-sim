@@ -77,7 +77,8 @@ every control is yours, exactly as before.
   plays it (e.g. `]`, `⌫`, `\`, or *↑ then 7*) and its MIDI number (written pitch), the data's caveats
   (`achieved` cents beyond ±15 — C♯7 "runs about −28 ¢"; `ok: false` dynamics; `robust.slur_mf: false`
   → "tongue it — slurring in may fail"), and a ▶ button that fingers and blows it for 1.8 s at the
-  current Volume (a second click stops it) and lights its keys on the 3D sax.
+  current Volume (a second click stops it) and lights its keys on the 3D sax; when playback stops the
+  fingering is lifted again (no keys left down).
 * **Voicing close-up** (Play mode; Layers → *Voicing close-up*; on by default on screens ≥ 1024 px,
   off on phones; remembered): a picture-in-picture view of the mid-sagittal mouth and throat (tongue,
   palate, jaw, lips on the mouthpiece, glottis), rendered with a second camera into the main canvas
@@ -231,7 +232,15 @@ C♯5 fingering. <kbd>Esc</kbd> lifts the fingers.
 | <kbd>P</kbd> | high F♯ |
 
 Sources combine: a key is down if it is latched by a click, held by the mouse, held on the
-keyboard or part of the current note-mode fingering.
+keyboard or part of the current note-mode / MIDI / ▶ fingering (which stays down after the note is
+released, so the release does not sound open C♯5).
+
+**One key state, one rule** (`AppState.toggleKey`): clicking a key that is down — for *any* of those
+reasons — releases it; clicking a key that is up holds it (3D key, pad cup and fingering-chart
+clicks all use this). **Clear keys** (button next to the fingering in the now-playing bar, both
+modes) and <kbd>Esc</kbd> release every key back to the open fingering (all fingers off — written
+C♯5) and stop ▶ playback. The Altissimo list's ▶ lifts its fingering when its playback stops, so it
+never leaves keys down.
 
 ## Altissimo & the vocal tract
 

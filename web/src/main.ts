@@ -404,6 +404,10 @@ function main(): void {
   };
   ap.onChange = () => { renderMode(); if (ap.mode !== 'play') { alt.stop(); alt.toggle(false); } };
   modeBtns.forEach((b) => b.addEventListener('click', () => ap.setMode(b.dataset.mode as 'play' | 'explore')));
+  // Clear keys (button, Esc): every key up — open fingering (written C♯5) — and ▶ playback stopped
+  const clearKeys = (): void => { alt.stop(); state.clearKeys(); kb.releaseAll(); };
+  $('clear-keys').addEventListener('click', clearKeys);
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape') alt.stop(); }); // keyboard.ts clears the keys
   ap.setMode(AutoPlayer.initialMode(), false);
   renderMode();
   syncVol();

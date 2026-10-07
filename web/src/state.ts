@@ -86,6 +86,20 @@ export class AppState {
     this.setKeySource(index, KEY_SRC.latch, !(this.keyMask[index] & KEY_SRC.latch));
   }
 
+  /**
+   * The one click rule (3D keys, pad cups, fingering chart): a key that is down for ANY reason —
+   * clicked (latch), a note-mode / MIDI / ▶ fingering left down, a held keyboard key — is released
+   * completely; a key that is up is latched.
+   */
+  toggleKey(index: number): void {
+    if (index < 0 || index >= this.keyMask.length) return;
+    if (this.keyMask[index]) {
+      this.keyMask[index] = 0;
+      this.refreshKey(index);
+      this.emitKeys();
+    } else this.setKeySource(index, KEY_SRC.latch, true);
+  }
+
   /** Replace the set of keys held by a given source (e.g. note-mode fingering). */
   setSourceKeys(src: number, indices: Iterable<number>): void {
     const want = new Set(indices);

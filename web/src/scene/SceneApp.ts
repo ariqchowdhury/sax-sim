@@ -126,13 +126,13 @@ export class SceneApp {
         priority: 1,
         tooltip: () => {
           const m = st.keyMask[i];
-          const how = m & KEY_SRC.latch ? 'held (click to release)' : m ? 'pressed' : 'click = hold · shift-click = momentary';
+          const how = m & KEY_SRC.latch ? 'held (click to release)' : m ? 'pressed (click to release)' : 'click = hold · shift-click = momentary';
           return `${k.def.label ?? k.def.id} [${k.def.id}] — ${how}`;
         },
         hover: (on) => this.sax.setKeyHover(i, on),
         press: (e) => { if (e.shiftKey) st.setKeySource(i, KEY_SRC.mouse, true); },
         release: () => st.setKeySource(i, KEY_SRC.mouse, false),
-        click: (e) => { if (!e.shiftKey) st.toggleLatch(i); },
+        click: (e) => { if (!e.shiftKey) st.toggleKey(i); },
       });
     }
     // pad cups: tooltip with live openness; clicking a cup toggles the key that directly acts on it
@@ -142,7 +142,7 @@ export class SceneApp {
         objects: [h.pivot],
         tooltip: () => `Tone hole ${h.def.id}${h.def.vents ? ` (vents ${h.def.vents})` : ''} — ${Math.round(h.open * 100)}% open, rest ${h.def.pad_rest}` +
           (ki >= 0 ? ` · click: ${this.geo.keys[ki].id}` : ''),
-        click: (e) => { if (ki >= 0 && !e.shiftKey) st.toggleLatch(ki); },
+        click: (e) => { if (ki >= 0 && !e.shiftKey) st.toggleKey(ki); },
         press: (e) => { if (ki >= 0 && e.shiftKey) st.setKeySource(ki, KEY_SRC.mouse, true); },
         release: () => { if (ki >= 0) st.setKeySource(ki, KEY_SRC.mouse, false); },
       });

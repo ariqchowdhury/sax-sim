@@ -333,6 +333,69 @@ await page.evaluateOnNewDocument(() => { localStorage.setItem('saxsim.tour.v1', 
       await page.click('.alt-close');
       await page.keyboard.press('Escape');
     }
+    // ---- one key state: every way of pressing keys can be released by a click / Clear keys / Esc --
+    {
+      const downIds = () => page.evaluate(() => { const s = window.__sax; return s.geo.keys.filter((_, i) => s.state.keyDown[i] > 0.5).map((k) => k.id); });
+      const openPads = () => page.evaluate(() => {
+        const s = window.__sax, out = new Float32Array(s.scene.predicted.length);
+        s.scene.keywork.evaluate(new Float32Array(s.geo.keys.length), out);
+        return Array.from(s.scene.predicted).every((v, i) => Math.abs(v - out[i]) < 1e-6);
+      });
+      const clickKey = async (id) => {
+        const i = geo.keys.findIndex((k) => k.id === id);
+        const p = await screenOf(`scene.sax.keys.${i}.mesh`);
+        await page.mouse.move(p.x, p.y); await wait(60); await page.mouse.down(); await wait(40); await page.mouse.up(); await wait(200);
+      };
+      const playAlt = async (note) => {
+        if (await page.evaluate(() => document.getElementById('alt-card').hidden)) await page.click('#alt-btn');
+        await page.click(`.alt-item[data-note="${note}"] .alt-play`); await wait(400);
+        await page.click('.alt-close'); await wait(100);
+      };
+      await camTo('keys');
+      // ▶ G6 (OCT, LH1, LH_Gs): clicking LH1 while it plays releases it; when playback stops ▶ lifts the rest
+      await playAlt('G6');
+      const k0 = await downIds();
+      await clickKey('LH1');
+      const k1 = await downIds();
+      check('keys: a key pressed by ▶ releases when clicked on the sax', k0.includes('LH1') && !k1.includes('LH1'), `${k0.join(' ')} → ${k1.join(' ')}`);
+      await page.waitForFunction(() => !document.querySelector('.alt-item.on'), { timeout: 5000 }).catch(() => {});
+      await wait(150);
+      const k2 = await downIds();
+      check('keys: ▶ lifts its fingering when playback stops (open fingering, pads open)', k2.length === 0 && await openPads(), k2.join(' ') || 'no keys down');
+      // ▶ → Clear keys: all keys up, pads = open fingering, playback stopped
+      await playAlt('G#6');
+      const k3 = await downIds();
+      await page.click('#clear-keys'); await wait(150);
+      const c1 = { keys: await downIds(), pads: await openPads(), playing: await page.evaluate(() => !!document.querySelector('.alt-item.on')) };
+      check('keys: Clear keys after ▶ → open fingering and playback stopped', k3.length > 0 && c1.keys.length === 0 && c1.pads && !c1.playing, `${k3.join(' ')} → ${JSON.stringify(c1)}`);
+      // ▶ → Esc does the same
+      await playAlt('A6');
+      await page.keyboard.press('Escape'); await wait(150);
+      const e1 = { keys: await downIds(), pads: await openPads(), playing: await page.evaluate(() => !!document.querySelector('.alt-item.on')) };
+      check('keys: Esc after ▶ → open fingering and playback stopped', e1.keys.length === 0 && e1.pads && !e1.playing, JSON.stringify(e1));
+      // note mode: the fingers stay down after the note (G4: LH1 LH2 LH3) — still clickable, then Clear keys
+      await page.keyboard.down('KeyB'); await wait(500); await page.keyboard.up('KeyB'); await wait(300);
+      const n0 = await downIds();
+      await clickKey('LH2');
+      const n1 = await downIds();
+      await page.click('#clear-keys'); await wait(150);
+      const n2 = { keys: await downIds(), pads: await openPads() };
+      check('keys: note-mode fingering stays down, a click releases a key, Clear keys opens all', n0.includes('LH2') && !n1.includes('LH2') && n1.length === n0.length - 1 && n2.keys.length === 0 && n2.pads,
+        `${n0.join(' ')} → click LH2 → ${n1.join(' ')} → Clear → ${JSON.stringify(n2)}`);
+      // MIDI note on/off (written G4 = 67: LH1 LH2 LH3) — same rules
+      const dyn0 = await page.evaluate(() => window.__sax.state.get(24));
+      await page.evaluate(() => window.__sax.midi.onMessage(new Uint8Array([0x90, 67, 100]))); await wait(500);
+      await page.evaluate(() => window.__sax.midi.onMessage(new Uint8Array([0x80, 67, 0]))); await wait(300);
+      const m0 = await downIds();
+      await clickKey('LH3');
+      const m1 = await downIds();
+      await page.click('#clear-keys'); await wait(150);
+      const m2 = { keys: await downIds(), pads: await openPads() };
+      check('keys: MIDI fingering stays down, a click releases a key, Clear keys opens all', m0.includes('LH3') && !m1.includes('LH3') && m2.keys.length === 0 && m2.pads,
+        `${m0.join(' ')} → click LH3 → ${m1.join(' ')} → Clear → ${JSON.stringify(m2)}`);
+      await page.evaluate((d) => window.__sax.state.set(24, d, 'test'), dyn0);
+      await camTo('full');
+    }
     const alt = (geo.alternate_fingerings ?? []).find((a) => a.register === 3 && a.note === 'G#6');
     // [key, label, target Hz, octave shift]
     const set = [['KeyZ', 'C4', geo.fingerings.find((x) => x.written_midi === 60).f_target, 0], ['KeyB', 'G4', geo.fingerings.find((x) => x.written_midi === 67).f_target, 0],

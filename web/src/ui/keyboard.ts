@@ -312,6 +312,17 @@ export class KeyboardPlayer {
     this.applyNote();
   }
 
+  /**
+   * Lift the fingers of the last note (when no note is held any more): the note-mode / MIDI / ▶
+   * fingering source is cleared and the altissimo voicing restored. Other sources are untouched.
+   */
+  liftFingers(): void {
+    if (this.notesDown.length) return;
+    this.currentNote = null;
+    this.restoreVoicing();
+    this.state.setSourceKeys(KEY_SRC.note, []);
+  }
+
   noteOff(midi: number): void {
     const i = this.notesDown.lastIndexOf(midi);
     if (i >= 0) this.notesDown.splice(i, 1);

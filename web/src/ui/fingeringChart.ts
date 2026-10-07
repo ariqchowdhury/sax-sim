@@ -52,7 +52,7 @@ export class FingeringChart {
       const t = document.createElementNS(NS, 'title');
       t.textContent = `${k.label ?? k.id} [${k.id}] — click to hold`;
       el.appendChild(t);
-      el.addEventListener('click', () => state.toggleLatch(i));
+      el.addEventListener('click', () => state.toggleKey(i));
       svg.appendChild(el);
       this.els[i] = el;
     });
