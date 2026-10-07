@@ -26,13 +26,19 @@ export interface Target {
   room?: string;
 }
 
-export function target(notes: readonly ModelNote[], rec: ReadonlyMap<string, Float32Array>, room?: string): Target {
-  const rv = robustVector(notes, rec);
+export function target(notes: readonly ModelNote[], rec: ReadonlyMap<string, Float32Array>, room?: string, exclude?: ReadonlySet<string>): Target {
+  // Only takes that sound in the recording carry information: a silent / unpitched take's feature
+  // vector is undefined (cents 0, regime 0, …), and comparing the simulation against it biases the
+  // fit (e.g. a pp take below the player's threshold pulled every pitch towards 0 ¢). Such takes
+  // are dropped from the robust vector on both sides (the simulated mf means use the same takes).
+  // (`exclude`: further takes to leave out, e.g. recorded in the wrong regime — see fit.ts)
+  const used = notes.filter((n) => rec.has(n.label) && sounding(rec.get(n.label)!) && !exclude?.has(n.label));
+  const rv = robustVector(used, new Map(used.map((n) => [n.label, rec.get(n.label)!])));
   return {
-    notes: [...notes],
+    notes: used,
     names: rv.names,
     values: new Map(rv.names.map((n, i) => [n, rv.values[i]])),
-    soundingLabels: new Set(notes.filter((n) => rec.has(n.label) && sounding(rec.get(n.label)!)).map((n) => n.label)),
+    soundingLabels: new Set(used.map((n) => n.label)),
     room,
   };
 }
@@ -44,7 +50,7 @@ const noteOf = (name: string): string => {
 
 /** Residuals of a simulated test set against the target; fixed length/order for a given target. */
 export function residuals(t: Target, sim: ReadonlyMap<string, Float32Array>, m: CoachModel): Residual[] {
-  const rv = robustVector(t.notes, sim);
+  const rv = robustVector(t.notes, new Map(t.notes.filter((n) => sim.has(n.label)).map((n) => [n.label, sim.get(n.label)!])));
   const sv = new Map(rv.names.map((n, i) => [n, rv.values[i]]));
   const out: Residual[] = [];
   for (const name of t.names) {

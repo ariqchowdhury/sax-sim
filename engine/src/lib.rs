@@ -199,12 +199,16 @@ fn dft_log_grid(z_full: &[f64], dt_full: f64, n: usize, fmin: f64, fmax: f64, ou
 /// Input impedance of the player's vocal tract **as seen from the reed** (mouth end), for the
 /// current tongue / jaw / glottis (incl. any player-model offsets): the engine's own tract tube
 /// (area function, wall losses, glottal section — `tract.rs`) driven by a volume impulse at the
-/// mouth node, with the glottis end terminated by the subglottal resistance ρc/A_sub (anechoic
-/// trachea, A_sub = 2.5 cm²) plus the viscous glottal duct resistance. The reed sees this in
+/// mouth node, coupled through the glottis (linearised about a typical playing flow
+/// `TRACT_Z_MEAN_FLOW` = 0.15 L/s: Bernoulli ρŪ/A_g² + viscous duct) to the subglottal airways
+/// (trachea + bronchial tree, `tract::Subglottal`; Sg1–Sg3 ≈ 540/1420/2300 Hz show through
+/// when the glottis is open). The reed sees this in
 /// series with the bore impedance (`sax_compute_impedance`): Z_bore + Z_tract.
 /// Returns `2n` f32 `[|Z_i| (Pa·s/m³) …, arg Z_i (rad) …]` on `f_i = fmin·(fmax/fmin)^(i/(n−1))`.
 /// **Not real-time safe** and snaps params to their targets — call on a separate engine
 /// instance (the web app's impedance worker), never on the audio instance.
+const TRACT_Z_MEAN_FLOW: f64 = 1.5e-4;
+
 #[no_mangle]
 #[allow(static_mut_refs)]
 pub extern "C" fn sax_compute_tract_impedance(n: u32, fmin: f32, fmax: f32) -> *const f32 {
@@ -217,30 +221,9 @@ pub extern "C" fn sax_compute_tract_impedance(n: u32, fmin: f32, fmax: f32) -> *
     let fmax = (fmax as f64).max(fmin * 1.0001);
     e.snap_params();
     let dt = e.dt;
-    let mut t = e.tract.tube.clone();
-    t.clear_state();
-    let m = t.n - 1;
-    let air = air::Air::breath();
-    let ag = tract::tract_area(0.0, &e.tract.ctrl);
-    let dg = ag / 0.018;
-    let r_glot = air.rho * air.c / 2.5e-4 + 12.0 * air.eta * 0.003 / (ag * dg * dg);
     // tract resonances are well damped (≈ 60–100 Hz bandwidth): 0.1 s of response is plenty
     let steps = ((0.1f64).max(20.0 / fmin) / dt) as usize;
-    let mut z = Vec::with_capacity(steps);
-    for s in 0..steps {
-        t.step_u();
-        let p0 = t.p[0] as f64;
-        let pm = t.p[m] as f64;
-        t.step_p_interior();
-        // glottis node: inflow −p₀/R_g (implicit)
-        let k0 = t.kp[0] as f64;
-        t.p[0] = ((p0 - k0 * t.u[0] as f64) / (1.0 + k0 / r_glot)) as f32;
-        // mouth node: volume impulse injected (1e-9 m³)
-        let km = t.kp[m] as f64;
-        let uin = if s == 0 { 1e-9 / dt } else { 0.0 };
-        t.p[m] = (pm + km * (t.u[m - 1] as f64 + uin)) as f32;
-        z.push(t.p[m] as f64 * 1e9);
-    }
+    let mut z = e.tract.mouth_impulse_response(dt, TRACT_Z_MEAN_FLOW, steps);
     let t0 = (steps as f64 * 0.75) as usize;
     for (k, v) in z.iter_mut().enumerate().skip(t0) {
         let x = (k - t0) as f64 / (steps - t0).max(1) as f64;
@@ -340,8 +323,8 @@ pub unsafe extern "C" fn sax_room(ptr: *const f32, n: u32, sample_rate: f32) -> 
 }
 
 /// Analysis configuration: instrument ring-down constant T60_inst·f0 (Hz·s) used
-/// by the release/room estimate — 120 for simulator output (default), ≈ 95 for
-/// real alto recordings (COACHING.md). Values ≤ 0 restore the default.
+/// by the release/room estimate — 95 (default: simulator with wall losses and real
+/// altos; COACHING.md). Values ≤ 0 restore the default.
 #[no_mangle]
 pub extern "C" fn sax_analysis_config(inst_t60_hz: f32) {
     ANALYSIS_T60.store((analysis::AnalysisConfig::with_inst_t60(inst_t60_hz as f64).inst_t60_hz).to_bits(), core::sync::atomic::Ordering::Relaxed);

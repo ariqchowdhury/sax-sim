@@ -51,6 +51,8 @@ export const PARAMS: readonly ParamDef[] = [
   { id: 22, name: 'reed_model', unit: '', min: 0, max: 1, default: 0, label: 'Reed model (0 lumped · 1 beam)', group: 'Reed', step: 1, description: '0 = lumped single-DOF reed, 1 = distributed beam reed (M4)' },
   { id: 23, name: 'player_assist', unit: '0–1', min: 0, max: 1, default: 0.5, label: 'Player assist', group: 'Embouchure', description: '0 = pure physics … 1 = full automatic embouchure assistance' },
   { id: 24, name: 'dynamic', unit: '0–1', min: 0, max: 1, default: 0.5, label: 'Dynamic (pp–ff)', group: 'Air', description: 'pp (0) … mf (0.5) … ff (1): the player model maps it to pressure, lip force/damping and jaw (needs player_assist > 0)' },
+  { id: 25, name: 'subglottal', unit: '', min: 0, max: 1, default: 1, label: 'Subglottal airways (0 anechoic · 1 trachea+bronchi)', group: 'Tongue & Tract', step: 1, description: '0 = anechoic load below the glottis (legacy), 1 = trachea + bronchial tree with yielding walls (subglottal resonances ≈ 540/1420/2300 Hz couple in when the glottis is open)' },
+  { id: 26, name: 'tongue_length', unit: '0–1', min: 0, max: 1, default: 0, label: 'Tongue contact length', group: 'Tongue & Tract', description: 'length of the tongue-dorsum constriction (0: 2 cm … 1: 4 cm, a bunched tongue along the palate) — long narrow channel, strong 550–800 Hz tract resonances' },
 ];
 
 export const PARAM_COUNT = PARAMS.length;
@@ -82,6 +84,8 @@ export const P = {
   reed_model: 22,
   player_assist: 23,
   dynamic: 24,
+  subglottal: 25,
+  tongue_length: 26,
 } as const;
 
 export type ParamName = keyof typeof P;
@@ -90,7 +94,7 @@ export function clampParam(id: number, v: number): number {
   const d = PARAMS[id];
   if (!d) return v;
   let x = Math.min(d.max, Math.max(d.min, v));
-  if (d.name === 'oversample') x = Math.round(x);
+  if (d.name === 'oversample' || d.name === 'reed_model' || d.name === 'subglottal') x = Math.round(x);
   return x;
 }
 

@@ -109,6 +109,9 @@ fn main() {
     }
     println!(" | range");
     let mut summary: std::collections::BTreeMap<i32, Vec<[f64; 6]>> = Default::default();
+    // in tune (±25 ¢) per register and dynamic
+    let mut tune: std::collections::BTreeMap<i32, [usize; 5]> = Default::default();
+    let mut worst: std::collections::BTreeMap<i32, [f64; 5]> = Default::default();
     for (i, (note, reg)) in fings.iter().enumerate() {
         print!("{:<5} {:>3}", note, reg);
         let r = &res[i * DYN.len()..(i + 1) * DYN.len()];
@@ -118,7 +121,20 @@ fn main() {
         }
         let okall = r.iter().all(|x| x.cents.abs() < 50.0);
         println!(" | {:5.1}{}", r[4].spl - r[0].spl, if okall { "" } else { "  (out of register)" });
+        for (d, x) in r.iter().enumerate() {
+            if x.cents.abs() <= 25.0 {
+                tune.entry(*reg).or_default()[d] += 1;
+            }
+            let w = worst.entry(*reg).or_default();
+            w[d] = if x.cents.is_nan() { f64::INFINITY } else { w[d].max(x.cents.abs()) };
+        }
         summary.entry(*reg).or_default().push([r[0].spl, r[2].spl, r[4].spl, r[0].cen, r[4].cen, if okall { 1.0 } else { 0.0 }]);
+    }
+    println!("\nin tune (±25 ¢) per dynamic pp/p/mf/f/ff and worst |¢|:");
+    for (reg, t) in &tune {
+        let n = summary.get(reg).map(|v| v.len()).unwrap_or(0);
+        let w = worst.get(reg).unwrap();
+        println!("  register {reg}: {} of {n}   worst {}", t.iter().map(|x| x.to_string()).collect::<Vec<_>>().join("/"), w.iter().map(|x| format!("{x:.0}")).collect::<Vec<_>>().join("/"));
     }
     println!("\nregister | n | pp dB | mf dB | ff dB | range dB (min..max) | centroid pp→ff Hz | all 5 dynamics in register");
     for (reg, v) in summary {

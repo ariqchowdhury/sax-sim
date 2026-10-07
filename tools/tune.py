@@ -104,7 +104,7 @@ def main():
             x0 = tbl["holes"][hid]["x"]
             def fp(x, hid=hid, note=note):
                 set_x(hid, x); return note_err(tbl, note)
-            x, e = secant(fp, x0, x0 + 0.004, lo=0.265, hi=tbl["holes"]["C"]["x"] - 0.004)
+            x, e = secant(fp, x0, x0 + 0.004, lo=BG.x_body0() + 0.004, hi=tbl["holes"]["C"]["x"] - 0.004)
             set_x(hid, x)
             print(f"[{it}] {hid:7s} -> {note:4s} x={x:.4f} {e:+.2f}c")
         def fsc(x):

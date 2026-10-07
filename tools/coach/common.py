@@ -109,7 +109,7 @@ def render_features(controls, label, seconds=2.0, keep_audio=True):
     js = json.loads(out[out.index("{"):])
     x = read_wav(path) if keep_audio else None
     os.unlink(path)
-    return x, np.array(js["vector"], dtype=float)
+    return x, np.array(js["vector"][:len(FEATURES)], dtype=float)
 
 
 def render(controls, label, seconds=2.0):
@@ -137,7 +137,7 @@ def features(x, fs, target_hz):
             v = np.zeros(len(FEATURES)); v[FEATURES.index("subharm")] = -120.0
             return v
         js = max(js["notes"], key=lambda n: n.get("segment", [0, 0])[1] - n.get("segment", [0, 0])[0])
-    return np.array(js["vector"], dtype=float)
+    return np.array(js["vector"][:len(FEATURES)], dtype=float)
 
 
 def read_wav(path):

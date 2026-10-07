@@ -10,7 +10,7 @@
     "preview": "vite preview --config web/vite.config.ts",
     "build:engine": "bash engine/build_wasm.sh",
     "typecheck": "tsc --noEmit",
-    "test:unit": "node web/tests/keywork.test.ts && node web/tests/wasmSelect.test.ts && node web/tests/rank.test.ts",
+    "test:unit": "node web/tests/keywork.test.ts && node web/tests/wasmSelect.test.ts && node web/tests/rank.test.ts && node web/tests/coachWarnings.test.ts",
     "test:e2e": "node web/tests/e2e.mjs",
     "test:fit": "node web/tests/fit.test.ts",
     "test": "npm run test:unit && npm run test:fit && npm run test:e2e"

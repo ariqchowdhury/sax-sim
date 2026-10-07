@@ -1,0 +1,23 @@
+G6 (932.3 Hz) keys OCT,LH1,LH_Gs  tongue_y=0.96 tongue_x=0.09 tongue_tip=0.3  emb {'lip_force': 2.0, 'lip_position': 11, 'lip_damping': 0.2, 'reed_damping': 0.1, 'glottis_open': 0.05}  tract peak 66 MPa s/m^3
+   tuned  : 3.5 kPa -22 c  4.0 kPa -20 c  4.5 kPa -8 c  5.0 kPa +2 c
+   neutral tract, altissimo embouchure: 3.5 kPa +1541 c  4.5 kPa -748 c  5.0 kPa -749 c   default embouchure: 588 / 591 Hz
+G#6 (987.8 Hz) keys OCT,LH1,BIS,RH_side_C,LH_Gs  tongue_y=0.9 tongue_x=0.12 tongue_tip=0.3  emb {'lip_force': 2.0, 'lip_position': 11, 'lip_damping': 0.2, 'reed_damping': 0.1, 'glottis_open': 0.05}  tract peak 50 MPa s/m^3
+   tuned  : 3.5 kPa +6 c  4.0 kPa +10 c  4.5 kPa +17 c  5.0 kPa +21 c
+   neutral tract, altissimo embouchure: 3.5 kPa +1428 c  4.5 kPa -789 c  5.0 kPa -790 c   default embouchure: 607 / 612 Hz
+A6 (1046.5 Hz) keys OCT,LH2,RH_side_C,RH1  tongue_y=0.9 tongue_x=0.09 tongue_tip=0.3  emb {'lip_force': 1.8, 'lip_position': 11, 'lip_damping': 0.2, 'reed_damping': 0.1, 'glottis_open': 0.8}  tract peak 32 MPa s/m^3
+   tuned  : 3.5 kPa +11 c  4.0 kPa +15 c  4.5 kPa +18 c  5.0 kPa +20 c
+   neutral tract, altissimo embouchure: 3.5 kPa +1272 c  4.5 kPa -834 c  5.0 kPa -835 c   default embouchure: 630 / 634 Hz
+Bb6 (1108.7 Hz) keys OCT,LH_Gs  tongue_y=0.85 tongue_x=0.09 tongue_tip=0.3  emb {'lip_force': 1.8, 'lip_position': 11, 'lip_damping': 0.2, 'reed_damping': 0.1, 'glottis_open': 0.8}  tract peak 26 MPa s/m^3
+   tuned  : 3.5 kPa +14 c  4.0 kPa +19 c  4.5 kPa +22 c  5.0 kPa +24 c
+   neutral tract, altissimo embouchure: 3.5 kPa +1195 c  4.5 kPa -850 c  5.0 kPa -851 c   default embouchure: 660 / 665 Hz
+B6 (1174.7 Hz) keys OCT,LH_palm_D,RH_side_C,RH3  tongue_y=0.8 tongue_x=0.09 tongue_tip=0.3  emb {'lip_force': 2.0, 'lip_position': 11, 'lip_damping': 0.2, 'reed_damping': 0.1, 'glottis_open': 0.8}  tract peak 21 MPa s/m^3
+   tuned  : 3.5 kPa -18 c  4.0 kPa -13 c  4.5 kPa -12 c  5.0 kPa -11 c
+   neutral tract, altissimo embouchure: 3.5 kPa +1137 c  4.5 kPa -851 c  5.0 kPa -850 c   default embouchure: 699 / 703 Hz
+C7 (1244.5 Hz) keys OCT,LH1,LH2,LH_palm_D,RH1,RH3  tongue_y=0.6 tongue_x=0.0 tongue_tip=0.8  emb {'lip_force': 1.8, 'lip_position': 11, 'lip_damping': 0.2, 'reed_damping': 0.1, 'glottis_open': 0.8}  tract peak 14 MPa s/m^3
+   tuned  : 3.5 kPa +12 c  4.0 kPa +17 c  4.5 kPa +19 c  5.0 kPa +20 c
+   neutral tract, altissimo embouchure: 3.5 kPa +1008 c  4.5 kPa +1032 c  5.0 kPa +1045 c   default embouchure: 650 / 653 Hz
+C#7 (1318.5 Hz) keys OCT,LH1,LH_palm_D,LH_palm_Eb,RH1  tongue_y=0.65 tongue_x=0.0 tongue_tip=0.8  emb {'lip_force': 2.3, 'lip_position': 11, 'lip_damping': 0.2, 'reed_damping': 0.1, 'glottis_open': 0.4}  tract peak 18 MPa s/m^3
+   tuned  : 3.5 kPa -40 c  4.0 kPa -38 c  4.5 kPa -37 c  5.0 kPa -36 c
+   neutral tract, altissimo embouchure: 3.5 kPa +1058 c  4.5 kPa +1098 c  5.0 kPa -970 c   default embouchure: 722 / 727 Hz
+D7 (1397 Hz): no robust altissimo voicing found (best score 154)
+written to tools/hole_table.json and data/alto_sax.json

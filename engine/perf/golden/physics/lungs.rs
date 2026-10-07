@@ -8,6 +8,8 @@ pub struct Lungs {
     coef_up: f64,
     coef_down: f64,
     rng: u64,
+    /// RNG seed restored by `reset_noise` (deterministic offline renders)
+    seed: u64,
     hp_x1: f64,
     hp_y1: f64,
     hp_c: f64,
@@ -25,6 +27,7 @@ impl Lungs {
             coef_up: 1.0,
             coef_down: 1.0,
             rng: 0x9E3779B97F4A7C15,
+            seed: 0x9E3779B97F4A7C15,
             hp_x1: 0.0,
             hp_y1: 0.0,
             hp_c: 0.9,
@@ -48,7 +51,18 @@ impl Lungs {
     pub fn set_target_pa(&mut self, pa: f64) {
         self.target = pa.max(0.0);
     }
+    /// Seed the breath-noise generator (and restart it).
+    pub fn set_seed(&mut self, seed: u64) {
+        // splitmix-style scramble; xorshift state must be non-zero
+        let mut z = seed.wrapping_add(0x9E3779B97F4A7C15);
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+        z ^= z >> 31;
+        self.seed = if z == 0 { 1 } else { z };
+        self.rng = self.seed;
+    }
     pub fn reset_noise(&mut self) {
+        self.rng = self.seed;
         self.hp_x1 = 0.0;
         self.hp_y1 = 0.0;
         self.lp1 = 0.0;

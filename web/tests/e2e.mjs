@@ -194,14 +194,23 @@ try {
   // ---- coach mode (M9): synthetic recording → upload → segmentation → analysis → fit → advice ---
   {
     const { EngineHost } = await import('../src/coach/fit/engineHost.ts');
-    const { TEST_SET, DYN_PRESSURE } = await import('../src/coach/fit/testset.ts');
+    const { TEST_SET } = await import('../src/coach/fit/testset.ts');
     const geoJson = fs.readFileSync(path.join(root, 'data/alto_sax.json'), 'utf8');
     const host = new EngineHost(new WebAssembly.Module(fs.readFileSync(path.join(root, 'web/public/engine.wasm'))), geoJson);
-    const PLANTED_INSERTION = 3; // mm (default 10): mouthpiece pulled out → every note flat
+    const PLANTED_INSERTION = 5; // mm (default 10): mouthpiece pulled out → every note flat
     // protocol v1 + the recommended G4push take (G4 with the mouthpiece pushed 5 mm further on)
-    const notes = [...TEST_SET.filter((n) => !n.optional), { id: 'G4push', note: 'G4', dynamic: 'mf', push: 5 }];
+    const notes = [...TEST_SET.filter((n) => !n.optional && n.id !== 'G4push'), { id: 'G4push', note: 'G4', dynamic: 'mf', push: 5 }];
     const SR = 48000, gap = Math.round(0.8 * SR);
-    const parts = notes.map((n, i) => host.render({ note: n.note, params: [[18, PLANTED_INSERTION + (n.push ?? 0)], [0, DYN_PRESSURE[n.dynamic]]], oversample: 2, seconds: 2.6, seed: 11 + i, wantAudio: true }).audio);
+    // the player as the coaching model simulates it (sim_settings): player model on, pp/mf/ff via `dynamic`
+    const sim = JSON.parse(fs.readFileSync(path.join(root, 'data/coach_model.json'), 'utf8')).sim_settings ?? { player_assist: 0.5 };
+    const DYN = { pp: 0.15, mf: 0.5, ff: 0.9 };
+    // one deliberately cracked take: the D4 slot is played an octave up (D5 fingering) → the fitter's
+    // recording guard must leave it out and the coach must say so (amber "Recording notes")
+    const CRACKED = 'D4';
+    const renders = notes.map((n, i) => host.render({ note: n.id === CRACKED ? 'D5' : n.note, params: [[23, sim.player_assist ?? 0.5], [24, DYN[n.dynamic]], [18, PLANTED_INSERTION + (n.push ?? 0)], [0, 3.5]], oversample: 2, seconds: 2.6, seed: 11 + i, wantAudio: true }));
+    const silent = notes.filter((n, i) => !(renders[i].features[25] > 0) || Math.abs(renders[i].features[24] - 1) > 0.25).map((n, i) => n.id);
+    check('coach: synthetic player sounds every take in its register', silent.length === 0, silent.length ? `silent / wrong register: ${silent.join(', ')}` : `${notes.length} takes`);
+    const parts = renders.map((r) => r.audio);
     const total = parts.reduce((a, p) => a + p.length + gap, gap);
     let x = new Float32Array(total);
     let o = gap;
@@ -278,6 +287,9 @@ try {
     console.log(`${Math.abs(simMean - an.meanCents) < 15 ? 'INFO ' : 'WARN '} coach: fit quality — mean mf cents recorded ${an.meanCents.toFixed(1)}, fitted simulator ${Number.isFinite(simMean) ? simMean.toFixed(1) : 'no sounding notes'}`);
     console.log(`INFO  coach: fitted mouthpiece_insertion ${ins?.toFixed(1)} mm (planted ${PLANTED_INSERTION}, default 10); controls ${JSON.stringify(Object.fromEntries(Object.entries(res.controls).map(([k, v]) => [k, +v.toFixed(2)])))}`);
     check('coach: ranked suggestions shown', res.shown > 0 && res.shown === res.sug.length, `${res.sug.join(', ')}`);
+    const guard = await page.evaluate(() => ({ excluded: window.__sax.coach.session.fit.excluded ?? [], warnings: [...document.querySelectorAll('.rec-warn li')].map((li) => li.textContent), chips: [...document.querySelectorAll('.coach-table tr.excluded')].length }));
+    check('coach: cracked take left out of the fit and shown in the amber box', guard.excluded.includes(CRACKED) && guard.warnings.includes(`${CRACKED} cracked to the octave — left out; try again with a looser lip and slower air.`),
+      `excluded [${guard.excluded.join(', ')}]; ${guard.warnings.join(' | ')}`);
     check('coach: G4push reference take recorded', res.takes.includes('G4push'), res.takes.join(' '));
     const top3 = res.template.slice(0, 3).some((x) => x.startsWith('mouthpiece_too_far_out '));
     check('coach: planted cause (mouthpiece too far out) in the template top 3', top3, `${res.template.join(', ')} (${res.src})`);

@@ -152,6 +152,7 @@ fn smoothing_tau(p: usize) -> f64 {
         x if x == Param::LungPressure as usize => 0.0, // handled by Lungs
         x if x == Param::Oversample as usize => 0.0,
         x if x == Param::ReedModel as usize => 0.0,
+        x if x == Param::Subglottal as usize => 0.0,
         x if x == Param::Temperature as usize => 0.2,
         x if x == Param::TongueReedContact as usize => 0.004,
         _ => 0.02,
@@ -268,6 +269,7 @@ impl Engine {
 
     fn load_instrument(&mut self, g: geometry::GeometryJ) {
         self.keywork = Keywork::from_geometry(&g);
+        self.bore_loss_mult = geometry::wall_loss_factor(&g);
         let inst = Instrument::from_json(g);
         self.holes.clear();
         for h in &inst.holes {
@@ -373,8 +375,7 @@ impl Engine {
         self.update_coeffs(true);
         // Start the tract pre-pressurised at the current lung pressure so that a
         // grid rebuild while playing does not cause a huge transient.
-        let pl = self.p_lung as f32;
-        self.tract.tube.p.iter_mut().for_each(|x| *x = pl);
+        self.tract.prefill(self.p_lung);
         self.reed.reset();
     }
 
@@ -496,8 +497,14 @@ impl Engine {
                 tongue_tip: blend(v(Param::TongueTip), po.alt.tongue_tip, w).clamp(0.0, 1.0),
                 jaw_open: blend(v(Param::JawOpen) + po.jaw, po.alt.jaw_open, w).clamp(0.0, 1.0),
                 glottis_area: GLOTTIS_MIN_AREA + glottis * (GLOTTIS_MAX_AREA - GLOTTIS_MIN_AREA),
+                tongue_len: v(Param::TongueLength).clamp(0.0, 1.0),
             };
             let breath = Air::breath();
+            let sub_on = v(Param::Subglottal) >= 0.5;
+            if sub_on && !self.tract.sub_on {
+                self.tract.sub.prefill(self.p_lung);
+            }
+            self.tract.sub_on = sub_on;
             self.tract.update_coeffs(self.dt, &breath);
             // glottis (PHYSICS.md §7): Bernoulli + viscous duct, d_g = A_g / 1.8 cm
             let g = glottis;
@@ -645,7 +652,9 @@ impl Engine {
                     || x == Param::TongueY as usize
                     || x == Param::TongueTip as usize
                     || x == Param::JawOpen as usize
-                    || x == Param::GlottisOpen as usize =>
+                    || x == Param::GlottisOpen as usize
+                    || x == Param::Subglottal as usize
+                    || x == Param::TongueLength as usize =>
                 {
                     tract = true
                 }
@@ -733,19 +742,22 @@ impl Engine {
         };
         // --- glottis (lungs → tract node 0) and mouth pressure
         let (pm_old, km, ut) = if self.use_tract {
-            let t = &mut self.tract.tube;
+            let t = &self.tract.tube;
             let kg = t.kp[0] as f64;
             let pg = t.p[0] as f64;
             let u0 = t.u[0] as f64;
-            // subglottal system (trachea/bronchi) ≈ anechoic for the AC part of
-            // the glottal flow: p_sub = p_lung − R_sub (U_g − Ū_g)
-            let kk = kg + self.r_sub;
-            let rhs = self.p_lung + self.r_sub * self.ug_mean - pg + kg * u0;
+            // subglottal airways (tract.rs): p_sub = p_sub_pre − k_sub·U_g
+            let (ps, ks) = self.tract.subglottal_pre(self.p_lung, self.ug_mean, self.r_sub);
+            let t = &mut self.tract.tube;
+            let kk = kg + ks;
+            let rhs = ps - pg + kg * u0;
             let ug = solve_channel(rhs, kk, self.glot_a, self.glot_b);
             self.ug_mean += self.ug_coef * (ug - self.ug_mean);
             t.p[0] = (pg + kg * (ug - u0)) as f32;
             let m = t.n - 1;
-            (t.p[m] as f64, t.kp[m] as f64, t.u[m - 1] as f64)
+            let r = (t.p[m] as f64, t.kp[m] as f64, t.u[m - 1] as f64);
+            self.tract.subglottal_post(ug);
+            r
         } else {
             (self.p_lung, 0.0, 0.0)
         };
@@ -835,7 +847,7 @@ impl Engine {
     fn reset_state(&mut self) {
         self.sync_holes();
         self.bore.clear_state();
-        self.tract.tube.clear_state();
+        self.tract.clear_state();
         for h in self.holes.iter_mut() {
             h.term.reset();
         }
@@ -1003,7 +1015,7 @@ impl Engine {
         // health check
         let bad = if self.bore.is_bad() {
             Some("bore")
-        } else if self.use_tract && self.tract.tube.is_bad() {
+        } else if self.use_tract && self.tract.is_bad() {
             Some("tract")
         } else if !self.dp.is_finite() {
             Some("dp")
@@ -1110,6 +1122,8 @@ impl Engine {
         t[idx::FREQ] = self.pitch.freq as f32;
         t[idx::OUT_RMS] = self.out_ms.max(0.0).sqrt() as f32;
         t[idx::CPU_US] = self.last_cpu_us;
+        t[idx::SUBGLOTTAL] = if self.use_tract { self.tract.p_subglottal() } else { self.p_lung } as f32;
+        t[idx::GLOTTAL_FLOW] = if self.use_tract { self.tract.u_glottis } else { self.u_reed } as f32;
         t[idx::N_PROFILE] = N_PROFILE as f32;
         for j in 0..N_PROFILE {
             t[telemetry::IDX_PROFILE + j] = self.bore.p[self.prof_idx[j]];

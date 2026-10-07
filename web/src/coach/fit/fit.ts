@@ -19,7 +19,7 @@ import { loss, residuals, solve, target, type Residual } from './objective.ts';
 import { sounding } from './robust.ts';
 import { CmaEs, eigSym } from './cmaes.ts';
 import { rankCauses, ruleOffsetSteps, type CauseScore } from './rank.ts';
-import { defaultControlValues, jobFor, labelOf, modelNote, paramsFor } from './testset.ts';
+import { TEST_SET, defaultControlValues, jobFor, labelOf, modelNote, paramsFor } from './testset.ts';
 import type { Evaluator } from './pool.ts';
 import type { RenderJob } from './engineHost.ts';
 
@@ -100,7 +100,10 @@ export interface NoteFit {
 export interface FitResult {
   /** 'failed' when takes that sound in the recording do not sound in the fitted simulation */
   status: 'ok' | 'failed';
+  /** recording problems (takes left out, protocol notes missing) and fit problems */
   problems: string[];
+  /** labels of recorded takes left out of the objective (silent, wrong regime, far off pitch) */
+  excluded: string[];
   /** fitted controls */
   controls: FittedControl[];
   /** all control values (fitted + fixed at their defaults), control key → value */
@@ -165,6 +168,9 @@ export function fit(recorded: readonly RecordedNote[], options: FitOptions): Fit
   };
 }
 
+/** a recorded take further than this from its written note (cents) is treated as a wrong note */
+export const REC_MAX_CENTS = 150;
+
 const matmulT = (J: number[][], d: number) => Array.from({ length: d }, (_, a) => Array.from({ length: d }, (_, b) => J.reduce((s, row) => s + row[a] * row[b], 0)));
 
 async function runFit(recorded: readonly RecordedNote[], o: FitOptions, push: (p: FitProgress) => void, stopped: () => boolean): Promise<FitResult> {
@@ -189,7 +195,31 @@ async function runFit(recorded: readonly RecordedNote[], o: FitOptions, push: (p
     ids.push(r.id);
     rec.set(n.label, sanitize(Float32Array.from(r.features)));
   }
-  const tgt = target(notes, rec, o.room);
+  // --- recording checks: takes that cannot be compared with the simulator are excluded from the
+  // objective and reported (a silent pp take, an overblown/underblown note or a take assigned to
+  // the wrong note would otherwise drag every control towards explaining it)
+  const recProblems: string[] = [];
+  const excluded = new Set<string>();
+  // A take in another regime (cracked to the octave, dropped a register) is left out too: the
+  // regime boundary is a cliff in the objective (a fit that has to straddle it lands far off —
+  // tested on the flat-player case, whose F6 drops a register), and a crack in a real recording
+  // is more often an accident of that take than a property of the setup.
+  notes.forEach((n, i) => {
+    const f = rec.get(n.label)!;
+    const why = !sounding(f)
+      ? 'no stable pitch in the recording'
+      : Math.abs(Math.log2(f[F.regime] || 1)) > 0.1
+        ? `recorded in a different regime (×${+f[F.regime].toFixed(2)} of the written note; cracked or dropped a register?)`
+        : Math.abs(f[F.cents]) > REC_MAX_CENTS
+          ? `recorded ${f[F.cents] > 0 ? '+' : ''}${f[F.cents].toFixed(0)} ¢ from the written note (wrong note or fingering?)`
+          : '';
+    if (why) {
+      excluded.add(n.label);
+      recProblems.push(`${ids[i]}: ${why} — left out of the fit`);
+    }
+  });
+  for (const t of TEST_SET) if (!t.optional && !notes.some((n) => n.label === labelOf(t.id))) recProblems.push(`${t.id}: not recorded — the fit uses the other takes`);
+  const tgt = target(notes, rec, o.room, excluded);
   if (!tgt.soundingLabels.size) throw new Error('no recorded take has a stable pitch');
 
   // --- fitted controls: the model's fit_controls that act on at least one take
@@ -518,7 +548,7 @@ async function runFit(recorded: readonly RecordedNote[], o: FitOptions, push: (p
   }
   enter('done');
   const vals = values(uc);
-  const problems: string[] = [];
+  const problems: string[] = [...recProblems];
   notes.forEach((n, i) => {
     if (!tgt.soundingLabels.has(n.label)) return;
     const sf = ec.feats.get(n.label)!;
@@ -534,6 +564,7 @@ async function runFit(recorded: readonly RecordedNote[], o: FitOptions, push: (p
   const res: FitResult = {
     tradeOffs,
     status: problems.some((p) => p.includes('does not sound')) ? 'failed' : 'ok',
+    excluded: [...excluded],
     problems,
     controls: fitted.map((c, i) => ({ key: c.key, param: c.param, value: vals[c.key], sd: sdU[i] * c.step, identifiability: sdU[i] / priorSd })),
     values: vals,

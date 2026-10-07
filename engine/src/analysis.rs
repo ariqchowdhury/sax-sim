@@ -676,14 +676,14 @@ pub struct ReleaseInfo {
 /// Minimum delay after the −6 dB point of the release before the tail is fitted.
 const TAIL_SKIP: f64 = 0.05;
 /// The air column keeps ringing at the played resonance after the reed stops:
-/// measured on the simulator (tongued stops, Bb3…F6) T60_inst ≈ INST_T60_HZ / f0
-/// (Q ≈ 55; Bb3 ≈ 1 s, G4 ≈ 0.5 s, C6 ≈ 0.16 s; configurable, see
-/// `AnalysisConfig`). A tail decaying no slower than
+/// T60_inst ≈ INST_T60_HZ / f0 (Q ≈ 40–50; Bb3 ≈ 0.7 s, G4 ≈ 0.4 s, C6 ≈ 0.13 s;
+/// configurable, see `AnalysisConfig`). 95 Hz·s is the recommended real-alto value and,
+/// since the bore wall-loss factor ×1.3 (round 7), also the simulator's own free decay
+/// (it was 120 with smooth-wall losses). A tail decaying no slower than
 /// INST_MARGIN·T60_inst is indistinguishable from that ring-down: no room
 /// decay is reported for it.
-pub const INST_T60_HZ: f64 = 120.0;
-/// Value for real alto recordings: real instruments are 10–30 % lossier
-/// (Q ≈ 40–50) than the simulator's visco-thermal + radiation model.
+pub const INST_T60_HZ: f64 = 95.0;
+/// Value for real alto recordings (Q ≈ 40–50) — now equal to the default.
 pub const INST_T60_HZ_REAL: f64 = 95.0;
 pub const INST_MARGIN: f64 = 1.3;
 
@@ -691,7 +691,7 @@ pub const INST_MARGIN: f64 = 1.3;
 /// ABI layer, `sax_analysis_config`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AnalysisConfig {
-    /// instrument ring-down constant T60_inst·f0 (Hz·s): 120 simulator, ≈ 95 real
+    /// instrument ring-down constant T60_inst·f0 (Hz·s): 95 (simulator and real alto)
     pub inst_t60_hz: f64,
 }
 
@@ -899,31 +899,63 @@ pub fn room_with(input: &[f32], sr: f32, cfg: &AnalysisConfig) -> RoomSummary {
             out.noise_floor = (10.0 * (mn.max(1e-30) / mx).log10()).max(FLOOR_DB);
         }
     }
-    // clap: an impulsive event before the first sustained (≥ 0.5 s) note
-    let first_note = segs.iter().find(|s| s.1 - s.0 >= (0.5 * srf) as usize).map(|s| s.0).unwrap_or(x.len());
-    out.clap_rt60 = clap_rt60(&x, srf, first_note);
+    // clap: the first impulsive event, up to the end of the first sustained (≥ 0.5 s) note's
+    // segment (a reverberant clap merges with the note into one segment); its decay is fitted
+    // up to the note's onset
+    let first_seg = segs.iter().find(|s| s.1 - s.0 >= (0.5 * srf) as usize);
+    let limit = first_seg.map(|s| s.1).unwrap_or(x.len());
+    let noise_rms = {
+        let hop = ((srf * 0.002) as usize).max(1);
+        let mut env = envelope(&x, hop);
+        if env.is_empty() {
+            0.0
+        } else {
+            let k = env.len() / 20;
+            env.select_nth_unstable_by(k, |a, b| a.partial_cmp(b).unwrap());
+            env[k]
+        }
+    };
+    let clap = clap_estimate(&x, srf, limit, noise_rms);
+    out.clap_rt60 = clap.as_ref().map(|c| c.rt60).unwrap_or(-1.0);
     out.n_tails = t60s.len();
     let usable_tail = tails.iter().cloned().filter(|v| *v > FLOOR_DB).collect::<Vec<_>>();
     let med_tail = if usable_tail.is_empty() { FLOOR_DB } else { median_of(usable_tail) };
+    let mut tail_rt60 = -1.0;
     if !t60s.is_empty() {
         let m = median_of(t60s.clone());
         let mad = median_of(t60s.iter().map(|v| (v - m).abs()).collect());
+        tail_rt60 = m;
         out.rt60 = m;
         out.rt60_spread = 1.4826 * mad;
         if !drrs.is_empty() {
             out.drr = median_of(drrs);
         }
-    } else if out.clap_rt60 > 0.0 {
-        out.rt60 = out.clap_rt60;
-        out.rt60_spread = 0.0;
     }
     // confidence: number of tails, their agreement and the decay range above the noise
     let n_term = (out.n_tails as f64 / 3.0).min(1.0);
     let agree = if out.rt60 > 0.0 && out.rt60_spread >= 0.0 { (1.0 - out.rt60_spread / out.rt60).clamp(0.0, 1.0) } else { 0.0 };
     let snr = ((-out.noise_floor - 30.0) / 30.0).clamp(0.0, 1.0);
     out.confidence = if out.rt60 > 0.0 { n_term * (0.5 + 0.5 * agree) * (0.5 + 0.5 * snr) } else { 0.0 };
-    if out.clap_rt60 > 0.0 {
-        out.confidence = out.confidence.max(0.6 * (0.5 + 0.5 * snr));
+    // a clap is a direct room measurement (no instrument ring-down to separate): when its
+    // decay was followed over ≥ 15 dB it is the primary estimate, the note tails only confirm
+    if let Some(c) = &clap {
+        let clap_conf = 0.6 + 0.3 * ((c.range_db - 15.0) / 10.0).clamp(0.0, 1.0);
+        if c.range_db >= 15.0 || out.rt60 <= 0.0 {
+            out.rt60 = c.rt60;
+            // a single note tail's DRR cannot overrule the clap's decay
+            if out.n_tails < 2 {
+                out.drr = FLOOR_DB;
+            }
+            if tail_rt60 > 0.0 {
+                let rel = (tail_rt60 - c.rt60).abs() / c.rt60;
+                out.rt60_spread = (tail_rt60 - c.rt60).abs();
+                // agreeing tails raise the confidence, disagreeing ones lower it a little
+                out.confidence = if rel < 0.3 { clap_conf.max(out.confidence).max(0.9) } else { 0.85 * clap_conf };
+            } else {
+                out.rt60_spread = 0.0;
+                out.confidence = clap_conf;
+            }
+        }
     }
     // verdict
     // clean releases whose tails never decay slower than the instrument's own ring-down
@@ -946,54 +978,121 @@ pub fn room_with(input: &[f32], sr: f32, cfg: &AnalysisConfig) -> RoomSummary {
     out
 }
 
-/// RT60 from a clap-like transient before `before` (−1 if none).
-fn clap_rt60(x: &[f64], sr: f64, before: usize) -> f64 {
+/// Clap estimate: RT60 (s) and the decay range used by the fit (dB).
+struct Clap {
+    rt60: f64,
+    range_db: f64,
+}
+
+/// RT60 from the first clap-like transient in `x[..limit]` (None if none).
+///
+/// The first impulsive event (rises within 10 ms, falls 6 dB within 30 ms, ≥ 30× the
+/// noise floor) is located; its decay is followed until the next event starts (envelope
+/// smoothed over 20 ms rising 6 dB above its running minimum: the first note's onset) or
+/// `limit`. Schroeder backward integration of the noise-subtracted power, with the energy
+/// missing after a truncated decay added back assuming the fitted exponential (Lundeby-style,
+/// 3 iterations) — without it a decay cut short by the next note reads 10–20 % short.
+/// Fit range −5 dB … −25 dB (or down to 3 dB above the lowest level reached, ≥ 10 dB).
+fn clap_estimate(x: &[f64], sr: f64, limit: usize, noise_rms: f64) -> Option<Clap> {
     let hop = ((sr * 0.002) as usize).max(1);
-    let n = before.min(x.len()) / hop;
+    let n = limit.min(x.len()) / hop;
     if n < 20 {
-        return -1.0;
+        return None;
     }
     let env = envelope(&x[..n * hop], hop);
-    let (pi, pv) = env.iter().enumerate().fold((0, 0.0), |acc, (i, v)| if *v > acc.1 { (i, *v) } else { acc });
-    let floor = {
-        let mut s: Vec<f64> = env.clone();
-        median(&mut s)
-    };
-    if pv < 30.0 * floor.max(1e-9) || pi + 10 >= env.len() {
-        return -1.0;
-    }
-    // impulsive: rises within 10 ms and falls 6 dB below the peak within 30 ms
-    // (the reverberant part that follows may be only ~10 dB below the burst)
     let fr = sr / hop as f64;
-    let rise_ok = pi < 5 || env[pi.saturating_sub((0.01 * fr) as usize)] < 0.1 * pv;
-    let fall = (pi..env.len()).find(|&i| env[i] < 0.5 * pv);
-    if !rise_ok || fall.map(|f| (f - pi) as f64 / fr > 0.03).unwrap_or(true) {
-        return -1.0;
+    let floor = noise_rms.max(1e-9);
+    let w10 = (0.01 * fr).max(1.0) as usize;
+    let w30 = (0.03 * fr).max(1.0) as usize;
+    // first impulsive local maximum
+    let mut found = None;
+    let mut i = 1;
+    while i + 1 < env.len() {
+        let v = env[i];
+        if v >= 30.0 * floor && v >= env[i - 1] && v >= env[i + 1] {
+            // the local peak of the burst (within 10 ms)
+            let (pi, pv) = (i..(i + w10).min(env.len())).fold((i, v), |a, k| if env[k] > a.1 { (k, env[k]) } else { a });
+            let rise_ok = pi < w10 || env[pi - w10] < 0.1 * pv;
+            let fall_ok = (pi..(pi + w30 + 1).min(env.len())).any(|k| env[k] < 0.5 * pv);
+            if rise_ok && fall_ok {
+                found = Some((pi, pv));
+                break;
+            }
+            // not impulsive (e.g. a note): skip past this event
+            i = pi + w30;
+            continue;
+        }
+        i += 1;
     }
-    // Schroeder decay of the remainder (after the first 5 ms)
+    let (pi, _) = found?;
+    // end of the free decay: the next event's onset (20 ms smoothed power +6 dB over its minimum)
     let a = pi + (0.005 * fr) as usize;
+    let w20 = (0.02 * fr).max(1.0) as usize;
+    let mut end = env.len();
+    let mut run_min = f64::MAX;
+    let mut k = a;
+    while k + w20 <= env.len() {
+        let pw = env[k..k + w20].iter().map(|v| v * v).sum::<f64>() / w20 as f64;
+        if pw > 4.0 * run_min && pw > 16.0 * floor * floor {
+            end = k;
+            break;
+        }
+        run_min = run_min.min(pw);
+        k += 1;
+    }
+    if end < a + (0.05 * fr) as usize {
+        return None;
+    }
     let np = floor * floor;
-    let pw: Vec<f64> = env[a..].iter().map(|v| (v * v - np).max(0.0)).collect();
-    let mut edc = vec![0.0; pw.len()];
-    let mut acc = 0.0;
-    for i in (0..pw.len()).rev() {
-        acc += pw[i];
-        edc[i] = acc;
+    let pw: Vec<f64> = env[a..end].iter().map(|v| (v * v - np).max(0.0)).collect();
+    let fit = |edc: &[f64]| -> Option<(f64, f64)> {
+        let e0 = edc[0].max(1e-30);
+        let lv: Vec<f64> = edc.iter().map(|v| 10.0 * (v / e0).max(1e-15).log10()).collect();
+        // lowest level the direct (non-extrapolated) data reaches reliably
+        let lo = (-25.0f64).max(lv[lv.len().saturating_sub(1).max(0)] + 3.0);
+        if lo > -15.0 {
+            return None;
+        }
+        let pts: Vec<(f64, f64)> = lv.iter().enumerate().map(|(i, v)| (i as f64 / fr, *v)).filter(|p| p.1 <= -5.0 && p.1 >= lo).collect();
+        if pts.len() < 6 {
+            return None;
+        }
+        let m = pts.len() as f64;
+        let (mt, my) = (pts.iter().map(|p| p.0).sum::<f64>() / m, pts.iter().map(|p| p.1).sum::<f64>() / m);
+        let sxx: f64 = pts.iter().map(|p| (p.0 - mt).powi(2)).sum();
+        let sxy: f64 = pts.iter().map(|p| (p.0 - mt) * (p.1 - my)).sum();
+        if sxx <= 0.0 || sxy / sxx > -1.0 {
+            return None;
+        }
+        Some((sxy / sxx, -5.0 - lo))
+    };
+    let edc_with = |tail: f64| -> Vec<f64> {
+        let mut edc = vec![0.0; pw.len()];
+        let mut acc = tail;
+        for i in (0..pw.len()).rev() {
+            acc += pw[i];
+            edc[i] = acc;
+        }
+        edc
+    };
+    // the level range the raw data covers (before tail compensation) bounds the fit
+    let mut edc = edc_with(0.0);
+    let (mut slope, mut range) = fit(&edc)?;
+    let wend = w20.min(pw.len());
+    let p_end = pw[pw.len() - wend..].iter().sum::<f64>() / wend as f64;
+    for _ in 0..3 {
+        // power decays as 10^(slope·t/10): remaining energy = p_end · τ_p (frames)
+        let tau_frames = 10.0 / (core::f64::consts::LN_10 * -slope) * fr;
+        edc = edc_with(p_end * tau_frames);
+        match fit(&edc) {
+            Some((s2, r2)) => {
+                slope = s2;
+                range = range.max(r2);
+            }
+            None => break,
+        }
     }
-    let e0 = edc[0].max(1e-30);
-    let pts: Vec<(f64, f64)> =
-        edc.iter().enumerate().map(|(i, v)| (i as f64 / fr, 10.0 * (v / e0).max(1e-15).log10())).filter(|p| p.1 <= -5.0 && p.1 >= -25.0).collect();
-    if pts.len() < 6 {
-        return -1.0;
-    }
-    let n = pts.len() as f64;
-    let (mt, my) = (pts.iter().map(|p| p.0).sum::<f64>() / n, pts.iter().map(|p| p.1).sum::<f64>() / n);
-    let sxx: f64 = pts.iter().map(|p| (p.0 - mt).powi(2)).sum();
-    let sxy: f64 = pts.iter().map(|p| (p.0 - mt) * (p.1 - my)).sum();
-    if sxx <= 0.0 || sxy / sxx > -1.0 {
-        return -1.0;
-    }
-    (-60.0 / (sxy / sxx)).min(10.0)
+    Some(Clap { rt60: (-60.0 / slope).min(10.0), range_db: range })
 }
 
 // ---------------------------------------------------------------- segmentation
@@ -1032,11 +1131,12 @@ pub fn segment(input: &[f32], sr: f32) -> Vec<(usize, usize)> {
             i += 1;
         }
     }
-    // merge gaps < 50 ms, drop regions < 150 ms
+    // genuine gaps: below the gate for > 80 ms (shorter dips — a breath bump, a tongue
+    // touch inside a slur — are bridged); drop regions < 150 ms
     let mut merged: Vec<(usize, usize)> = Vec::new();
     for r in regions {
         if let Some(last) = merged.last_mut() {
-            if r.0 - last.1 < 5 {
+            if r.0 - last.1 <= 8 {
                 last.1 = r.1;
                 continue;
             }
@@ -1044,45 +1144,192 @@ pub fn segment(input: &[f32], sr: f32) -> Vec<(usize, usize)> {
         merged.push(r);
     }
     merged.retain(|r| r.1 - r.0 >= 15);
-    // split regions at persistent pitch changes (> 80 ¢ for ≥ 80 ms)
-    let mut out = Vec::new();
+    // inside a sounding region the level may do anything (swells, messa di voce, slow
+    // attacks, a quiet plateau before the note speaks fully): split only on
+    //  (1) a dip ≥ 20 dB below the surrounding level lasting > 80 ms (re-articulation in a
+    //      reverberant room, where the level never reaches the global gate), or
+    //  (2) a sustained pitch change: > 70 ¢ for ≥ 60 ms, confirmed on the spectrum (the
+    //      time-domain tracker can be biased by ~1 semitone in period-doubled or very soft
+    //      passages, which must not split a note)
+    let mut out: Vec<(usize, usize)> = Vec::new();
     for (a, b) in merged {
-        let (s0, s1) = (a * hop, (b * hop).min(x.len()));
-        let tr = track_pitch(&x, sr, s0, s1, 60.0, 2000.0);
-        let fr = &tr.frames; // 20 ms hop
-        let mut cuts = vec![s0];
-        let mut ref_f = 0.0;
-        let mut k = 0;
-        while k < fr.len() {
-            let f = fr[k].1;
-            if f > 0.0 {
-                if ref_f == 0.0 {
-                    ref_f = f;
-                } else if (1200.0 * (f / ref_f).log2()).abs() > 80.0 {
-                    // persistent?
-                    let span = 4.min(fr.len() - k);
-                    let pers = (k..k + span).all(|j| fr[j].1 > 0.0 && (1200.0 * (fr[j].1 / f).log2()).abs() < 50.0);
-                    if pers && span >= 4 {
-                        let cut = fr[k].0;
-                        if cut - *cuts.last().unwrap() >= (0.15 * sr) as usize {
-                            cuts.push(cut);
-                        }
-                        ref_f = f;
-                    }
+        let mut pieces = vec![];
+        // (1) local dips
+        {
+            let w = 20; // 200 ms context on each side
+            let mut start = a;
+            let mut k = a;
+            while k < b {
+                let lref = edb[k.saturating_sub(w).max(a)..k.max(a + 1)].iter().cloned().fold(-200.0, f64::max);
+                let mut e = k;
+                while e < b && edb[e] < lref - 20.0 {
+                    e += 1;
+                }
+                let rref = edb[e..(e + w).min(b)].iter().cloned().fold(-200.0, f64::max);
+                if e - k > 8 && e < b && rref - 20.0 > edb[k..e].iter().cloned().fold(-200.0, f64::max) {
+                    pieces.push((start, k));
+                    start = e;
+                    k = e;
                 } else {
-                    ref_f = 0.9 * ref_f + 0.1 * f;
+                    k = e.max(k + 1);
                 }
             }
-            k += 1;
+            pieces.push((start, b));
         }
-        cuts.push(s1);
-        for w in cuts.windows(2) {
-            if w[1] > w[0] + (0.15 * sr) as usize {
-                out.push((w[0], w[1]));
+        for (pa, pb) in pieces {
+            if pb - pa < 15 {
+                continue;
+            }
+            let (s0, s1) = (pa * hop, (pb * hop).min(x.len()));
+            let tr = track_pitch(&x, sr, s0, s1, 60.0, 2000.0);
+            let fr = &tr.frames; // 20 ms hop
+            let mut cuts = vec![s0];
+            let mut ref_f = 0.0;
+            let mut ref_t = s0;
+            let mut k = 0;
+            while k < fr.len() {
+                let f = fr[k].1;
+                if f > 0.0 {
+                    if ref_f == 0.0 {
+                        ref_f = f;
+                        ref_t = fr[k].0;
+                    } else if (1200.0 * (f / ref_f).log2()).abs() > 70.0 {
+                        // persistent for ≥ 60 ms (3 frames)?
+                        let span = 3.min(fr.len() - k);
+                        let pers = span >= 3 && (k..k + span).all(|j| fr[j].1 > 0.0 && (1200.0 * (fr[j].1 / f).log2()).abs() < 50.0);
+                        if pers {
+                            let cut = fr[k].0;
+                            let win = (0.12 * sr) as usize;
+                            let before = (cut.saturating_sub(win).max(ref_t), cut);
+                            // after-window skips 40 ms of the old note's ring-down
+                            let a0 = (cut + (0.04 * sr) as usize).min(s1);
+                            let after = (a0, (a0 + win).min(s1));
+                            let (fb, mb) = spectral_peak(&x, sr, before.0, before.1, ref_f);
+                            let (fa, _) = spectral_peak(&x, sr, after.0, after.1, f);
+                            // the old pitch still sounding at (almost) its former level after the
+                            // cut: a tracker octave / subharmonic jump on an unchanged note
+                            let (fo, mo) = spectral_peak(&x, sr, after.0, after.1, ref_f);
+                            let (lb, la) = ((before.1 - before.0) as f64, (after.1 - after.0) as f64);
+                            let (fa0, _) = spectral_peak(&x, sr, after.0, after.1, f);
+                            // (when the old pitch is a harmonic of the new one — a slur down an
+                            // octave or a 12th — it keeps sounding as that harmonic: no test)
+                            let old_is_harm = fa0 > 0.0 && fb > fa0 && {
+                                let r = fb / fa0;
+                                let k = r.round();
+                                (2.0..=4.0).contains(&k) && (1200.0 * (r / k).log2()).abs() < 50.0
+                            };
+                            let persists = !old_is_harm && fo > 0.0 && fb > 0.0 && (1200.0 * (fo / fb).log2()).abs() < 50.0 && mo / la.max(1.0) > 0.3 * mb / lb.max(1.0);
+                            // or the tracker had locked onto a harmonic (the note speaking with a
+                            // dominant 2nd/3rd partial) and now finds the fundamental, which was
+                            // already sounding before the cut
+                            let (_, ma) = spectral_peak(&x, sr, after.0, after.1, f);
+                            let (fn_, mn) = spectral_peak(&x, sr, before.0, before.1, f);
+                            let harm = fa > 0.0 && fb > fa && {
+                                let r = fb / fa;
+                                let k = r.round();
+                                (2.0..=4.0).contains(&k) && (1200.0 * (r / k).log2()).abs() < 50.0
+                            };
+                            let emerged = harm && fn_ > 0.0 && (1200.0 * (fn_ / fa).log2()).abs() < 50.0 && mn / lb.max(1.0) > 0.06 * ma / la.max(1.0);
+                            let real = !persists && !emerged && fb > 0.0 && fa > 0.0 && (1200.0 * (fa / fb).log2()).abs() > 70.0;
+                            if real && cut - *cuts.last().unwrap() >= (0.15 * sr) as usize {
+                                cuts.push(cut);
+                                ref_f = f;
+                                ref_t = cut;
+                            } else if !real {
+                                // tracker excursion: keep the reference, skip the run
+                                k += span;
+                                continue;
+                            }
+                        }
+                    } else {
+                        ref_f = 0.9 * ref_f + 0.1 * f;
+                    }
+                }
+                k += 1;
+            }
+            // a pitch change within the first 250 ms of a sounding region is the attack
+            // (a note speaking first in the wrong register, a scoop), not a new note
+            if cuts.len() >= 2 && cuts[1] - s0 < (0.25 * sr) as usize {
+                cuts.remove(1);
+            }
+            cuts.push(s1);
+            for w in cuts.windows(2) {
+                if w[1] > w[0] + (0.15 * sr) as usize {
+                    out.push((w[0], w[1]));
+                }
             }
         }
     }
-    out
+    // merge neighbours with the same stable pitch separated by < 100 ms (a breath or a dip
+    // that briefly crossed the gate inside one sustained note)
+    let mut res: Vec<(usize, usize)> = Vec::new();
+    let mut res_f: Vec<f64> = Vec::new();
+    for (a, b) in out {
+        let f = seg_pitch(&x, sr, a, b);
+        if let (Some(last), Some(lf)) = (res.last_mut(), res_f.last()) {
+            if a >= last.1 && a - last.1 < (0.1 * sr) as usize && f > 0.0 && *lf > 0.0 && (1200.0 * (f / lf).log2()).abs() < 50.0 {
+                last.1 = b;
+                continue;
+            }
+        }
+        res.push((a, b));
+        res_f.push(f);
+    }
+    res
+}
+
+/// Median tracked pitch of the middle half of `x[a..b]` refined on the spectrum (0 if unvoiced).
+fn seg_pitch(x: &[f64], sr: f64, a: usize, b: usize) -> f64 {
+    let q = (b - a) / 4;
+    let tr = track_pitch(x, sr, a + q, b - q, 60.0, 2000.0);
+    let mut fs: Vec<f64> = tr.frames.iter().map(|f| f.1).filter(|v| *v > 0.0).collect();
+    if fs.len() < 3 {
+        return 0.0;
+    }
+    let g = median(&mut fs);
+    spectral_f0(x, sr, a + q, b - q, g)
+}
+
+fn spectral_f0(x: &[f64], sr: f64, a: usize, b: usize, guess: f64) -> f64 {
+    spectral_peak(x, sr, a, b, guess).0
+}
+
+/// Frequency and magnitude of the strongest spectral peak within ±150 ¢ of `guess` in
+/// `x[a..b]` (Hann, ≤ 0.17 s centred, zero-padded, parabolic interpolation; (0, 0) if none).
+fn spectral_peak(x: &[f64], sr: f64, a: usize, b: usize, guess: f64) -> (f64, f64) {
+    if b <= a + 64 || guess <= 0.0 {
+        return (0.0, 0.0);
+    }
+    let len = (b - a).min(8192);
+    let st = a + (b - a - len) / 2;
+    let nf = 32768;
+    let (mut re, mut im) = (vec![0.0; nf], vec![0.0; nf]);
+    for i in 0..len {
+        let w = 0.5 - 0.5 * (2.0 * PI * i as f64 / (len - 1) as f64).cos();
+        re[i] = x[st + i] * w;
+    }
+    fft(&mut re, &mut im);
+    let mag = |k: usize| (re[k] * re[k] + im[k] * im[k]).sqrt();
+    let df = sr / nf as f64;
+    let lo = ((guess * 2f64.powf(-0.125)) / df).floor().max(1.0) as usize;
+    let hi = (((guess * 2f64.powf(0.125)) / df).ceil() as usize).min(nf / 2 - 2);
+    if hi <= lo + 2 {
+        return (0.0, 0.0);
+    }
+    let (mut bk, mut bm) = (lo, 0.0);
+    for k in lo..=hi {
+        let m = mag(k);
+        if m > bm {
+            bm = m;
+            bk = k;
+        }
+    }
+    if bk == lo || bk == hi || bm <= 0.0 {
+        return (0.0, 0.0); // no peak inside the window
+    }
+    let (y0, y1, y2) = (mag(bk - 1).ln(), bm.ln(), mag(bk + 1).ln());
+    let d = 0.5 * (y0 - y2) / (y0 - 2.0 * y1 + y2);
+    ((bk as f64 + if d.is_finite() { d.clamp(-0.5, 0.5) } else { 0.0 }) * df, bm)
 }
 
 // ---------------------------------------------------------------- tests
@@ -1209,6 +1456,100 @@ mod tests {
         assert!((cut - 2.1).abs() < 0.06, "legato cut at {cut}");
     }
 
+    /// Sequence of notes (f0 Hz, 0 = silence) with per-note envelope g(t/dur) (linear amplitude),
+    /// 4 harmonics, light noise.
+    fn seq(sr: f64, notes: &[(f64, f64, &dyn Fn(f64) -> f64)]) -> Vec<f32> {
+        let mut x = Vec::new();
+        let mut ph = 0.0;
+        let mut r = 777u64;
+        for &(f, d, env) in notes {
+            let n = (sr * d) as usize;
+            for i in 0..n {
+                let u = i as f64 / n as f64;
+                ph += 2.0 * PI * f / sr;
+                r ^= r << 13;
+                r ^= r >> 7;
+                r ^= r << 17;
+                let nz = 1e-4 * ((r >> 11) as f64 / (1u64 << 53) as f64 * 2.0 - 1.0);
+                let s = if f > 0.0 { env(u) * (ph.sin() + 0.5 * (2.0 * ph).sin() + 0.3 * (3.0 * ph).sin() + 0.2 * (4.0 * ph).sin()) } else { 0.0 };
+                x.push((0.2 * s + nz) as f32);
+            }
+        }
+        x
+    }
+
+    fn db(v: f64) -> f64 {
+        10f64.powf(v / 20.0)
+    }
+
+    /// fade in/out 30 ms at the ends of a note
+    fn edge(u: f64, d: f64) -> f64 {
+        ((u * d) / 0.03).min(1.0).min(((1.0 - u) * d) / 0.03).max(0.0)
+    }
+
+    #[test]
+    fn segments_swell_plateau() {
+        // the coach e2e case: loud note, then F6 rising to a −9 dB plateau (0.3–0.7 s) and an
+        // 8 dB swell, then another note
+        let sr = 48000.0;
+        let flat = |u: f64| edge(u, 1.0);
+        let f6 = |u: f64| {
+            let t = u * 1.6;
+            let g = if t < 0.3 { db(-9.0) * t / 0.3 } else if t < 0.7 { db(-9.0) } else if t < 1.0 { db(-9.0 + 8.0 * (t - 0.7) / 0.3) } else { db(-1.0) };
+            g * edge(u, 1.6)
+        };
+        let sil = |_u: f64| 0.0;
+        let x = seq(sr, &[(392.0, 1.0, &flat), (0.0, 0.3, &sil), (1396.9, 1.6, &f6), (0.0, 0.3, &sil), (523.25, 1.0, &flat)]);
+        let s = segment(&x, sr as f32);
+        assert_eq!(s.len(), 3, "{s:?}");
+    }
+
+    #[test]
+    fn segments_dynamics_do_not_split() {
+        let sr = 48000.0;
+        let sil = |_u: f64| 0.0;
+        // crescendo −30 → 0 dB, decrescendo 0 → −30 dB, messa di voce −25 → 0 → −25 dB,
+        // slow 400 ms attack, each 2 s, separated by 0.4 s rests
+        let cresc = |u: f64| db(-30.0 + 30.0 * u) * edge(u, 2.0);
+        let decresc = |u: f64| db(-30.0 * u) * edge(u, 2.0);
+        let messa = |u: f64| db(-25.0 + 25.0 * (1.0 - (2.0 * u - 1.0).abs())) * edge(u, 2.0);
+        let slow = |u: f64| ((u * 2.0) / 0.4).min(1.0) * edge(u, 2.0);
+        let x = seq(sr, &[(0.0, 0.3, &sil), (293.66, 2.0, &cresc), (0.0, 0.4, &sil), (440.0, 2.0, &decresc), (0.0, 0.4, &sil), (698.46, 2.0, &messa), (0.0, 0.4, &sil), (233.08, 2.0, &slow), (0.0, 0.3, &sil)]);
+        let s = segment(&x, sr as f32);
+        assert_eq!(s.len(), 4, "{:?}", s.iter().map(|p| (p.0 as f64 / sr, p.1 as f64 / sr)).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn segments_legato_intervals() {
+        // continuous legato: octave up, octave down, semitone, a 12th up (harmonic relations
+        // must still split), each 0.7 s, with a slow swell on the last note
+        let sr = 48000.0;
+        let sil = |_u: f64| 0.0;
+        let one = |_u: f64| 1.0;
+        let swell = |u: f64| db(-12.0 + 12.0 * u) * edge(u, 0.9);
+        let fin = |u: f64| edge(u, 0.7).max(if u < 0.5 { 1.0 } else { 0.0 });
+        let x = seq(sr, &[(0.0, 0.3, &sil), (392.0, 0.7, &fin), (784.0, 0.7, &one), (392.0, 0.7, &one), (415.3, 0.7, &one), (1245.9, 0.9, &swell), (0.0, 0.3, &sil)]);
+        let s = segment(&x, sr as f32);
+        let t: Vec<(f64, f64)> = s.iter().map(|p| (p.0 as f64 / sr, p.1 as f64 / sr)).collect();
+        assert_eq!(s.len(), 5, "{t:?}");
+        for (k, want) in [1.0, 1.7, 2.4, 3.1].iter().enumerate() {
+            assert!((t[k + 1].0 - want).abs() < 0.08, "cut {k} at {} (want {want}) {t:?}", t[k + 1].0);
+        }
+    }
+
+    #[test]
+    fn segments_gap_and_repeated_note() {
+        // same pitch re-articulated with a 120 ms gap → two notes; a 40 ms dip → one note
+        let sr = 48000.0;
+        let flat = |u: f64| edge(u, 1.0);
+        let sil = |_u: f64| 0.0;
+        let x = seq(sr, &[(0.0, 0.2, &sil), (349.23, 1.0, &flat), (0.0, 0.12, &sil), (349.23, 1.0, &flat), (0.0, 0.3, &sil)]);
+        assert_eq!(segment(&x, sr as f32).len(), 2);
+        let dip = |u: f64| if (u * 2.0 - 1.0).abs() < 0.01 { 0.0 } else { 1.0 } * edge(u, 2.0);
+        let x = seq(sr, &[(0.0, 0.2, &sil), (349.23, 2.0, &dip), (0.0, 0.3, &sil)]);
+        assert_eq!(segment(&x, sr as f32).len(), 1);
+    }
+
     /// Abrupt stop: dry → no room decay; with an exponential reverb tail of known
     /// RT60 the release-tail estimate recovers it.
     #[test]
@@ -1265,6 +1606,35 @@ mod tests {
             assert!((est - rt).abs() < 0.25 * rt, "RT60 {rt}: estimated {est}");
             assert!(b[idx::TAIL_RATIO] > a[idx::TAIL_RATIO] + 20.0);
         }
+    }
+
+    #[test]
+    fn clap_truncated_by_note() {
+        // clap at 0.1 s in a 1.0 s room; a tone starts 0.4 s later and cuts the decay short
+        let sr = 48000.0;
+        let mut r = 12345u64;
+        let mut rnd = || {
+            r ^= r << 13;
+            r ^= r >> 7;
+            r ^= r << 17;
+            (r >> 11) as f64 / (1u64 << 53) as f64 * 2.0 - 1.0
+        };
+        let n = (2.5 * sr) as usize;
+        let mut x = vec![0.0f32; n];
+        let c0 = (0.1 * sr) as usize;
+        for i in 0..(0.005 * sr) as usize {
+            x[c0 + i] += (0.8 * rnd()) as f32;
+        }
+        for i in c0..n {
+            let t = (i - c0) as f64 / sr;
+            x[i] += (0.05 * rnd() * (-6.91 * t / 1.0).exp()) as f32;
+        }
+        for i in (0.5 * sr) as usize..(2.3 * sr) as usize {
+            x[i] += (0.3 * (2.0 * PI * 233.0 * i as f64 / sr).sin()) as f32;
+        }
+        let rm = room(&x, sr as f32);
+        assert!((rm.clap_rt60 - 1.0).abs() < 0.15, "clap {}", rm.clap_rt60);
+        assert!((rm.rt60 - rm.clap_rt60).abs() < 1e-9, "clap is primary");
     }
 
     #[test]

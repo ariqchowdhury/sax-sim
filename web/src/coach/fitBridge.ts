@@ -37,6 +37,7 @@ interface FitOutput {
   residual?: number;
   status?: 'ok' | 'failed';
   problems?: string[];
+  excluded?: string[];
   model?: string;
 }
 
@@ -65,7 +66,7 @@ const realFit = async (req: FitRequest): Promise<FitOutput> => {
     const simFeatures: Record<string, ArrayLike<number>> = {};
     const perNoteParams: Record<string, [number, number][]> = {};
     for (const n of r.perNote) { simFeatures[n.id] = n.simulated; perNoteParams[n.id] = n.params; }
-    return { controls, uncertainty, identifiability, simFeatures, perNoteParams, residual: r.lossConfirm, status: r.status, problems: r.problems, model: r.model };
+    return { controls, uncertainty, identifiability, simFeatures, perNoteParams, residual: r.lossConfirm, status: r.status, problems: r.problems, excluded: (r as { excluded?: string[] }).excluded ?? [], model: r.model };
   } finally {
     pool.close();
   }
@@ -161,6 +162,7 @@ export async function runFit(req: FitRequest, eng: CoachEngine): Promise<FitSumm
     perNoteParams: out.perNoteParams,
     status: out.status ?? 'ok',
     problems: out.problems ?? [],
+    excluded: out.excluded ?? [],
     residual: out.residual,
     ms: performance.now() - t0,
   };

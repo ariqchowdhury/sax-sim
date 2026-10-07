@@ -73,7 +73,7 @@ fn main() {
         for i in 0..(0.005 * sr) as usize { rec[(0.1 * sr) as usize + i] += (0.8 * rng(&mut r)) as f32; }
         let y = conv(&rec, &room_ir(sr, rt, 0.0, 5));
         let rm = analysis::room(&y, sr as f32);
-        println!("clap test: true RT60 {rt:.1} → clap_rt60 {:.2}, rt60 {:.2}, verdict {}", rm.clap_rt60, rm.rt60, rm.verdict);
+        println!("clap test: true RT60 {rt:.1} → clap_rt60 {:.2}, rt60 {:.2}, drr {:.1}, n {}, conf {:.2}, verdict {}", rm.clap_rt60, rm.rt60, rm.drr, rm.n_tails, rm.confidence, rm.verdict);
     }
     let dry_room = analysis::room(&recs[0], sr as f32);
     println!("dry tongued recording: rt60 {:.2} spread {:.2} drr {:.1} nf {:.1} n {} conf {:.2} verdict {}", dry_room.rt60, dry_room.rt60_spread, dry_room.drr, dry_room.noise_floor, dry_room.n_tails, dry_room.confidence, dry_room.verdict);

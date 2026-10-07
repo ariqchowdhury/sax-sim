@@ -76,17 +76,17 @@ Runs in any modern browser: `npm run dev`.
 
 Status of each milestone is tracked at the bottom of this file.
 
-## Status (2026-10-06, round 6)
-- M0–M2 done. Register 1 ±8 cents, register 2 ±19 (F#6 −63, geometry limit). Right register 94–95/99 (pure physics), 97–98/99 (player_assist 0.5).
-- M3 done: tract with glottal section, lungs, tonguing, tissue-stiffening lip, player assist, `dynamic` pp–ff (20.7 dB reg 1, 22.9 dB reg 2; pp non-beating, ff bright) via embouchure/p_M scaling.
-- M4 done: parametric mouthpiece; beam reed recalibrated (optional; lumped default).
-- M5 done: scope, spectrum, standing wave, impedance + tract-impedance overlay, reed shape, readouts.
-- M6 done: altissimo G6–C#7 within ±21 cents at 3.5–5 kPa in pure physics with measured-range tract strengths (16–50 MPa·s/m³); "voice, then attack" gate in the player (115/120 randomized attacks lock). Overtones reproduced on low Bb–C#. Open: D7 (bore has no resonance near 1.4 kHz), 550–800 Hz overtone gap (tract model), subglottal resonances, A5 pp +63 cents.
-- M7 mostly done: native 13.8× / wasm 12.2× real time at 4× worst case; relaxed-SIMD auto-select; adaptive quality.
-- M8 done: MIDI (velocity → dynamic), breath controller, vibrato, recording, presets, tour, README, npm test.
-- M9 done (v1): Coach mode — record/upload test set (+ recommended G4push take), shared Rust analyser (30 features), blind room estimate (RT60 ≥ 0.6 s reliably flagged; short rooms read as dry), template cause ranking (top-3 80 % on synthetic players with G4push, 75 % without), browser fitter (multi-start LM + CMA-ES, ~33 s, 3/4 hidden-player recovery; big simultaneous changes weakly identifiable), trade-off reporting, A/B load into the simulator, sessions. Not yet validated on real recordings.
+## Status (2026-10-07, round 7)
+- M0–M2 done. Real-instrument wall losses (×1.3; Q 41–52, T60 ≈ 95/f0). Shorter neck (0.170 m) fixed F#6 (−63 → −6…+4 ¢). Register 1 ±7 ¢, register 2 ±20 ¢ except A5 +22…+30 ¢ (neck-vent trade-off with palm locking). Right register 94/99 pure physics, 98/99 assist 0.5.
+- M3 done: subglottal system (trachea + bronchi; Sg1–3 ≈ 535/1405/2275 Hz), tongue_length articulator, tissue lip, player assist, `dynamic` pp–ff (≈20/21 dB reg 1/2; all 33 notes in tune ±25 ¢ at pp/p/f/ff, A5/Bb5 sharp at mf). Palm-key pp limited to ~10–14 dB.
+- M4–M5 done.
+- M6 done: altissimo G6–C7 within ±24 ¢ (3.5–5 kPa, pure physics), C#7 −36…−40 ¢, D7 unreachable (bore resonance near 1.4 kHz ~6 MPa·s/m³, tract ceiling ~1.43 kHz). Overtones: partials 4–5 limited by the bore's weak, mistuned upper resonances.
+- M7 mostly done (subglottal adds ~7.5 % CPU).
+- M8 done.
+- M9 done (v1): coach regenerated on round-7 physics (template top-3 80 % v1 / 83 % with G4push); recording guard (silent/cracked/wrong-note takes left out and reported); swell-proof segmentation; clap-primary room estimate. Not yet validated on real recordings.
 - Player docs: docs/ALTISSIMO.md, docs/OVERTONES.md.
 
 ## Next (proposed)
-1. M9 follow-ups: validate on real recordings (calibrate confidence τ, ring-down 95 Hz constant, room thresholds); report alternative solutions from parallel starts (lip force/position/tip-opening valley); player-facing docs/TONE.md.
-2. Physics: subglottal resonances; richer (2D/branched) tract model for the 550–800 Hz overtone gap; D7 fingerings/keywork; pp intonation (A5/Bb5 sharp at pp); F#6 geometry; calibrated wall-roughness loss (real altos ~10–30 % lossier than smooth-wall theory) with full retune.
+1. Validate the coach on real recordings (calibrate confidence, room thresholds, ring-down).
+2. Physics: palm-key fragility (F6 drops register near default controls at assist 0.5; palm pp only 10–14 dB); A5 sharp at mf vs palm locking (neck vent); C#7 flat; G4 pp needs embouchure change (pure physics 2.2 kPa below threshold).
+3. Coach: report alternative solutions from parallel fitter starts; player-facing docs/TONE.md.

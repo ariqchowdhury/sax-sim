@@ -24,6 +24,10 @@ pub mod idx {
     pub const FREQ: usize = 6;
     pub const OUT_RMS: usize = 7;
     pub const CPU_US: usize = 8;
+    /// pressure just below the glottis (Pa) — appended (round 7)
+    pub const SUBGLOTTAL: usize = 9;
+    /// glottal volume flow (m³/s) — appended (round 7)
+    pub const GLOTTAL_FLOW: usize = 10;
     pub const N_PROFILE: usize = 16;
 }
 

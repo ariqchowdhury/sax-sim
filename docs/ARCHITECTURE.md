@@ -38,7 +38,7 @@ All functions `#[no_mangle] pub extern "C"`. Single engine instance per worklet.
 | `sax_telemetry_ptr() -> *const f32` / `sax_telemetry_len() -> u32` | telemetry block (layout below), updated every `sax_process` |
 | `sax_pad_openness_ptr() -> *const f32` | one f32 per tone hole (0 closed … 1 fully open), for graphics |
 | `sax_compute_impedance(n: u32, fmin: f32, fmax: f32) -> *const f32` | input impedance at the reed end (rigid reed) for the current fingering/geometry/params on the log grid `f_i = fmin·(fmax/fmin)^(i/(n−1))`; returns `2n` f32 = `[|Z_i| (Pa·s/m³) …, arg Z_i (rad) …]`, valid until the next call. **Not real-time safe** (allocates, ~0.1–0.3 s) and snaps params/pads to their targets — the web app calls it on a *separate* engine instance in a Web Worker (`web/src/engine/impedance.worker.ts`), never on the audio instance. |
-| `sax_compute_tract_impedance(n: u32, fmin: f32, fmax: f32) -> *const f32` | vocal-tract input impedance **as seen from the reed** (mouth end) for the current tongue/jaw/glottis (incl. player-model offsets): the engine's tract tube (`tract.rs`) driven by a volume impulse at the mouth node, glottis end terminated by ρc/A_sub (A_sub = 2.5 cm²) + viscous glottal resistance. Same grid and `[|Z_i| …, arg Z_i …]` layout as `sax_compute_impedance`, so the two add (complex) to the series load Z_bore + Z_tract the reed works against. Not real-time safe (~20–50 ms); snaps params — impedance worker only. |
+| `sax_compute_tract_impedance(n: u32, fmin: f32, fmax: f32) -> *const f32` | vocal-tract input impedance **as seen from the reed** (mouth end) for the current tongue/jaw/glottis (incl. player-model offsets): the engine's tract tube (`tract.rs`) driven by a volume impulse at the mouth node, coupled through the glottis (linearised about 0.15 L/s: Bernoulli ρŪ/A_g² + viscous duct) to the subglottal airways (param `subglottal`; or ρc/A_sub, A_sub = 2.5 cm², when 0). Same grid and `[|Z_i| …, arg Z_i …]` layout as `sax_compute_impedance`, so the two add (complex) to the series load Z_bore + Z_tract the reed works against. Not real-time safe (~20–50 ms); snaps params — impedance worker only. |
 
 ## Params (`id` = index; identical order in Rust `Param` enum and TS `PARAMS` array)
 
@@ -69,6 +69,8 @@ All functions `#[no_mangle] pub extern "C"`. Single engine instance per worklet.
 | 22 | reed_model | – | 0–1 | 0 | 0 = lumped reed (tip + body mode), 1 = distributed Euler–Bernoulli beam reed (M4); integer |
 | 23 | player_assist | 0–1 | 0–1 | 0.5 | auto-embouchure: per-note lip/pressure/tract feed-forward + register locking (engine `player.rs`); 0 = pure physics |
 | 24 | dynamic | 0–1 | 0–1 | 0.5 | musical dynamic pp (0) … mf (0.5) … ff (1); the player model scales lung pressure (pp ×0.5, ff ×2; low notes ×0.6/×1.25) and sets lip force/damping and jaw; soft notes start at the mf pressure and relax (0.3 s). No effect when player_assist = 0 |
+| 25 | subglottal | – | 0–1 | 1 | 0 = anechoic load ρc/A below the glottis (legacy), 1 = subglottal airways: trachea + bronchial tree (Weibel generations 0–9, yielding walls, `tract.rs` `Subglottal`; Sg1–Sg3 ≈ 540/1420/2300 Hz) driven by the lung pressure; integer |
+| 26 | tongue_length | 0–1 | 0–1 | 0 | tongue-dorsum constriction length: Gaussian σ 2 cm (0) … 4 cm (1) — a bunched tongue raised along the palate forms a long narrow channel (strong 550–800 Hz tract resonances for low-register overtones) |
 
 ## Telemetry block (f32 array, index → meaning)
 
@@ -83,7 +85,9 @@ All functions `#[no_mangle] pub extern "C"`. Single engine instance per worklet.
 | 6 | estimated playing frequency (Hz, 0 if silent) |
 | 7 | output RMS |
 | 8 | CPU: µs spent in last sax_process call (native only; 0 in wasm) |
-| 9–15 | reserved |
+| 9 | pressure just below the glottis (Pa; top of the subglottal airways, = lung pressure with `subglottal` = 0 minus the anechoic AC drop) |
+| 10 | glottal volume flow U_g (m³/s) |
+| 11–15 | reserved |
 | 16 | `N_PROFILE` = number of bore profile samples that follow (128) |
 | 17 … 17+N-1 | instantaneous acoustic pressure sampled uniformly along the bore from reed to bell (Pa) |
 | 17+N … 17+2N-1 | RMS pressure along bore (standing-wave envelope, Pa) |

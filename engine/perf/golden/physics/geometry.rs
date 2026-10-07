@@ -106,6 +106,13 @@ pub struct GeometryJ {
     pub fingerings: Vec<FingeringJ>,
 }
 
+/// Real-instrument wall-loss factor (PHYSICS.md §2, "wall roughness"): multiplies the smooth-wall
+/// visco-thermal boundary-layer losses of the bore. `meta.wall_loss_factor` in the geometry JSON
+/// (the same value is used by tools/tmm.py); 1.0 if absent.
+pub fn wall_loss_factor(g: &GeometryJ) -> f64 {
+    g.meta.get("wall_loss_factor").and_then(|v| v.as_f64()).filter(|v| v.is_finite() && *v > 0.0).unwrap_or(1.0)
+}
+
 pub fn parse(json: &str) -> Result<GeometryJ, String> {
     let g: GeometryJ = serde_json::from_str(json).map_err(|e| e.to_string())?;
     if g.body.profile.len() < 2 {

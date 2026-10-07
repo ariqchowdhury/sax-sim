@@ -130,6 +130,20 @@ Validation: impedance peak Q / peak magnitudes of the engine's measured input im
 
 ---------------------------------------------------------------------------------------------
 
+**Real-instrument wall losses (round 7).** Smooth-wall boundary-layer theory under-estimates the
+losses of real instruments: measured input-impedance peaks of brass and woodwinds are typically 10–30 %
+lower (and resonances correspondingly broader) than smooth-wall predictions, attributed to wall
+roughness and lacquer, joints, closed tone-hole and pad-cup cavities and small leaks (Caussé, Kergomard
+& Lurton 1984 for brass; Nederveen 1998 and Chaigne & Kergomard 2016 for woodwinds; Chen, Smith & Wolfe
+2009 report alto peaks of a few tens of MPa·s/m³). The model multiplies the bore's visco-thermal
+losses by `meta.wall_loss_factor` = **1.3** (engine `bore_loss_mult`, `tools/tmm.py`), a frequency-
+independent factor on the √ω boundary-layer terms. Effect (TMM, no reed): resonance Q Bb3 66→52,
+G4 57→45, C#5 52→41, C6 52→43 (free-decay T60 ≈ 120/f0 → ≈ 95/f0 s), peak magnitudes −20 %
+(Bb3 41/62/66 → 33/51/55 MPa·s/m³), pitch −1…−4 cents (retuned); engine onset thresholds +0.04–0.05 kPa;
+register locking unchanged after retune (94/99 assist 0, 98/99 assist 0.5). A frequency-dependent
+roughness model (loss factor rising when the boundary layer becomes comparable to the roughness height)
+would need a measured alto impedance curve to calibrate and is not attempted.
+
 ## 3. Tone holes
 
 Each of the 23 holes in `tone_holes` is a short side branch (chimney height `t ≈ 3.5–6.5 mm`,
@@ -382,10 +396,24 @@ flow while playing mf is typically 0.1–0.3 L/s.
 **Lungs**: pressure `P_L` follows the target (param 0, kPa) with first-order respiratory
 dynamics τ = 60 ms (attack) / 120 ms (release). Unlimited air supply.
 
-**Subglottal system**: the engine terminates the tract below the glottis with an anechoic
-load ρc/S_trachea (S ≈ 2.5 cm²) — accepted: the trachea/bronchial tree is long and lossy enough
-that a matched termination is a standard approximation (Story 2005); it removes spurious
-subglottal resonances without adding a state.
+**Subglottal system (round 7, param `subglottal` = 1, default)**: trachea + bronchial tree as a
+1-D lossy transmission line (`tract.rs` `Subglottal`) of the *total* cross-section of Weibel's (1963)
+symmetric airway model A, generations 0–9 (2^g ducts each; lengths × 0.87, diameters as published:
+trachea 10.4 cm × 2.5 cm², path 21.4 cm, total area 2.5 → 9.5 cm²). Per unit length: inertance ρ/A;
+visco-thermal boundary-layer resistance of the parallel ducts `P_d/(N a_d²)·√(ωρη/2)·(1 + (γ−1)/ν)`
+(thermal part lumped into the series branch as in E2, evaluated at 1 kHz: frequency-independent, and
+no shunt leak of the static pressure); yielding walls per node (area N·π·d·Δx) with
+m_w = 8 kg/m², b_w = 10⁴ Pa·s/m, k_w = 10⁷ Pa/m (soft-tissue mass/resistance after Ishizaka et al.
+1975/76; cartilage-stiff statically). Below generation 9 the tree is a resistive termination ρc/A_9,
+through which the lung pressure drives the system; the steady drop (R_term + ΣR)·Ū_g is compensated
+at the source so the lung-pressure param keeps meaning the subglottal operating pressure.
+Leapfrog at the internal rate, Δx ≈ 10 mm (22 nodes, dispersion < 1 % below 2.5 kHz), solved jointly
+with the glottal orifice each step. Input impedance at the glottis: Sg1–Sg3 = 535/1405/2275 Hz,
+5.9/5.8/3.9 MPa·s/m³, bandwidths 150/165/220 Hz (literature: ≈ 550–650, 1350–1550, 2200–2400 Hz
+with substantial damping — Fant; Ishizaka et al. 1976 JASA 60; Lulich 2010). With an open glottis
+these couple into the tract seen from the reed (extra peaks near 270, 620–820 Hz and 1.6 kHz, and the
+tract's own peaks are less damped than with an anechoic load); a narrowed glottis (≲ 0.1 cm²)
+decouples them. `subglottal` = 0 restores the old anechoic load ρc/S_trachea (S = 2.5 cm²).
 
 **Glottal section of the tract (round 4)**: the first ~4–5 mm (one grid cell) of the tract area function
 is the glottal slit itself, area A_g from `glottis_open` (0.05–2.0 cm²). Its inertance ρℓ/A_g makes the
@@ -411,7 +439,8 @@ neutral tract + Gaussian articulator perturbations (all areas in cm²):
     A_n(x):  0–0.020 m: 1.8 (larynx tube) → 0.020–0.075: 3.5 (pharynx) → 0.075–0.095: 2.8 (velum)
              → 0.095–0.150: 3.0 + 2.5·jaw_open (oral cavity) → 0.150–0.170: 2.0 + 2.0·jaw_open (front/teeth)
     tongue body:  centre x_c = 0.065 + 0.075·(1 − tongue_x)   (tongue_x = 0 front/palatal ⇒ x_c = 0.14,
-                  1 back/pharyngeal ⇒ x_c = 0.065),  width σ = 0.020 m
+                  1 back/pharyngeal ⇒ x_c = 0.065),  width σ = 0.020·(1 + tongue_length) m (round 7:
+                  a bunched tongue raised along the palate forms a long narrow channel, 2 → 4 cm)
                   A ← A·(1 − 0.97·tongue_y·G(x)),  G = exp(−(x − x_c)²/(2σ²))
     tongue tip:   centre 0.158 m, σ = 0.006 m, A ← A·(1 − 0.9·tongue_tip·G_tip)
     floors:       A ≥ 0.10 cm² (tongue body), ≥ 0.15 cm² (tip); never 0 (no full closure)
@@ -644,4 +673,27 @@ characteristic is still worth having, but it is unlikely on its own to make the 
 * *Tract strength vs frequency*: the articulatory model can make 30–90 MPa·s/m³ resonances only at
   0.9–1.4 kHz (front tongue); mid/back tongue positions give ≤ 23 at 550–650 Hz and ≤ 10 at 700–800 Hz,
   which is why low-note overtones in that band do not speak (docs/OVERTONES.md).
+
+**Round 7 (geometry/loss, "geometry final").**
+* *Wall losses*: `meta.wall_loss_factor` = 1.3 (§2): Q 41–52, peaks −20 %, thresholds +0.04–0.05 kPa.
+* *F#6*: the palm/high-F# holes sat at the very top of the body and the best bore resonance any pad
+  combination could reach (TMM search over 3437 configurations, incl. front-F/side-key combinations) was
+  862 Hz (−36 ¢); hole chimney/pad-lift changes gave ≤ +12 ¢. The physical fix was a shorter neck
+  (air path 0.185 → 0.170 m, body correspondingly longer; neck taper, mouthpiece and flare re-optimised
+  for harmonicity), which lets the palm holes sit 15 mm higher: F#6 TMM peak 882 Hz (+4 ¢), engine
+  −13 ¢ (was −63 ¢). Neck vent moved 0.090 → 0.085 m (r 1.4 mm) for palm-note locking.
+* *D7* (1397 Hz): best bore resonance near the target is 5.9 MPa·s/m³ (palm D+Eb+side E+side C),
+  ~10× below the competing low resonances; it lies above the open-tone-hole lattice cutoff region where
+  the bore's resonances fade, and the articulatory tract tops out at ≈ 1.43 kHz (tongue body lowered, tip
+  raised), i.e. it cannot be tuned "just above" D7 with margin. With the final reed, D7 found no robust
+  voicing (best worst-case error 110–148 ¢). This is a combination of bore physics (weak resonances above
+  ~1.2–1.4 kHz) and the anatomical tract ceiling; real players' D7 relies on fingerings/tract strengths
+  beyond what this bore + tract model provides.
+* *Palm-key soft regime — correction.* My earlier figures (−14…−23 dB) came from `engine/examples/dyn.rs`
+  (assist 0, default embouchure, 6 kPa crescendo then decrescendo in 0.25 kPa steps of ~0.17 s) and took the
+  last step above 100 Pa AC — that is the decaying tail just before extinction, not a sustained regime.
+  Re-measured on the final tree: E6 and F#6 hold in register down to 2.75 kPa (ac/p ≈ 0.56–0.58,
+  ≈ −2 dB from mf), are dying at 2.5 kPa and silent or in the low register at ≤ 2.25 kPa — in agreement
+  with the perf engineer. With the default embouchure there is no palm-key pp regime; pp on palm notes
+  needs the embouchure change of the player model (dynamics section).
 

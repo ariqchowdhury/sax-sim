@@ -12,6 +12,7 @@ import { COACH_SR, MicCapture, decodeFile } from './audioInput';
 import { CoachEngine } from './CoachEngine';
 import { F, FEATURE_NAMES, FEATURE_UNITS } from './features';
 import { paramsForTake, runFit, takesToFitNotes } from './fitBridge';
+import { recordingWarnings } from './warnings';
 import { brightnessChart, centsChart, harmonicChart } from './plots';
 import { PROTOCOL, dynamicLabel, fingeringFor, targetHz, type ProtocolNote } from './protocol';
 import { deleteSession, listSessions, meanAbsCents, newSession, parseSessionFile, saveSession, type CoachSession, type RoomEstimate, type Suggestion, type TakeResult } from './session';
@@ -195,13 +196,14 @@ export class CoachView {
     const cols = [F.f0, F.cents, F.pitch_std, F.vib_rate, F.vib_depth, F.centroid_rel, F.tilt, F.hnr, F.edge, F.attack, F.scoop, F.regime];
     const chip = (t: TakeResult): string => {
       const f = t.features, c: string[] = [];
-      if (f[F.valid] <= 0) return '<span class="chip warn">no stable pitch</span>';
+      if (f[F.valid] <= 0) return `<span class="chip warn">no stable pitch</span>${this.isExcluded(t) ? '<span class="chip warn">left out of fit</span>' : ''}`;
       c.push(f[F.pitch_std] > 8 ? '<span class="chip warn">unstable</span>' : '<span class="chip r1">stable</span>');
       if (Math.abs(f[F.scoop]) > 20) c.push('<span class="chip warn">scoop</span>');
       if (f[F.hnr] < 12) c.push('<span class="chip warn">breathy</span>');
       if (f[F.vib_rate] > 0) c.push('<span class="chip">vibrato</span>');
       if (Math.abs(f[F.regime] - 1) > 0.25) c.push('<span class="chip warn">wrong register</span>');
       if (t.clipped) c.push('<span class="chip warn">clipped</span>');
+      if (this.isExcluded(t)) c.push('<span class="chip warn" title="the fitter left this take out">left out of fit</span>');
       return c.join('');
     };
     const src = takes.some((t) => t.source === 'fallback') ? 'TS stand-in extractor (the engine\'s sax_analyze is not in this build yet)' : 'engine analysis.rs (sax_analyze)';
@@ -215,7 +217,7 @@ export class CoachView {
         <canvas id="pl-harm"></canvas>
         <div class="table-wrap"><table class="coach-table">
           <tr><th>note</th>${cols.map((k) => `<th title="${FEATURE_UNITS[k]}${ROOM_SENSITIVE.has(k) ? ' — room-sensitive' : ''}">${FEATURE_NAMES[k]}${ROOM_SENSITIVE.has(k) ? '<sup class="rs">room</sup>' : ''}</th>`).join('')}${extra ? '<th title="release_clean: tongue stop (clean) vs fade">release</th>' : ''}<th></th></tr>
-          ${takes.map((t) => `<tr><td><b>${esc(t.id)}</b></td>${cols.map((k) => `<td class="${grey && ROOM_SENSITIVE.has(k) ? 'rs-grey' : ''}">${t.features[F.valid] > 0 ? fmt(t.features[k], k === F.f0 ? 1 : k === F.regime || k === F.centroid_rel ? 2 : 1) : '—'}</td>`).join('')}${extra ? `<td>${t.features.length > 29 ? (t.features[29] > 0 ? 'clean' : '<span class="chip warn">fade</span>') : ''}</td>` : ''}<td>${chip(t)}</td></tr>`).join('')}
+          ${takes.map((t) => `<tr class="${this.isExcluded(t) ? 'excluded' : ''}"><td><b>${esc(t.id)}</b></td>${cols.map((k) => `<td class="${grey && ROOM_SENSITIVE.has(k) ? 'rs-grey' : ''}">${t.features[F.valid] > 0 ? fmt(t.features[k], k === F.f0 ? 1 : k === F.regime || k === F.centroid_rel ? 2 : 1) : '—'}</td>`).join('')}${extra ? `<td>${t.features.length > 29 ? (t.features[29] > 0 ? 'clean' : '<span class="chip warn">fade</span>') : ''}</td>` : ''}<td>${chip(t)}</td></tr>`).join('')}
         </table></div>
         <p class="hint">Features: ${esc(src)}. Timbre numbers depend on your room and microphone; the coach compares notes with each other rather than with absolute targets.
           <sup class="rs">room</sup> = room-sensitive: in a reverberant room the attack, scoop and individual harmonic levels are unreliable (close-mic or record in a dry room).</p>
@@ -241,6 +243,7 @@ export class CoachView {
         ${fit && this.simSounding() < 0.5 ? `<p class="flag">⚑ Only ${(this.simSounding() * 100).toFixed(0)} % of the simulated notes sound at the fitted controls — treat the fitted player with caution (re-fit, or record more notes).</p>` : ''}
         ${fit ? `<details ${sug.length ? '' : 'open'}><summary>Fitted player (${esc(fit.method)}, ${(fit.ms / 1000).toFixed(1)} s)</summary>
           <table class="coach-table small"><tr><th>control</th><th>value</th><th>uncertainty</th><th>from this recording</th></tr>${ctrl}</table></details>` : ''}
+        ${fit && fit.status !== 'failed' ? this.recordingWarnings() : ''}
         ${fit?.status === 'failed' ? `<div class="fit-failed"><b>The fit failed</b> — the fitted simulator does not reproduce your recording, so no advice is given:<ul>${(fit.problems ?? []).map((p) => `<li>${esc(p)}</li>`).join('')}</ul>Try re-recording the notes listed, or re-fit.</div>` : ''}
         ${this.session.roomNote ? `<div class="room-badge some">${esc(this.session.roomNote)}</div>` : ''}
         ${this.section('Most likely causes', 'template ranking — no fit needed', sug, 'template')}
@@ -314,6 +317,19 @@ export class CoachView {
     if (!list.length) return '';
     return `<h3>${esc(title)}${sub ? ` <span class="hint">(${esc(sub)})</span>` : ''}</h3>
       <ol class="suggestions" data-src="${src}">${list.map(([x, i]) => this.suggestionHtml(x, i)).join('')}</ol>`;
+  }
+
+  /** was this take left out of the fit by the fitter's recording guard? */
+  private isExcluded(t: TakeResult): boolean {
+    return !!this.session.fit?.excluded?.includes(t.id.replace(/\s+/g, ''));
+  }
+
+  /** player-facing amber warnings for takes the fitter left out (and other non-fatal problems) */
+  private recordingWarnings(): string {
+    const fit = this.session.fit;
+    if (!fit) return '';
+    const items = recordingWarnings(this.orderedTakes(), fit.excluded ?? [], fit.problems ?? []);
+    return items.length ? `<div class="rec-warn"><b>Recording notes</b><ul>${items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '';
   }
 
   /** fraction of takes whose simulated counterpart sounds (valid) */

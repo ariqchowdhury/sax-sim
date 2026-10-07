@@ -12,7 +12,7 @@
 //!   render --analyze rec.wav --notes Bb3,D4,G4,...     auto-segment, one feature vector per note
 //!   render --fingering G4 ... --features [--seed N]    features of the rendered note (JSON)
 //!   render --room rec.wav                              blind room / recording-quality estimate (JSON)
-//!          [--inst-t60 95]   instrument ring-down T60·f0 for --analyze/--room (120 sim, ≈95 real)
+//!          [--inst-t60 95]   instrument ring-down T60·f0 for --analyze/--room (default 95)
 //!   render --bench                                     µs per 128-sample block per oversampling
 
 use sax_engine::engine::Engine;

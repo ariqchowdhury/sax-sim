@@ -33,9 +33,13 @@ pub enum Param {
     /// musical dynamic 0 (pp) … 0.5 (mf) … 1 (ff), realised by the player
     /// model through pressure + embouchure (needs player_assist > 0)
     Dynamic = 24,
+    /// 0 = anechoic subglottal load (legacy), 1 = trachea + bronchial tree (tract.rs)
+    Subglottal = 25,
+    /// tongue-dorsum contact length (tract.rs)
+    TongueLength = 26,
 }
 
-pub const NUM_PARAMS: usize = 25;
+pub const NUM_PARAMS: usize = 27;
 
 pub struct ParamDef {
     pub name: &'static str,
@@ -76,6 +80,8 @@ pub const PARAM_DEFS: [ParamDef; NUM_PARAMS] = [
     p!("reed_model", 0.0, 1.0, 0.0),
     p!("player_assist", 0.0, 1.0, 0.5),
     p!("dynamic", 0.0, 1.0, 0.5),
+    p!("subglottal", 0.0, 1.0, 1.0),
+    p!("tongue_length", 0.0, 1.0, 0.0),
 ];
 
 impl Param {
@@ -102,7 +108,7 @@ pub fn clamp_param(id: usize, v: f32) -> f32 {
         return d.default;
     }
     let mut x = v.max(d.min).min(d.max);
-    if id == Param::Oversample as usize || id == Param::ReedModel as usize {
+    if id == Param::Oversample as usize || id == Param::ReedModel as usize || id == Param::Subglottal as usize {
         x = x.round();
     }
     x

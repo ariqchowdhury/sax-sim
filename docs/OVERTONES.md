@@ -1,7 +1,7 @@
 # Overtones on the Saxophone: What Controls Them
 
 *Compiled 2026-10-06 from the acoustics literature and from sweeps of the sax_sim
-first-principles simulator. Literature references are cited from memory; treat details as
+first-principles simulator; updated after round 7 (see "Update" below). Literature references are cited from memory; treat details as
 approximate. Companion to [ALTISSIMO.md](ALTISSIMO.md).*
 
 ## Summary
@@ -116,6 +116,41 @@ trains.
    it forward and up rather than adding pressure.
 7. **Repeat on low B, C and C#**, then carry the same voicing to altissimo fingerings
    (see [ALTISSIMO.md](ALTISSIMO.md)).
+
+## Update: windpipe, tongue shape and a lossier saxophone (round 7)
+
+The tables above come from an earlier version of the model. Round 7 added three things that
+change the overtone picture:
+
+- **The windpipe below the vocal folds.** The trachea and bronchi have their own resonances
+  (about 550, 1400 and 2300 Hz). With the glottis open they couple into the mouth and add tract
+  resonances in exactly the 620–820 Hz region where overtones were missing.
+- **A "bunched" tongue.** Arching the tongue along a longer stretch of the palate, rather than
+  at a single high point, strengthened the tract resonances at 620–800 Hz from 13–20 to
+  23–38 MPa·s/m³. It also made the 2nd partial (the octave without the octave key) much easier.
+- **Real-instrument wall losses.** The model saxophone is now about 30 % lossier, as real
+  instruments are, which weakens its upper resonances further.
+
+With the first two on the earlier bore, partials 4 and 5 on low Bb–C# went from 6 sounding
+settings to 41 (out of 136 high-tongue settings per note). On the final, lossier model they
+sound in a narrow window: partial 4 in 18–32 of 960 settings per note (low Bb–B), partial 5 in
+1–10.
+
+**What limits the 4th and 5th partials now is the saxophone, not the mouth.** On low C the
+air column's 5th resonance sits about 100 cents flat of the true 5th partial and is very weak
+(about 3 MPa·s/m³); on low C# it sits about 100 cents sharp. Changing the size of the lowest
+tone holes by ±20 % didn't fix it, so it comes from how the open low holes and the bell shape
+this bore, not from a single wrong dimension. Real saxophones differ here, which may be why
+some players find particular partials on particular low notes much easier than others.
+
+**For players this suggests:**
+
+- For partials 4 and 5, try an open throat (let the windpipe resonances help) together with a
+  long, bunched tongue arch, rather than the narrow, held throat used for altissimo.
+- Expect these partials to speak only in a narrow window of voicing and air, and to be out of
+  tune; match them by ear.
+- If one low fingering won't give you its 5th partial, try the neighbouring low note: the
+  resonance that helps is a property of the instrument and changes from note to note.
 
 ## Trying it in the simulator
 

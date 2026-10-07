@@ -55,7 +55,7 @@ const CASES: { name: string; steps: Record<string, number>; push?: boolean; weak
   { name: 'big mouthpiece/reed change: more mouthpiece, open tip, hard reed', steps: { lip_position: 2, tip_opening: 2, reed_strength: 1.5, baffle_height: 1.5 }, weak: true },
   { name: 'same big change, with the G4push take', steps: { lip_position: 2, tip_opening: 2, reed_strength: 1.5, baffle_height: 1.5 }, push: true, weak: true },
 ];
-const which = process.env.FIT_CASES === 'all' ? CASES : process.env.FIT_CASES ? process.env.FIT_CASES.split(',').map((i) => CASES[Number(i)]) : CASES.slice(0, 2);
+const which = process.env.FIT_CASES === 'all' ? CASES : process.env.FIT_CASES ? process.env.FIT_CASES.split(',').map((i) => CASES[Number(i)]).filter(Boolean) : CASES.slice(0, 2);
 
 let failures = 0;
 for (const c of which) {
@@ -114,6 +114,24 @@ for (const c of which) {
   for (const l of lines) console.log(l);
   if (r.causes) console.log(`      template causes: ${r.causes.slice(0, 3).map((x) => `${x.id} ${(100 * x.confidence).toFixed(0)}%`).join(', ')}`);
   for (const t of r.tradeOffs) console.log(`      trade-off (ρ ${t.correlation.toFixed(2)}): ${t.message}`);
+}
+// recording guard: a silent take and a take in the wrong regime are left out and reported (not fitted)
+{
+  const recs = await pool.run(baseNotes.map(({ n }) => jobFor(model, defaultControlValues(model), n, { oversample: 2, seconds: 1.5, seed: 7 })));
+  const recorded = baseNotes.map(({ id }, i) => ({ id, features: Float32Array.from(recs[i].features) }));
+  const pp = recorded.find((x) => x.id === 'G4 pp')!;
+  pp.features.fill(0); // silent take (no stable pitch)
+  const c5 = recorded.find((x) => x.id === 'C5')!;
+  c5.features[24] = 2; // overblown to the octave: left out
+  const d4 = recorded.find((x) => x.id === 'D4')!;
+  d4.features[1] = 400; // wrong note: left out
+  // the objective ignores the silent take's undefined features
+  const tg = target(baseNotes.map((x) => x.n), new Map(baseNotes.map(({ n }, i) => [n.label, recorded[i].features])));
+  const silentIn = tg.names.some((nm) => nm.endsWith('@G4pp') || nm.includes('-pp@G4'));
+  const r = await fit(recorded, { evaluator: pool, model, maxEvaluations: 30, timeBudgetMs: 60000, noCma: true, multiStart: false }).result;
+  const ok = !silentIn && r.excluded.includes('G4pp') && r.excluded.includes('D4') && r.excluded.includes('C5') && r.problems.some((p) => p.startsWith('G4 pp: no stable pitch')) && r.problems.some((p) => p.startsWith('D4: recorded +400 ¢')) && r.problems.some((p) => p.startsWith('C5: recorded in a different regime')) && r.status === 'ok';
+  if (!ok) failures++;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  recording guard: silent / wrong-regime / wrong-note takes left out and reported — excluded [${r.excluded.join(', ')}]; ${r.problems.join('; ')}`);
 }
 pool.close();
 console.log(`fit: ${failures} failure(s) in ${which.length} cases (model: ${model.source})`);

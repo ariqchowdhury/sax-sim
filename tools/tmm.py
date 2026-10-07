@@ -48,10 +48,11 @@ def air(T_c=22.0):
     )
 
 
-def lossy(w, a, A):
+def lossy(w, a, A, factor=1.0):
     """Complex wavenumber k (so p ~ exp(-j k x)) and characteristic-impedance factor zeta
-    (Zc = zeta * rho c / S) for a tube of radius a. Keefe (1984)."""
-    rv = a * np.sqrt(A["rho"] * w / A["eta"])
+    (Zc = zeta * rho c / S) for a tube of radius a. Keefe (1984). `factor` scales the boundary-layer
+    terms (real-instrument wall roughness / extra losses, meta.wall_loss_factor)."""
+    rv = a * np.sqrt(A["rho"] * w / A["eta"]) / factor
     k0 = w / A["c"]
     k = k0 * ((1 + 1.045 / rv) - 1j * (1.045 / rv + 1.080 / rv ** 2 + 0.750 / rv ** 3))
     zeta = (1 + 0.369 / rv) - 1j * (0.369 / rv + 1.149 / rv ** 2 + 0.303 / rv ** 3)
@@ -78,6 +79,7 @@ class Geometry:
         self.linkages = doc["linkages"]
         self.reed_volume = doc["meta"].get("reed_equivalent_volume", 1.0e-6)
         self.reed_fr = doc["meta"].get("reed_resonance_hz", 0.0)
+        self.wall_loss = doc["meta"].get("wall_loss_factor", 1.0)
         self.end_x = self.profile[-1, 0]
 
     def radius(self, x):
@@ -119,7 +121,7 @@ def cone_matrix(w, x1, r1, x2, r2, A):
     """Transfer matrix [[a,b],[c,d]] with [p1,U1] = M [p2,U2] for a lossy frustum."""
     L = x2 - x1
     rm = 0.5 * (r1 + r2)
-    k, zeta = lossy(w, rm, A)
+    k, zeta = lossy(w, rm, A, A.get("wall", 1.0))
     rho, c = A["rho"], A["c"]
     if abs(r2 - r1) < 1e-7 * L or abs(r2 - r1) < 1e-9:
         S = math.pi * rm * rm
@@ -216,6 +218,7 @@ def input_impedance(g, freqs, openness, A=None, max_seg=0.005, include_reed=True
     """Z_in at the reed tip (x=0) for hole openness dict; returns complex array."""
     if A is None:
         A = air()
+    A = dict(A, wall=getattr(g, "wall_loss", 1.0))
     w = 2 * np.pi * np.asarray(freqs, dtype=float)
     prof = g.profile
     # element list from bell to input

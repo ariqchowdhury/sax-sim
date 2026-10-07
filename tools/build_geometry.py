@@ -34,7 +34,7 @@ HOLE_TABLE = os.path.join(HERE, "hole_table.json")
 P = dict(
     mp_len_air=0.075,       # reed tip -> neck tube end (air path) at default insertion 10 mm
     mp_len_physical=0.085,  # mouthpiece overall length
-    neck_len=0.185,         # neck air path length (cork end -> body tenon)
+    neck_len=0.170,         # neck air path length (cork end -> body tenon); 0.185 -> 0.170 in round 7 (F#6)
     r_neck_in=0.0061,       # neck entry radius (ID 12.2 mm)
     r_body_in=0.01205,      # neck tenon / body entry radius (ID 24.1 mm)
     neck_power=1.0,         # neck taper shape (see r_neck)
@@ -43,6 +43,7 @@ P = dict(
     bell_flare_len=0.20,    # length of flaring section before rim
     r_rim=0.0620,           # bell rim radius (rim ID ~124 mm)
     flare_power=3.2,
+    wall_loss_factor=1.3,   # real-instrument loss factor on the bore boundary-layer losses (PHYSICS.md §2)
     reed_volume=1.08e-6,    # equivalent reed-compliance volume rho c^2 S_r^2 / k_r (m^3), see PHYSICS.md sec. 5
     reed_fr=2000.0,         # lipped reed resonance (Hz) used for the frequency dependence of the reed compliance
     mp_r_tip=0.0030, mp_r_baffle=0.0050, mp_r_chamber=0.0068, mp_r_throat=0.0055,
@@ -595,6 +596,13 @@ def build(tbl=None, write=True):
             ),
             temperature_c=22.0,
             reed_equivalent_volume=P["reed_volume"],
+            wall_loss_factor=P["wall_loss_factor"],
+            wall_loss_note=("Multiplies the smooth-wall visco-thermal boundary-layer losses of the bore (engine bore_loss_mult, "
+                            "tools/tmm.py). Real instruments are lossier than smooth-wall theory (wall roughness and lacquer, "
+                            "closed tone-hole and pad-cup cavities, small leaks): measured woodwind/brass resonance Q and peak "
+                            "magnitudes are typically 10-30 % below theory (Causse, Kergomard & Lurton 1984; Nederveen 1998; "
+                            "Dalmont et al.; Chaigne & Kergomard 2016). 1.3 gives Q 41-52 for Bb3-C6 (smooth wall: 52-66) "
+                            "and lowers peaks by ~20 %."),
             reed_resonance_hz=P["reed_fr"],
         ),
         mouthpiece=dict(

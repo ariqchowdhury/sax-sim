@@ -112,7 +112,6 @@ pub struct Player {
     alt_gate_t: f64,
     alt_sel: Option<usize>,
     prev_lung: f64,
-    pp_cache: ReedPpCache,
     /// dynamics excursion currently applied (0 = mf) and its learnt per-note limit
     dyn_w: f64,
     dyn_cap: Option<f64>,
@@ -126,24 +125,6 @@ pub struct Player {
     pub out: PlayerOffsets,
 }
 
-/// Closing pressure of the pp embouchure for the current base controls (cached).
-#[derive(Clone, Debug, Default)]
-struct ReedPpCache {
-    key: [f64; 5],
-    pm: f64,
-}
-
-impl ReedPpCache {
-    fn get(c: &mut ReedPpCache, base: &crate::reed::ReedControls) -> f64 {
-        let key = [base.reed_strength, base.tip_opening_mm, base.facing_length_mm, base.lip_damping, base.reed_width];
-        if c.pm <= 0.0 || key != c.key {
-            let pp = crate::reed::ReedControls { lip_force: DYN_PP_LIP_FORCE, lip_position_mm: DYN_PP_LIP_POS, tongue_contact: 0.0, ..*base };
-            c.pm = closing_pressure(&pp);
-            c.key = key;
-        }
-        c.pm
-    }
-}
 
 // ---- dynamics (PHYSICS.md §11/§12) ----------------------------------------------------------
 // The oscillation is born subcritically (inverse Hopf) with an amplitude of order 0.3·p_M, so
@@ -156,14 +137,28 @@ impl ReedPpCache {
 
 /// pp embouchure: lip force (N), lip position (mm from the tip), lip-damping offset
 pub const DYN_PP_LIP_FORCE: f64 = 2.8;
+/// palm-key notes (≥ DYN_PP_R2_FMAX): pp lip force (N) and blowing ratio γ
+pub const DYN_PP_LIP_FORCE_PALM: f64 = 2.0;
+pub const DYN_PP_GAMMA_PALM: f64 = 0.55;
+/// palm-key notes ease toward pp more slowly (their soft branch is narrow), s
+pub const DYN_RELAX_TAU_PALM: f64 = 1.0;
+/// palm-key notes: pp lip position (mm) — a little less mouthpiece than the default
+pub const DYN_PP_LIP_POS_PALM: f64 = 14.0;
 pub const DYN_PP_LIP_POS: f64 = 16.0;
+/// pp lip position for register-2 notes (mm): further in, against the pinched lip's sharpness
+pub const DYN_PP_LIP_POS_R2: f64 = 18.5;
 pub const DYN_PP_DAMP: f64 = 0.4;
 /// pp blowing pressure as a fraction of the pp embouchure's closing pressure p_M
 pub const DYN_PP_GAMMA: f64 = 0.42;
-/// pp pitch trim: lip-force gain (N/(cent·s)) beyond a dead band (cents), limit (N)
-pub const DYN_TRIM_GAIN: f64 = 0.004;
-pub const DYN_TRIM_DEADBAND: f64 = 20.0;
-pub const DYN_TRIM_MAX: f64 = 1.0;
+/// pp pitch trim on the lip position: gain (mm/(cent·s)) beyond a dead band (cents), limit (mm)
+pub const DYN_TRIM_GAIN: f64 = 0.1;
+pub const DYN_TRIM_DEADBAND: f64 = 8.0;
+pub const DYN_TRIM_MAX: f64 = 3.0;
+/// trim limit outside the upper register (mm): more mouthpiece cracks the low notes up and
+/// drops the palm notes; their pp pitch is within ±10 ¢ without it
+pub const DYN_TRIM_MAX_R1: f64 = 0.0;
+/// upper-register pp lip position applies below this target frequency (Hz)
+pub const DYN_PP_R2_FMAX: f64 = 720.0;
 /// after a note dies or cracks at excursion w, the player limits it to DYN_BACKOFF·w
 pub const DYN_BACKOFF: f64 = 0.85;
 /// lag of the second gesture behind the first when moving away from mf (s)
@@ -196,9 +191,10 @@ pub const ALT_REARTIC_AFTER: f64 = 0.12;
 pub const ALT_DIP_TIME: f64 = 0.08;
 /// "voice, then attack" (PHYSICS.md §11): on a new altissimo fingering or a new
 /// attack the player keeps the tongue on the reed until the voicing ramp is in
-/// place and at least ALT_SETTLE has passed — long enough for the previous
-/// note's bore oscillation (Q ≈ 30 at 300–700 Hz → τ ≈ 15–30 ms) to ring down,
-/// so it cannot seed the low regime. Measured: pure physics locks 18/18 for
+/// place and at least ALT_SETTLE has passed — so the previous note's bore
+/// oscillation, ringing down with amplitude time constant τ = Q/(πf) ≈ 60–150 ms
+/// (Q ≈ 55, T60 ≈ 120/f0), has decayed enough (≳ 6–15 dB) that it no longer
+/// seeds the low regime. Measured: pure physics locks 18/18 for
 /// gaps ≥ 0.1 s, 6/18 at 0.05 s.
 pub const ALT_SETTLE: f64 = 0.1;
 /// lip-force pitch-trim gain (N/(cent·s)) and limit (N)
@@ -283,6 +279,20 @@ impl Player {
         self.emb_w
     }
 
+    /// Forget all run-time adaptation (register locking, dynamics learning,
+    /// altissimo ramps…) — keeps the note table, current fingering and the
+    /// player's base controls. For deterministic back-to-back offline renders.
+    pub fn reset_runtime(&mut self) {
+        let fresh = Player {
+            notes: core::mem::take(&mut self.notes),
+            current: self.current,
+            base: self.base,
+            out: PlayerOffsets { pressure_scale: 1.0, ..Default::default() },
+            ..Default::default()
+        };
+        *self = fresh;
+    }
+
     /// Recognise the fingering from key press amounts.
     pub fn on_keys(&mut self, keys: &[f32]) {
         let mut mask = 0u64;
@@ -354,7 +364,9 @@ impl Player {
             if !held || (freq <= 0.0 && self.dyn_w <= 0.15) {
                 self.boost = 1.0;
             } else if in_reg {
-                self.boost *= 1.0 - dt / DYN_RELAX_TAU;
+                let palm_note = self.current.map(|i| self.notes[i].register >= 2 && self.notes[i].f_target >= DYN_PP_R2_FMAX).unwrap_or(false);
+                let tau = if palm_note && d < 0.0 { DYN_RELAX_TAU_PALM } else { DYN_RELAX_TAU };
+                self.boost *= 1.0 - dt / tau;
             }
             self.dyn_w = 0.0;
             if d < 0.0 {
@@ -369,33 +381,50 @@ impl Player {
                 // both push low notes — 2nd impedance peak ≥ 1st — onto their
                 // octave.) The breath command leads the lip by the lungs' lag.
                 let we = self.emb_lag(w, dt);
-                let lf = base.lip_force + we * (DYN_PP_LIP_FORCE - base.lip_force);
-                let lp = base.lip_position_mm + we * (DYN_PP_LIP_POS - base.lip_position_mm);
-                // the firm pp lip raises the pitch (smaller reed volume): ease the
-                // lip off while sharp, like a player "lipping down"
-                if let (Some(i), true) = (self.current, in_reg && we > 0.3) {
+                // pp lip position: register 1 at DYN_PP_LIP_POS (more mouthpiece there pushes
+                // the low notes onto their octave), the upper register further in
+                // (DYN_PP_LIP_POS_R2): a longer free reed has a larger equivalent volume and
+                // flattens the pinched pp lip's sharpness; plus a pitch trim on the same lever
+                // (palm-key notes ≥ 720 Hz (Eb6 up) drop to the lower register with more mouthpiece:
+                // they keep the register-1 position)
+                let reg2 = self.current.map(|i| self.notes[i].register >= 2 && self.notes[i].f_target < DYN_PP_R2_FMAX).unwrap_or(false);
+                // palm-key notes: a softer pinch and relatively more air (their soft branch is
+                // narrow: with the full pp pinch they fall silent or to the lower register)
+                let palm = self.current.map(|i| self.notes[i].register >= 2 && self.notes[i].f_target >= DYN_PP_R2_FMAX).unwrap_or(false);
+                let (lf_pp, gamma_pp) = if palm { (DYN_PP_LIP_FORCE_PALM, DYN_PP_GAMMA_PALM) } else { (DYN_PP_LIP_FORCE, DYN_PP_GAMMA) };
+                // pitch trim (players "lip down" at pp by taking more mouthpiece; voicing —
+                // jaw, tongue, glottis — moves the pp pitch by ≤ 3 ¢ in the model, so the lip
+                // position is the lever): sharp → more mouthpiece, flat → less
+                if let (Some(i), true) = (self.current, in_reg && we > 0.15) {
                     let c = 1200.0 * (freq / self.notes[i].f_target).log2();
-                    if c > DYN_TRIM_DEADBAND {
-                        self.dyn_trim = (self.dyn_trim - DYN_TRIM_GAIN * (c - DYN_TRIM_DEADBAND) * dt).max(-DYN_TRIM_MAX);
-                    }
+                    let e = if c > DYN_TRIM_DEADBAND { c - DYN_TRIM_DEADBAND } else if c < -DYN_TRIM_DEADBAND { c + DYN_TRIM_DEADBAND } else { 0.0 };
+                    let (lo, hi) = if reg2 { (-DYN_TRIM_MAX, DYN_TRIM_MAX) } else { (-DYN_TRIM_MAX_R1, DYN_TRIM_MAX_R1) };
+                    self.dyn_trim = (self.dyn_trim + DYN_TRIM_GAIN * e * dt).clamp(lo, hi);
                 }
-                o.lip += lf - base.lip_force + self.dyn_trim * we;
+                let lp_pp = if reg2 { DYN_PP_LIP_POS_R2 } else if palm { DYN_PP_LIP_POS_PALM } else { DYN_PP_LIP_POS };
+                // (the trim acts in full from half-way to pp, so p is corrected too)
+                let trim = self.dyn_trim * (2.0 * we).min(1.0);
+                let lf = base.lip_force + we * (lf_pp - base.lip_force);
+                let lp = base.lip_position_mm + we * (lp_pp - base.lip_position_mm) + trim;
+                o.lip += lf - base.lip_force;
                 o.lip_position += lp - base.lip_position_mm;
                 o.lip_damping += DYN_PP_DAMP * we;
                 let pm0 = closing_pressure(&base);
-                let pm_pp = ReedPpCache::get(&mut self.pp_cache, &base);
+                // (the register lock below adds 0.5·adapt to the lip force; when it has loosened
+                // the lip — a note that started on its octave — include it, or the note is blown
+                // below its soft-branch threshold)
+                let lock_lip = if self.current.is_some() { 0.5 * self.adapt.min(0.0) * (2.0 * a).min(1.0) } else { 0.0 };
                 let lead = |x: f64| crate::reed::ReedControls {
-                    lip_force: base.lip_force + x * (DYN_PP_LIP_FORCE - base.lip_force),
-                    lip_position_mm: base.lip_position_mm + x * (DYN_PP_LIP_POS - base.lip_position_mm),
+                    lip_force: (base.lip_force + x * (lf_pp - base.lip_force) + lock_lip).clamp(0.0, 3.0),
+                    lip_position_mm: base.lip_position_mm + x * (lp_pp - base.lip_position_mm) + trim,
                     ..base
                 };
                 let pm_w = closing_pressure(&lead(w));
                 let lung = lung_pa.max(1.0);
                 // γ at mf (the player's own) → γ_pp, geometrically
                 let g_mf = lung / pm0;
-                let g = g_mf * (DYN_PP_GAMMA / g_mf).min(1.0).powf(w);
+                let g = g_mf * (gamma_pp / g_mf).min(1.0).powf(w);
                 let p_w = (g * pm_w).min(lung);
-                let _ = pm_pp;
                 o.pressure_scale *= p_w / lung;
             } else {
                 // toward ff, also entered from the mf onset (a loose lip at full
@@ -652,7 +681,8 @@ mod tests {
         }
         let pp = PlayerOffsets { ..p.out };
         assert!(pp.lip > 1.5 && pp.lip_position > 3.0, "{pp:?}");
-        let pm_pp = closing_pressure(&crate::reed::ReedControls { lip_force: DYN_PP_LIP_FORCE, lip_position_mm: DYN_PP_LIP_POS, ..Default::default() });
+        // (register-2 note below DYN_PP_R2_FMAX: the upper-register pp lip position)
+        let pm_pp = closing_pressure(&crate::reed::ReedControls { lip_force: DYN_PP_LIP_FORCE, lip_position_mm: DYN_PP_LIP_POS_R2, ..Default::default() });
         let p_blow = 3500.0 * pp.pressure_scale;
         assert!((p_blow / pm_pp - DYN_PP_GAMMA).abs() < 0.03, "γ = {}", p_blow / pm_pp);
         // the note dies on the way down: back off to mf and stay above that point
@@ -669,6 +699,35 @@ mod tests {
         }
         assert!(w_fail > 0.3 && p.dyn_w <= DYN_BACKOFF * w_fail + 1e-9, "{w_fail} → {}", p.dyn_w);
         assert!(p.out.pressure_scale > pp.pressure_scale, "{:?}", p.out);
+    }
+
+    #[test]
+    fn pp_pitch_trim_takes_more_mouthpiece_when_sharp() {
+        let mk = |f: f64, reg: i32| {
+            let mut p = Player { notes: vec![NoteInfo { mask: 1, f_target: f, register: reg, alt: None }], ..Default::default() };
+            p.on_keys(&[1.0]);
+            p
+        };
+        // register 2, 40 ¢ sharp at pp: the lip position goes beyond the pp target
+        let mut p = mk(523.0, 2);
+        let sharp = 523.0 * 2f64.powf(40.0 / 1200.0);
+        for _ in 0..3000 {
+            p.tick(0.5, 0.0, sharp, 3500.0, 0.0, 1e-3);
+        }
+        let target = DYN_PP_LIP_POS_R2 - p.base.lip_position_mm;
+        assert!(p.out.lip_position > target + 1.0, "{:?}", p.out);
+        // in tune: no trim
+        let mut q = mk(523.0, 2);
+        for _ in 0..3000 {
+            q.tick(0.5, 0.0, 523.0, 3500.0, 0.0, 1e-3);
+        }
+        assert!((q.out.lip_position - target).abs() < 0.05, "{:?}", q.out);
+        // register 1 (and palm notes): never trimmed (more mouthpiece cracks them)
+        let mut r = mk(233.0, 1);
+        for _ in 0..3000 {
+            r.tick(0.5, 0.0, 233.0 * 2f64.powf(40.0 / 1200.0), 3500.0, 0.0, 1e-3);
+        }
+        assert!((r.out.lip_position - (DYN_PP_LIP_POS - r.base.lip_position_mm)).abs() < 0.05, "{:?}", r.out);
     }
 
     #[test]

@@ -3,12 +3,12 @@
  "seed": 77,
  "by_method": {
   "template": {
-   "top1": 0.5166666666666667,
-   "top3": 0.8
+   "top1": 0.6166666666666667,
+   "top3": 0.8333333333333334
   },
   "linear": {
-   "top1": 0.3,
-   "top3": 0.48333333333333334
+   "top1": 0.35,
+   "top3": 0.55
   }
  },
  "rows": [
@@ -26,8 +26,8 @@
    "true": "mouthpiece_too_far_in",
    "top3": [
     "mouthpiece_too_far_in",
-    "too_little_mouthpiece",
-    "biting"
+    "biting",
+    "too_little_mouthpiece"
    ],
    "room": 0.6,
    "mic": "phone"
@@ -36,8 +36,8 @@
    "true": "biting",
    "top3": [
     "biting",
-    "over_blowing",
-    "reed_too_soft"
+    "reed_too_soft",
+    "over_blowing"
    ],
    "room": 0.35,
    "mic": "bell_close"
@@ -47,7 +47,7 @@
    "top3": [
     "loose_embouchure",
     "mouthpiece_too_far_out",
-    "large_chamber"
+    "too_much_mouthpiece"
    ],
    "room": 1.0,
    "mic": "bell_close"
@@ -55,9 +55,9 @@
   {
    "true": "too_much_mouthpiece",
    "top3": [
-    "reed_too_soft",
+    "closed_low_voicing",
     "over_blowing",
-    "too_much_mouthpiece"
+    "reed_too_soft"
    ],
    "room": 0.2,
    "mic": "m1"
@@ -65,9 +65,9 @@
   {
    "true": "too_little_mouthpiece",
    "top3": [
+    "too_little_mouthpiece",
     "biting",
-    "mouthpiece_too_far_in",
-    "bright_baffle"
+    "reed_too_hard"
    ],
    "room": 0.6,
    "mic": "bell_close"
@@ -75,9 +75,9 @@
   {
    "true": "too_much_lip_cushion",
    "top3": [
-    "closed_low_voicing",
-    "over_blowing",
-    "too_much_lip_cushion"
+    "too_much_lip_cushion",
+    "reed_too_hard",
+    "closed_low_voicing"
    ],
    "room": 0.35,
    "mic": "off_axis"
@@ -85,9 +85,9 @@
   {
    "true": "too_little_lip_cushion",
    "top3": [
-    "reed_too_hard",
-    "tip_opening_large",
-    "too_little_lip_cushion"
+    "too_little_lip_cushion",
+    "biting",
+    "over_blowing"
    ],
    "room": 0.6,
    "mic": "m1"
@@ -96,8 +96,8 @@
    "true": "reed_too_hard",
    "top3": [
     "weak_support",
-    "reed_too_hard",
-    "too_little_mouthpiece"
+    "too_little_mouthpiece",
+    "reed_too_hard"
    ],
    "room": 0.2,
    "mic": "phone"
@@ -105,9 +105,9 @@
   {
    "true": "reed_too_soft",
    "top3": [
-    "closed_low_voicing",
-    "over_blowing",
-    "too_much_lip_cushion"
+    "too_much_lip_cushion",
+    "reed_too_soft",
+    "closed_low_voicing"
    ],
    "room": 1.0,
    "mic": "phone"
@@ -117,7 +117,7 @@
    "top3": [
     "tip_opening_large",
     "weak_support",
-    "reed_too_hard"
+    "too_little_mouthpiece"
    ],
    "room": 0.2,
    "mic": "off_axis"
@@ -127,7 +127,7 @@
    "top3": [
     "bright_baffle",
     "mouthpiece_too_far_in",
-    "too_little_mouthpiece"
+    "biting"
    ],
    "room": 0.6,
    "mic": "off_axis"
@@ -137,7 +137,7 @@
    "top3": [
     "large_chamber",
     "mouthpiece_too_far_out",
-    "too_much_lip_cushion"
+    "too_much_mouthpiece"
    ],
    "room": 0.2,
    "mic": "m1"
@@ -145,9 +145,9 @@
   {
    "true": "weak_support",
    "top3": [
-    "too_little_mouthpiece",
-    "weak_support",
-    "reed_too_hard"
+    "loose_embouchure",
+    "too_much_mouthpiece",
+    "weak_support"
    ],
    "room": 0.6,
    "mic": "phone"
@@ -155,9 +155,9 @@
   {
    "true": "over_blowing",
    "top3": [
-    "too_little_lip_cushion",
-    "too_much_lip_cushion",
-    "reed_too_hard"
+    "over_blowing",
+    "closed_low_voicing",
+    "too_much_lip_cushion"
    ],
    "room": 0.6,
    "mic": "phone"
@@ -176,8 +176,8 @@
    "true": "mouthpiece_too_far_in",
    "top3": [
     "mouthpiece_too_far_in",
-    "biting",
-    "bright_baffle"
+    "bright_baffle",
+    "biting"
    ],
    "room": 0.35,
    "mic": "off_axis"
@@ -195,8 +195,8 @@
   {
    "true": "loose_embouchure",
    "top3": [
-    "mouthpiece_too_far_out",
     "loose_embouchure",
+    "mouthpiece_too_far_out",
     "large_chamber"
    ],
    "room": 0.2,
@@ -206,8 +206,8 @@
    "true": "too_much_mouthpiece",
    "top3": [
     "too_much_mouthpiece",
-    "large_chamber",
-    "mouthpiece_too_far_out"
+    "loose_embouchure",
+    "large_chamber"
    ],
    "room": 0.2,
    "mic": "off_axis"
@@ -226,8 +226,8 @@
    "true": "too_much_lip_cushion",
    "top3": [
     "too_much_lip_cushion",
-    "mouthpiece_too_far_out",
-    "loose_embouchure"
+    "large_chamber",
+    "reed_too_hard"
    ],
    "room": 0.2,
    "mic": "phone"
@@ -235,9 +235,9 @@
   {
    "true": "too_little_lip_cushion",
    "top3": [
-    "too_little_lip_cushion",
     "bright_baffle",
-    "reed_too_hard"
+    "reed_too_hard",
+    "mouthpiece_too_far_in"
    ],
    "room": 1.0,
    "mic": "bell_close"
@@ -246,8 +246,8 @@
    "true": "reed_too_hard",
    "top3": [
     "too_little_mouthpiece",
-    "reed_too_hard",
-    "tip_opening_large"
+    "weak_support",
+    "reed_too_hard"
    ],
    "room": 0.6,
    "mic": "off_axis"
@@ -256,8 +256,8 @@
    "true": "reed_too_soft",
    "top3": [
     "large_chamber",
-    "biting",
-    "reed_too_soft"
+    "too_much_mouthpiece",
+    "too_much_lip_cushion"
    ],
    "room": 0.35,
    "mic": "off_axis"
@@ -265,52 +265,202 @@
   {
    "true": "tip_opening_large",
    "top3": [
+    "weak_support",
+    "too_little_mouthpiece",
+    "mouthpiece_too_far_in"
+   ],
+   "room": 0.35,
+   "mic": "phone"
+  },
+  {
+   "true": "bright_baffle",
+   "top3": [
+    "bright_baffle",
+    "mouthpiece_too_far_in",
+    "biting"
+   ],
+   "room": 0.2,
+   "mic": "phone"
+  },
+  {
+   "true": "large_chamber",
+   "top3": [
+    "large_chamber",
+    "mouthpiece_too_far_out",
+    "too_much_mouthpiece"
+   ],
+   "room": 0.6,
+   "mic": "m1"
+  },
+  {
+   "true": "weak_support",
+   "top3": [
+    "weak_support",
+    "reed_too_hard",
+    "too_little_mouthpiece"
+   ],
+   "room": 0.6,
+   "mic": "off_axis"
+  },
+  {
+   "true": "over_blowing",
+   "top3": [
+    "reed_too_soft",
+    "over_blowing",
+    "too_little_lip_cushion"
+   ],
+   "room": 0.35,
+   "mic": "phone"
+  },
+  {
+   "true": "mouthpiece_too_far_out",
+   "top3": [
+    "mouthpiece_too_far_out",
+    "large_chamber",
+    "loose_embouchure"
+   ],
+   "room": 0.6,
+   "mic": "m1"
+  },
+  {
+   "true": "mouthpiece_too_far_in",
+   "top3": [
     "mouthpiece_too_far_in",
     "biting",
+    "bright_baffle"
+   ],
+   "room": 0.6,
+   "mic": "off_axis"
+  },
+  {
+   "true": "biting",
+   "top3": [
+    "biting",
+    "mouthpiece_too_far_in",
+    "reed_too_soft"
+   ],
+   "room": 0.6,
+   "mic": "m1"
+  },
+  {
+   "true": "loose_embouchure",
+   "top3": [
+    "loose_embouchure",
+    "mouthpiece_too_far_out",
+    "large_chamber"
+   ],
+   "room": 0.6,
+   "mic": "phone"
+  },
+  {
+   "true": "too_much_mouthpiece",
+   "top3": [
+    "too_much_mouthpiece",
+    "large_chamber",
+    "over_blowing"
+   ],
+   "room": 0.6,
+   "mic": "bell_close"
+  },
+  {
+   "true": "too_little_mouthpiece",
+   "top3": [
+    "too_little_mouthpiece",
+    "weak_support",
+    "mouthpiece_too_far_in"
+   ],
+   "room": 0.2,
+   "mic": "off_axis"
+  },
+  {
+   "true": "too_much_lip_cushion",
+   "top3": [
+    "closed_low_voicing",
+    "too_much_lip_cushion",
+    "reed_too_hard"
+   ],
+   "room": 0.35,
+   "mic": "bell_close"
+  },
+  {
+   "true": "too_little_lip_cushion",
+   "top3": [
+    "too_much_lip_cushion",
+    "closed_low_voicing",
+    "reed_too_hard"
+   ],
+   "room": 1.0,
+   "mic": "off_axis"
+  },
+  {
+   "true": "reed_too_hard",
+   "top3": [
+    "reed_too_hard",
+    "weak_support",
+    "tip_opening_large"
+   ],
+   "room": 1.0,
+   "mic": "off_axis"
+  },
+  {
+   "true": "reed_too_soft",
+   "top3": [
+    "biting",
+    "mouthpiece_too_far_in",
+    "over_blowing"
+   ],
+   "room": 0.35,
+   "mic": "bell_close"
+  },
+  {
+   "true": "tip_opening_large",
+   "top3": [
+    "too_little_mouthpiece",
+    "weak_support",
+    "mouthpiece_too_far_in"
+   ],
+   "room": 0.35,
+   "mic": "bell_close"
+  },
+  {
+   "true": "bright_baffle",
+   "top3": [
+    "bright_baffle",
+    "mouthpiece_too_far_in",
+    "biting"
+   ],
+   "room": 1.0,
+   "mic": "phone"
+  },
+  {
+   "true": "large_chamber",
+   "top3": [
+    "large_chamber",
+    "tip_opening_large",
+    "loose_embouchure"
+   ],
+   "room": 0.2,
+   "mic": "m1"
+  },
+  {
+   "true": "weak_support",
+   "top3": [
+    "tip_opening_large",
+    "reed_too_hard",
     "weak_support"
    ],
    "room": 0.35,
    "mic": "phone"
   },
   {
-   "true": "bright_baffle",
+   "true": "over_blowing",
    "top3": [
-    "bright_baffle",
-    "mouthpiece_too_far_in",
-    "biting"
-   ],
-   "room": 0.2,
-   "mic": "phone"
-  },
-  {
-   "true": "large_chamber",
-   "top3": [
-    "large_chamber",
-    "mouthpiece_too_far_out",
-    "loose_embouchure"
-   ],
-   "room": 0.6,
-   "mic": "m1"
-  },
-  {
-   "true": "weak_support",
-   "top3": [
-    "large_chamber",
-    "weak_support",
-    "reed_too_soft"
+    "biting",
+    "over_blowing",
+    "mouthpiece_too_far_in"
    ],
    "room": 0.6,
    "mic": "off_axis"
-  },
-  {
-   "true": "over_blowing",
-   "top3": [
-    "reed_too_soft",
-    "too_much_mouthpiece",
-    "biting"
-   ],
-   "room": 0.35,
-   "mic": "phone"
   },
   {
    "true": "mouthpiece_too_far_out",
@@ -319,285 +469,135 @@
     "loose_embouchure",
     "large_chamber"
    ],
-   "room": 0.6,
-   "mic": "m1"
+   "room": 1.0,
+   "mic": "phone"
   },
   {
    "true": "mouthpiece_too_far_in",
    "top3": [
     "mouthpiece_too_far_in",
-    "biting",
-    "over_blowing"
+    "bright_baffle",
+    "biting"
    ],
-   "room": 0.6,
-   "mic": "off_axis"
+   "room": 1.0,
+   "mic": "m1"
   },
   {
    "true": "biting",
    "top3": [
     "biting",
-    "mouthpiece_too_far_in",
-    "over_blowing"
+    "reed_too_soft",
+    "mouthpiece_too_far_in"
    ],
-   "room": 0.6,
-   "mic": "m1"
+   "room": 0.2,
+   "mic": "phone"
   },
   {
    "true": "loose_embouchure",
    "top3": [
-    "loose_embouchure",
     "mouthpiece_too_far_out",
-    "closed_low_voicing"
+    "loose_embouchure",
+    "large_chamber"
    ],
-   "room": 0.6,
+   "room": 0.35,
    "mic": "phone"
   },
   {
    "true": "too_much_mouthpiece",
    "top3": [
-    "too_much_mouthpiece",
-    "large_chamber",
-    "reed_too_soft"
+    "over_blowing",
+    "reed_too_soft",
+    "too_much_lip_cushion"
    ],
-   "room": 0.6,
-   "mic": "bell_close"
+   "room": 0.35,
+   "mic": "off_axis"
   },
   {
    "true": "too_little_mouthpiece",
    "top3": [
-    "biting",
-    "mouthpiece_too_far_in",
-    "tip_opening_large"
+    "too_little_mouthpiece",
+    "over_blowing",
+    "reed_too_soft"
    ],
    "room": 0.2,
-   "mic": "off_axis"
+   "mic": "bell_close"
   },
   {
    "true": "too_much_lip_cushion",
    "top3": [
-    "too_much_lip_cushion",
-    "too_little_lip_cushion",
-    "reed_too_soft"
+    "reed_too_hard",
+    "tip_opening_large",
+    "too_much_lip_cushion"
+   ],
+   "room": 0.6,
+   "mic": "phone"
+  },
+  {
+   "true": "too_little_lip_cushion",
+   "top3": [
+    "reed_too_soft",
+    "over_blowing",
+    "too_little_lip_cushion"
+   ],
+   "room": 1.0,
+   "mic": "bell_close"
+  },
+  {
+   "true": "reed_too_hard",
+   "top3": [
+    "mouthpiece_too_far_out",
+    "tip_opening_large",
+    "loose_embouchure"
    ],
    "room": 0.35,
    "mic": "bell_close"
   },
   {
-   "true": "too_little_lip_cushion",
-   "top3": [
-    "too_much_mouthpiece",
-    "loose_embouchure",
-    "too_much_lip_cushion"
-   ],
-   "room": 1.0,
-   "mic": "off_axis"
-  },
-  {
-   "true": "reed_too_hard",
-   "top3": [
-    "loose_embouchure",
-    "reed_too_hard",
-    "too_much_lip_cushion"
-   ],
-   "room": 1.0,
-   "mic": "off_axis"
-  },
-  {
    "true": "reed_too_soft",
    "top3": [
-    "mouthpiece_too_far_in",
-    "biting",
-    "over_blowing"
+    "over_blowing",
+    "reed_too_soft",
+    "too_much_mouthpiece"
    ],
-   "room": 0.35,
+   "room": 0.2,
    "mic": "bell_close"
   },
   {
    "true": "tip_opening_large",
    "top3": [
+    "tip_opening_large",
     "weak_support",
-    "reed_too_hard",
-    "tip_opening_large"
+    "too_much_lip_cushion"
    ],
    "room": 0.35,
-   "mic": "bell_close"
+   "mic": "phone"
   },
   {
    "true": "bright_baffle",
    "top3": [
     "bright_baffle",
     "mouthpiece_too_far_in",
-    "biting"
+    "too_little_mouthpiece"
    ],
-   "room": 1.0,
-   "mic": "phone"
+   "room": 0.35,
+   "mic": "bell_close"
   },
   {
    "true": "large_chamber",
    "top3": [
+    "large_chamber",
     "mouthpiece_too_far_out",
-    "tip_opening_large",
-    "too_much_lip_cushion"
-   ],
-   "room": 0.2,
-   "mic": "m1"
-  },
-  {
-   "true": "weak_support",
-   "top3": [
-    "loose_embouchure",
-    "mouthpiece_too_far_out",
-    "tip_opening_large"
-   ],
-   "room": 0.35,
-   "mic": "phone"
-  },
-  {
-   "true": "over_blowing",
-   "top3": [
-    "biting",
-    "over_blowing",
-    "mouthpiece_too_far_in"
-   ],
-   "room": 0.6,
-   "mic": "off_axis"
-  },
-  {
-   "true": "mouthpiece_too_far_out",
-   "top3": [
-    "mouthpiece_too_far_out",
-    "loose_embouchure",
-    "large_chamber"
-   ],
-   "room": 1.0,
-   "mic": "phone"
-  },
-  {
-   "true": "mouthpiece_too_far_in",
-   "top3": [
-    "mouthpiece_too_far_in",
-    "biting",
-    "bright_baffle"
-   ],
-   "room": 1.0,
-   "mic": "m1"
-  },
-  {
-   "true": "biting",
-   "top3": [
-    "biting",
-    "over_blowing",
-    "mouthpiece_too_far_in"
-   ],
-   "room": 0.2,
-   "mic": "phone"
-  },
-  {
-   "true": "loose_embouchure",
-   "top3": [
-    "loose_embouchure",
-    "mouthpiece_too_far_out",
-    "large_chamber"
-   ],
-   "room": 0.35,
-   "mic": "phone"
-  },
-  {
-   "true": "too_much_mouthpiece",
-   "top3": [
-    "reed_too_soft",
-    "over_blowing",
     "too_much_mouthpiece"
    ],
    "room": 0.35,
-   "mic": "off_axis"
-  },
-  {
-   "true": "too_little_mouthpiece",
-   "top3": [
-    "too_little_mouthpiece",
-    "over_blowing",
-    "too_much_lip_cushion"
-   ],
-   "room": 0.2,
-   "mic": "bell_close"
-  },
-  {
-   "true": "too_much_lip_cushion",
-   "top3": [
-    "tip_opening_large",
-    "mouthpiece_too_far_out",
-    "too_much_lip_cushion"
-   ],
-   "room": 0.6,
-   "mic": "phone"
-  },
-  {
-   "true": "too_little_lip_cushion",
-   "top3": [
-    "over_blowing",
-    "closed_low_voicing",
-    "reed_too_soft"
-   ],
-   "room": 1.0,
-   "mic": "bell_close"
-  },
-  {
-   "true": "reed_too_hard",
-   "top3": [
-    "loose_embouchure",
-    "tip_opening_large",
-    "mouthpiece_too_far_out"
-   ],
-   "room": 0.35,
-   "mic": "bell_close"
-  },
-  {
-   "true": "reed_too_soft",
-   "top3": [
-    "over_blowing",
-    "too_much_mouthpiece",
-    "reed_too_soft"
-   ],
-   "room": 0.2,
-   "mic": "bell_close"
-  },
-  {
-   "true": "tip_opening_large",
-   "top3": [
-    "tip_opening_large",
-    "reed_too_hard",
-    "too_much_lip_cushion"
-   ],
-   "room": 0.35,
-   "mic": "phone"
-  },
-  {
-   "true": "bright_baffle",
-   "top3": [
-    "bright_baffle",
-    "mouthpiece_too_far_in",
-    "too_little_lip_cushion"
-   ],
-   "room": 0.35,
-   "mic": "bell_close"
-  },
-  {
-   "true": "large_chamber",
-   "top3": [
-    "large_chamber",
-    "mouthpiece_too_far_out",
-    "loose_embouchure"
-   ],
-   "room": 0.35,
    "mic": "phone"
   },
   {
    "true": "weak_support",
    "top3": [
     "weak_support",
-    "too_little_mouthpiece",
-    "reed_too_hard"
+    "tip_opening_large",
+    "too_little_mouthpiece"
    ],
    "room": 0.35,
    "mic": "m1"
@@ -605,9 +605,9 @@
   {
    "true": "over_blowing",
    "top3": [
+    "large_chamber",
     "too_much_mouthpiece",
-    "reed_too_soft",
-    "over_blowing"
+    "too_much_lip_cushion"
    ],
    "room": 0.2,
    "mic": "off_axis"

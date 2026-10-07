@@ -20,75 +20,65 @@
   "lung_pressure"
  ],
  "posterior_sd_steps": {
-  "lip_force": 0.19009943290277334,
-  "lip_position": 0.09103319229189823,
-  "lip_damping": 0.18416613140921215,
-  "mouthpiece_insertion": 0.15639359657859603,
-  "baffle_height": 0.4718704508890435,
-  "chamber_size": 0.11053689954794099,
-  "tip_opening": 0.16911860932905473,
-  "reed_strength": 0.1663493878111662,
-  "tongue_y@low": 0.8241019989855853,
-  "tongue_x@low": 0.8234305768711918,
-  "jaw_open@low": 0.425677151884098,
-  "tongue_y@mid": 0.8537713734854864,
-  "tongue_x@mid": 0.9870359966680559,
-  "jaw_open@mid": 1.3487406634212715,
-  "tongue_y@palm": 1.064468140810478,
-  "tongue_x@palm": 1.8621365563214196,
-  "jaw_open@palm": 1.7928083215418034,
-  "lung_pressure": 0.18562221647879643
+  "lip_force": 0.16439285679992438,
+  "lip_position": 0.1241115575006394,
+  "lip_damping": 0.4432793739178349,
+  "mouthpiece_insertion": 0.13791087481403486,
+  "baffle_height": 0.435671605031567,
+  "chamber_size": 0.1443070872617491,
+  "tip_opening": 0.19208320011207247,
+  "reed_strength": 0.30170173333037287,
+  "tongue_y@low": 0.46583846582720656,
+  "tongue_x@low": 0.8809573705276325,
+  "jaw_open@low": 0.6336073008435845,
+  "tongue_y@mid": 0.6607221816971429,
+  "tongue_x@mid": 0.6633762423758857,
+  "jaw_open@mid": 0.8643728402104126,
+  "tongue_y@palm": 0.5624768182852851,
+  "tongue_x@palm": 0.9270521285766495,
+  "jaw_open@palm": 1.0440418235257205,
+  "lung_pressure": 0.2519878445967385
  },
  "fisher_diag_sqrt": {
-  "lip_force": 16.98775116191126,
-  "lip_position": 16.011092785897116,
-  "lip_damping": 10.437281872434072,
-  "mouthpiece_insertion": 27.37493878288866,
-  "baffle_height": 11.90346664791825,
-  "chamber_size": 34.960179260499395,
-  "tip_opening": 14.706354202921322,
-  "reed_strength": 8.341797904289805,
-  "tongue_y@low": 1.34497814411296,
-  "tongue_x@low": 1.8794634436440878,
-  "jaw_open@low": 4.21173935475205,
-  "tongue_y@mid": 1.6195253343862916,
-  "tongue_x@mid": 1.8952612868472414,
-  "jaw_open@mid": 1.72972749461621,
-  "tongue_y@palm": 1.863969704619085,
-  "tongue_x@palm": 0.43652737016774035,
-  "jaw_open@palm": 0.9464647782482982,
-  "lung_pressure": 12.656249581723563
+  "lip_force": 17.17479097476869,
+  "lip_position": 17.56051583294884,
+  "lip_damping": 4.4468901189216865,
+  "mouthpiece_insertion": 28.559294265120755,
+  "baffle_height": 14.121266346072545,
+  "chamber_size": 36.089014716147254,
+  "tip_opening": 13.477992366755212,
+  "reed_strength": 8.255111640027458,
+  "tongue_y@low": 4.353538258621181,
+  "tongue_x@low": 1.5219119604153701,
+  "jaw_open@low": 3.5933205528755767,
+  "tongue_y@mid": 2.1034378247891063,
+  "tongue_x@mid": 3.3742740714340975,
+  "jaw_open@mid": 2.3323133921620753,
+  "tongue_y@palm": 3.639369257718854,
+  "tongue_x@palm": 2.0342936337131574,
+  "jaw_open@palm": 0.9331868948145501,
+  "lung_pressure": 9.549002428534754
  },
  "confounds": [
   [
-   "lip_damping",
-   "lung_pressure",
-   -0.8054291830301606
+   "baffle_height",
+   "chamber_size",
+   0.8545652260241712
+  ],
+  [
+   "tongue_y@mid",
+   "tongue_x@mid",
+   -0.6238771202765226
   ],
   [
    "tongue_x@mid",
    "jaw_open@mid",
-   -0.7643387498243626
+   -0.6237763112357939
   ],
   [
-   "baffle_height",
-   "chamber_size",
-   0.7342131345835703
-  ],
-  [
-   "tongue_x@low",
+   "tongue_y@low",
    "jaw_open@low",
-   -0.7220706571923853
-  ],
-  [
-   "tongue_y@palm",
-   "jaw_open@palm",
-   0.6838275288627547
-  ],
-  [
-   "tip_opening",
-   "lung_pressure",
-   0.6087259041508237
+   0.614103568128389
   ]
  ]
 }

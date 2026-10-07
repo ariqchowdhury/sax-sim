@@ -70,7 +70,7 @@ start. All f32. Index layout is fixed (append only):
 | 23 | subharm | dB | energy at f0/2 & multiphonic partials re H1 (−∞ → −120) |
 | 24 | regime | – | partial number relative to the target fingering's expected register (1 = as intended; 0.5 = cracked down; 2 = cracked up …) |
 | 25 | valid | 0/1 | 0 if no stable pitch was found |
-| 26 | release_t60 | s | reverberation time from the release tail (Schroeder T20 fit, noise-subtracted, starting ½·T60_inst after the −6 dB point); −1 if not measurable **or not slower than 1.3 × the instrument's own ring-down** T60_inst ≈ 120 Hz·s / f0 |
+| 26 | release_t60 | s | reverberation time from the release tail (Schroeder T20 fit, noise-subtracted, starting ½·T60_inst after the −6 dB point); −1 if not measurable **or not slower than 1.3 × the instrument's own ring-down** T60_inst ≈ 95 Hz·s / f0 |
 | 27 | tail_ratio | dB | mean power 50–300 ms after the release re steady power (DRR proxy; includes the instrument ring-down) |
 | 28 | noise_floor | dB | quietest 50 ms of the buffer re steady level |
 | 29 | release_clean | 0/1 | 1 = abrupt (tongued/stopped) release: no > 6 dB fade over the last 300 ms and −3 → −6 dB within 40 ms |
@@ -83,9 +83,9 @@ start. All f32. Index layout is fixed (append only):
 | `sax_analyze_len() -> u32` | feature vector length |
 | `sax_reset_state()` | silence all acoustic/reed/lung state (keep geometry, params, keys) for back-to-back offline renders |
 | `sax_set_seed(seed: u32)` | breath-noise RNG seed (deterministic fits) |
-| `sax_room(ptr: *const f32, n: u32, sample_rate: f32) -> *const f32` | blind room / recording-quality estimate of a multi-note recording: `[rt60, rt60_spread, drr, noise_floor, n_tails, confidence, verdict, clap_rt60, tail_ratio]` — robust medians over the clean release tails (notes ≥ 0.5 s), `rt60_spread` = 1.48·MAD, `drr` (dB) from the fitted tail extrapolated to the release, `noise_floor` = quietest 50 ms re the loudest, `verdict` 0 dry / 1 some room / 2 too reverberant / 3 uncertain, `clap_rt60` from an impulsive transient before the first note (−1 if none), `tail_ratio` = median per-note tail_ratio. Native: `render --room rec.wav` (JSON with the same names + `verdict_text`) |
-| `sax_analysis_config(inst_t60_hz: f32)` | instrument ring-down constant T60_inst·f0 (Hz·s) for the release/room estimate (`release_t60`, `sax_room`): **120 = simulator (default)**; **≈ 95 ± 20 for real alto recordings** (real instruments are 10–30 % lossier, Q ≈ 40–50, than the TMM visco-thermal + radiation model the simulator matches). ≤ 0 restores the default. Global (affects subsequent `sax_analyze`/`sax_room` calls). Native: `render --analyze/--room … --inst-t60 95` |
-| `sax_segment(ptr: *const f32, n: u32, sample_rate: f32) -> *const f32` | split a multi-note recording into notes: returns `[count, start0, end0, start1, end1, …]` (sample indices as f32; exact up to 2²⁴ samples ≈ 5.8 min at 48 kHz). Energy gate (−35 dB re the loudest 10 ms, ≥ 12 dB above the noise floor; gaps < 50 ms merged, notes ≥ 150 ms) plus legato splits at persistent pitch changes (> 80 ¢ for ≥ 80 ms) |
+| `sax_room(ptr: *const f32, n: u32, sample_rate: f32) -> *const f32` | blind room / recording-quality estimate of a multi-note recording: `[rt60, rt60_spread, drr, noise_floor, n_tails, confidence, verdict, clap_rt60, tail_ratio]` — robust medians over the clean release tails (notes ≥ 0.5 s), `rt60_spread` = 1.48·MAD, `drr` (dB) from the fitted tail extrapolated to the release, `noise_floor` = quietest 50 ms re the loudest, `verdict` 0 dry / 1 some room / 2 too reverberant / 3 uncertain, `clap_rt60` from an impulsive transient before the first note (−1 if none; primary for `rt60` when its decay spans ≥ 15 dB), `tail_ratio` = median per-note tail_ratio. Native: `render --room rec.wav` (JSON with the same names + `verdict_text`) |
+| `sax_analysis_config(inst_t60_hz: f32)` | instrument ring-down constant T60_inst·f0 (Hz·s) for the release/room estimate (`release_t60`, `sax_room`): **95 = default** — the simulator's free decay since the bore wall-loss factor ×1.3 (round 7) and the recommended real-alto value (≈ 95 ± 20, Q ≈ 40–50); use 120 only for renders made before round 7 (smooth-wall losses). ≤ 0 restores the default. Global (affects subsequent `sax_analyze`/`sax_room` calls). Native: `render --analyze/--room … --inst-t60 95` |
+| `sax_segment(ptr: *const f32, n: u32, sample_rate: f32) -> *const f32` | split a multi-note recording into notes: returns `[count, start0, end0, start1, end1, …]` (sample indices as f32; exact up to 2²⁴ samples ≈ 5.8 min at 48 kHz). Energy gate (−35 dB re the loudest 10 ms, ≥ 12 dB above the noise floor; a gap must stay below the gate > 80 ms, notes ≥ 150 ms). Inside a sounding region level changes never split a note (swells, messa di voce, slow attacks, quiet plateaus); splits only at (1) a dip ≥ 20 dB below the surrounding 200 ms lasting > 80 ms (re-articulation in reverb) or (2) a legato pitch change > 70 ¢ for ≥ 60 ms, confirmed on the spectrum: not a split when the old pitch keeps its level after the change (tracker octave/subharmonic error) or when the new pitch is the fundamental the tracker had skipped (already sounding before, ≥ −24 dB; partial-dominant attack); pitch changes in the first 250 ms of a note are its attack (e.g. speaking first in the wrong register). Finally neighbours with the same pitch (< 50 ¢) separated by < 100 ms are merged |
 
 `sax_analyze` and `sax_segment` do not need `sax_init` (they don't touch the engine instance).
 Two offline renders separated by `sax_reset_state()` with the same `sax_set_seed` are
@@ -118,9 +118,9 @@ bit-identical (also across fresh instances).
 
 **Room estimate: validity and thresholds** (`engine/examples/roomval.rs`: 4 simulated notes,
 tongued vs faded releases, synthetic rooms RT60 0.2–1.0 s × DRR −5…+10 dB × noise −70/−45 dB):
-* The air column keeps ringing after a tongued stop (simulator: T60_inst ≈ 120/f0 s, Q ≈ 55;
-  Bb3 ≈ 1 s, G4 ≈ 0.5 s, C6 ≈ 0.16 s; amplitude time constant τ = Q/(πf) ≈ 60–150 ms; real altos
-  ≈ 95/f0 — set with `sax_analysis_config`). Release tails that decay no slower than 1.3·T60_inst are
+* The air column keeps ringing after a tongued stop (T60_inst ≈ 95/f0 s, Q ≈ 40–50, simulator with
+  wall losses ×1.3 and real altos alike; Bb3 ≈ 0.7 s, G4 ≈ 0.4 s, C6 ≈ 0.13 s; amplitude time
+  constant τ = Q/(πf) ≈ 50–120 ms; override with `sax_analysis_config`). Release tails that decay no slower than 1.3·T60_inst are
   attributed to the instrument, so **rooms with RT60 ≲ 0.4–0.5 s are not distinguishable from a
   dry recording** (verdict 0); the dry simulation itself gives verdict 0, confidence 0.8.
 * RT60 ≥ 0.6 s is detected with tongued releases: estimates 0.5–1.1 s for true 0.6–1.0 s, verdict 2
@@ -128,8 +128,14 @@ tongued vs faded releases, synthetic rooms RT60 0.2–1.0 s × DRR −5…+10 dB
 * `drr` is **not reliable** (errors up to ±15 dB): the instrument ring-down and the room tail
   overlap. `tail_ratio` tracks the DRR for long rooms (≈ −13 dB at DRR −5, −20 dB at DRR +10,
   RT60 1 s) but sits at ≈ −23 dB for dry/short rooms (ring-down).
-* A clap before the first note (≥ ~1 s of silence after it) gives a direct estimate:
-  RT60 0.3 → 0.31 s, 0.6 → 0.54 s; it is used when no note tail is usable.
+* A clap before the first note gives a direct estimate and is the **primary** one (no instrument
+  ring-down to separate): the first impulsive event is found even when its reverberation merges
+  with the first note into one segment; its decay is fitted (Schroeder, −5 … −25 dB, noise floor =
+  5th percentile of the file's envelope) up to the next note's onset, with the energy missing after
+  that truncation added back assuming the fitted exponential (3 iterations). When the clap decay
+  covers ≥ 15 dB, `rt60` = `clap_rt60`; note tails only confirm (agreeing within 30 % → confidence
+  ≥ 0.9, else ×0.85), and a single tail's DRR is not used for the verdict. Clap 0.4 s before a note:
+  RT60 0.3 → 0.31 s, 0.6 → 0.62 s, 1.0 → 1.04 s (verdicts 1, 2, 2).
 * Verdict thresholds: 2 if rt60 ≥ 0.6 s or drr ≤ −2 dB; 0 if rt60 < 0.25 s or drr ≥ +6 dB, or
   if ≥ 2 clean releases show no decay beyond the ring-down; 1 otherwise; 3 if confidence < 0.3
   or no clean release.
@@ -264,7 +270,9 @@ random room/mic/level):
   at 4 magnitudes (`cause_ranking.templates`); score = χ² improvement over the default player of the
   best-matching magnitude, with σ_eff² = σ_room² + σ_nuisance². **Top-3: 84 % (top-1 60 %) on the
   45 single-fault players; on an independent, harder set (60 players, plus up to 0.75 step of a
-  second cause): 75 % with protocol v1, 80 % with the G4push take (top-1 45 % / 52 %).**
+  second cause): 75 % with protocol v1, 80 % with the G4push take (top-1 45 % / 52 %).** Regenerated on
+  the round-7 physics (wall losses, shorter neck, subglottal system, final dynamics): **80 % (v1) and
+  83 % (G4push) top-3, top-1 53 % / 62 %** (`validation.template_*` in the model).
 * *Fit-based* (secondary, after the fitter): projection of the fitted control change (in posterior
   sd) on the signature: top-3 60–62 %. The LM fit's control recovery RMSE (control units):
   chamber 0.08, lip_force 0.12, baffle 0.12, tip_opening 0.13 mm, jaw 0.21, lip_damping 0.22,
@@ -333,7 +341,11 @@ direction}; empty for observation rules), `evidence` (prose), `advice`, `why`, `
 
 ### Instrument ring-down (answer to the analyser team)
 
-The simulator's free decay after a tongued stop, T60 ≈ 120/f0 s (Q ≈ 52–66), matches the TMM
+**Round 7 update: done.** The physics lead added the bore wall-loss factor ×1.3; the simulator now decays
+with T60 ≈ 95/f0 s and `INST_T60_HZ` defaults to 95 for simulator output and real recordings alike
+(`sax_analysis_config` still overrides it; 120 reproduces pre-round-7 renders). Original note:
+
+The simulator's free decay after a tongued stop, T60 ≈ 120/f0 s (Q ≈ 52–66), matched the TMM
 visco-thermal + radiation Q of the same bore (Bb3 66, G4 57, C#5 52, C6 52), so engine and theory
 agree. Measured woodwind impedance peaks are typically 10–30 % lower/broader than smooth-wall theory
 (wall roughness, tone-hole edges and pad cups, pad leaks; Nederveen 1998, Dalmont et al., Chaigne &

@@ -264,3 +264,6 @@ button.primary { border: none; border-radius: 8px; cursor: pointer; color: #1a12
 .proto.rec { border-color: var(--brass); }
 .prompt-note .push { font-size: 14px; color: var(--brass); vertical-align: middle; }
 .prompt-note .instr { margin: 6px 0; padding: 6px 10px; border-left: 3px solid var(--brass); font-size: 13px; max-width: 420px; }
+.rec-warn { border: 1px solid rgba(255,179,71,0.55); background: rgba(255,179,71,0.07); border-radius: 8px; padding: 8px 12px; font-size: 13px; margin: 8px 0; color: #ffd9a3; }
+.rec-warn ul { margin: 4px 0 0 18px; padding: 0; }
+.coach-table tr.excluded td { opacity: 0.55; }

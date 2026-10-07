@@ -27,6 +27,8 @@ export interface FitSummary {
   /** 'failed' when takes that sound in the recording are silent in the fitted simulation */
   status?: 'ok' | 'failed';
   problems?: string[];
+  /** model labels of takes the fitter's recording guard left out ("G4pp") */
+  excluded?: string[];
   /** simulated feature vectors at the fitted controls, by take id */
   simFeatures?: Record<string, number[]>;
   residual?: number;
