@@ -52,6 +52,11 @@ export class VoicingInset {
     scene.onAfterRender(() => this.render());
   }
 
+  /** notes whose settled voicing is held (diagnostics / tests): previous and current */
+  get history(): { prev: string | null; cur: string | null } {
+    return { prev: this.prev?.note ?? null, cur: this.cur?.note ?? null };
+  }
+
   get visible(): boolean {
     return this.enabled && this.ap.mode === 'play' && !this.root.classList.contains('collapsed');
   }

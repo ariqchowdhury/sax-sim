@@ -79,6 +79,8 @@ export class AutoPlayer {
       const id = (P as Record<string, number>)[k];
       if (id !== undefined && Array.isArray(r) && r.length === 2) this.validity.set(id, [r[0], r[1]]);
     }
+    // the hint describes the CURRENT setup: a setup change starts a new sample set
+    state.onParam((id) => { if (AutoPlayer.SETUP_IDS.includes(id)) this.resetTuning(); });
     state.onKeys(() => this.recognise());
     this.recognise();
     state.onParam((id, v, source) => {
@@ -248,6 +250,10 @@ export class AutoPlayer {
   // struggles); the mean of the last notes drives the hint; the fix is the cork (≈ +2.5 ¢ per mm of
   // insertion, measured 2–3).
   private tuneSamples: number[] = [];
+  /** per-note sampling log since the last setup change (diagnostics; last 8 notes) */
+  private tuneLog: { note: string; inRegMs: number; sampled: boolean; cents: number | null }[] = [];
+  /** params that define the instrument setup: changing one makes old tuning samples meaningless */
+  private static readonly SETUP_IDS: readonly number[] = [P.tip_opening, P.facing_length, P.baffle_height, P.chamber_size, P.throat_diameter, P.mouthpiece_insertion, P.reed_strength, P.reed_model, P.temperature];
   private tuneT = 0;
   private sampled = false;
   /** insertion sensitivity (measured +2–3 ¢/mm; ~3.4 at a far-in cork): the top keeps the hint from overshooting */
@@ -258,14 +264,24 @@ export class AutoPlayer {
     if (this.sampled || !n || !(freq > 20)) return;
     // wall clock (not frame dt, which is capped per frame): independent of the frame rate
     const now = performance.now();
+    let log = this.tuneLog[this.tuneLog.length - 1];
+    if (!log || log.note !== n.name || log.sampled) {
+      log = { note: n.name, inRegMs: 0, sampled: false, cents: null };
+      this.tuneLog.push(log);
+      if (this.tuneLog.length > 8) this.tuneLog.shift();
+    }
     if (Math.abs(1200 * Math.log2(freq / n.f)) > 100) { this.tuneT = 0; return; }
     if (!this.tuneT) this.tuneT = now;
+    log.inRegMs = Math.round(now - this.tuneT);
     if (now - this.tuneT < 300) return;
     void dt;
     const m = 69 + 12 * Math.log2(freq / 440);
-    this.tuneSamples.push(100 * (m - Math.round(m)));
+    const cents = 100 * (m - Math.round(m));
+    this.tuneSamples.push(cents);
     if (this.tuneSamples.length > 6) this.tuneSamples.shift();
     this.sampled = true;
+    log.sampled = true;
+    log.cents = +cents.toFixed(1);
   }
 
   /** mean cents of the recent notes when it warrants a hint (≥ 3 notes, |mean| > 10 ¢), else null */
@@ -278,12 +294,31 @@ export class AutoPlayer {
     return { cents: c, mm, text };
   }
 
-  /** apply the tuning hint: move the mouthpiece on the cork, forget the old samples */
-  applyTuning(): void {
-    const h = this.tuningHint();
-    if (!h) return;
-    this.state.set(P.mouthpiece_insertion, this.state.get(P.mouthpiece_insertion) - h.mm, 'tuning');
+  /**
+   * apply the tuning hint: move the mouthpiece on the cork by `mm` (the correction the user saw on
+   * the button; default: the current hint) and forget the old samples
+   */
+  applyTuning(mm?: number): void {
+    const d = mm ?? this.tuningHint()?.mm;
+    if (d === undefined || !Number.isFinite(d) || d === 0) return;
+    this.state.set(P.mouthpiece_insertion, this.state.get(P.mouthpiece_insertion) - d, 'tuning');
+    this.resetTuning();
+  }
+
+  private resetTuning(): void {
     this.tuneSamples.length = 0;
+    this.tuneLog.length = 0;
+  }
+
+  /** number of notes sampled since the last setup change */
+  get tuningSamples(): number {
+    return this.tuneSamples.length;
+  }
+
+  /** diagnostics of the tuning hint: per-note log, mean, threshold */
+  tuningDebug(): { log: { note: string; inRegMs: number; sampled: boolean; cents: number | null }[]; mean: number | null; threshold: number; minNotes: number } {
+    const n = this.tuneSamples.length;
+    return { log: this.tuneLog.map((x) => ({ ...x })), mean: n ? +(this.tuneSamples.reduce((a, b) => a + b, 0) / n).toFixed(1) : null, threshold: 10, minNotes: 3 };
   }
 
   /**

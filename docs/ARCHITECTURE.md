@@ -99,7 +99,7 @@ All functions `#[no_mangle] pub extern "C"`. Single engine instance per worklet.
 | then 10 | player controls in effect (auto player, or user + player-assist offsets): lip_force N, lip_position mm, lip_damping, tongue_x, tongue_y, tongue_tip, tongue_length, jaw_open, glottis_open, lung pressure target kPa (engine `telemetry::IDX_PLAYER`) |
 | then 1 | recognised fingering: index into `fingerings` (alternates follow in file order), −1 none |
 | then 1 | voicing match: 0 exact fingering, 1 nearest fingering by pad state, 2 default voicing |
-| then 1 | auto-player state: 0 idle (off / breath gate closed), 1 settling, 2 locked (in register, ±30 ¢ for 100 ms), 3 struggling (wrong register or silent > 0.6 s, or outside the table's validity range > 0.3 s) |
+| then 1 | auto-player state: 0 idle (off / breath gate closed), 1 settling, 2 locked (a steady note in its register — ±100 ¢ of the target, pitch steady within 25 ¢ — for 100 ms; tuning is not part of it), 3 struggling (wrong register or silent > 0.6 s, or outside the table's validity range > 0.3 s) |
 
 ## Geometry JSON schema (`data/alto_sax.json`)
 

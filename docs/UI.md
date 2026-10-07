@@ -53,11 +53,20 @@ every control is yours, exactly as before.
   baffle, chamber, throat, insertion, temperature; beam reed unsupported). Outside them, a gentle
   note names the offending settings: "This setup is outside what the auto player was tuned for — …
   Notes may be out of tune."
+* **Known engine limit outside the tuned ranges** (routed to the DSP programmer): on tip 2.6 mm +
+  baffle 0.9, C4 can lose its register after locking and stay in the 3× regime for seconds —
+  `render --fingering C4 --auto --set baffle_height=0.9 --set tip_opening=2.6 --seconds 12 --seed 8
+  --csv c4.csv`: C4 at 156 Hz for 0.5–1.5 s, then 458 Hz from ≈ 1.75 s (as the blowing pressure
+  eases 6.5 → 4.5 kPa), first re-tongue ≈ 6.5 s fails, recovers ≈ 8.5 s (1/16 seeds; 0/64 renders
+  fail at the brightest in-range setup, baffle 0.6 + tip 2.5). The e2e therefore asserts locking
+  inside the tuned ranges and the gentle note outside them.
 * **Tuning hint**: the lip can only trim a few cents, so a setup that detunes the whole instrument
   (temperature, cork position, extreme baffle / chamber) leaves every note off. Each note is sampled
-  once it has sounded in its register for 0.3 s; when the mean of the last 3–6 notes is beyond
+  once it has sounded in its register for 0.3 s (wall clock); samples start afresh whenever the setup
+  changes (mouthpiece shape, cork, reed, temperature), so the hint always describes the current
+  instrument; when the mean of the last 3–6 notes is beyond
   ±10 ¢, a button says e.g. "Instrument runs 24 ¢ sharp — pull the mouthpiece out ~8 mm · apply";
-  one click moves the mouthpiece on the cork (≈ 3 ¢ per mm, the top of the measured 2–3 ¢/mm, so it
+  one click (applied on pointer-down, with the correction shown on the button, so a re-render of the bar cannot swallow it) moves the mouthpiece on the cork (≈ 3 ¢ per mm, the top of the measured 2–3 ¢/mm, so it
   does not overshoot).
 * **Breath gate**: in Play mode the player blows at its own pressure whenever `lung_pressure` > 0;
   Hold to blow / Space / note keys / MIDI note-on drive that gate as before, and Volume drives

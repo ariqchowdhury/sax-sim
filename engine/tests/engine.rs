@@ -496,3 +496,133 @@ fn auto_player_table_v1() {
     assert!((t[0] - 1.3).abs() < 0.65, "lip {t:?}");
     assert_eq!(t[11], 0.0);
 }
+
+/// Register slips are rescued: low/mid notes on the default setup and on an extreme one
+/// (high baffle, wide tip — outside the table's validity), 16 breath-noise seeds each; after the
+/// note first speaks, no stretch out of its register (or silent) may last ≥ 1.0 s.
+#[test]
+fn auto_player_recovers_register_slips() {
+    let Some(g) = geometry() else { return };
+    let setups: [&[(Param, f32)]; 2] = [&[], &[(Param::BaffleHeight, 0.9), (Param::TipOpening, 2.6)]];
+    let mut jobs = vec![];
+    for (si, _) in setups.iter().enumerate() {
+        for note in ["C4", "G4"] {
+            for seed in 0..16u32 {
+                jobs.push((si, note, seed));
+            }
+        }
+    }
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let res = std::sync::Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..8 {
+            s.spawn(|| loop {
+                let j = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                if j >= jobs.len() {
+                    break;
+                }
+                let (si, note, seed) = jobs[j];
+                let mut e = Engine::new(48000.0);
+                e.set_seed(seed);
+                e.load_geometry_json(&g).unwrap();
+                e.set_param(Param::AutoPlayer as u32, 1.0);
+                for (p, v) in setups[si] {
+                    e.set_param(*p as u32, *v);
+                }
+                let (keys, ft) = fingering(&e, note);
+                press(&mut e, &keys);
+                e.snap_params();
+                e.snap_pads();
+                e.set_param(Param::LungPressure as u32, 4.0);
+                // (a stretch ends only after 0.1 s back in register: the pitch tracker flickers)
+                let (mut spoke, mut bad_run, mut good_run, mut worst) = (false, 0.0f64, 0.0f64, 0.0f64);
+                let blk = 128.0 / 48000.0;
+                for _ in 0..(6.0 / blk) as usize {
+                    e.process(128);
+                    let c = cents(e.pitch_hz(), ft);
+                    if c.abs() < 300.0 {
+                        spoke = true;
+                        good_run += blk;
+                        if good_run >= 0.1 {
+                            bad_run = 0.0;
+                        } else if bad_run > 0.0 {
+                            bad_run += blk;
+                        }
+                    } else if spoke {
+                        good_run = 0.0;
+                        bad_run += blk;
+                    }
+                    worst = worst.max(bad_run);
+                }
+                res.lock().unwrap().push((si, note, seed, spoke, worst));
+            });
+        }
+    });
+    let r = res.into_inner().unwrap();
+    let bad: Vec<_> = r.iter().filter(|x| !x.3 || x.4 >= 1.0).collect();
+    let worst = r.iter().map(|x| x.4).fold(0.0, f64::max);
+    eprintln!("register slips: {} renders, longest wrong-register stretch {:.2} s, failures {bad:?}", r.len(), worst);
+    assert!(bad.is_empty(), "{bad:?}");
+}
+
+/// Switching the auto player on reports "locked" promptly: (a) while a note is held and blown,
+/// (b) switched on first, then a note is pressed and blown; also after a note change.
+#[test]
+fn auto_player_locks_promptly_after_switch_on() {
+    let Some(g) = geometry() else { return };
+    let p = sax_engine::telemetry::IDX_PLAYER;
+    let blk = 128.0 / 48000.0;
+    let time_to_lock = |e: &mut Engine, max_s: f64| -> f64 {
+        let mut t = 0.0;
+        while t < max_s {
+            e.process(128);
+            t += blk;
+            if e.telemetry[p + 12] == 2.0 {
+                return t;
+            }
+        }
+        f64::INFINITY
+    };
+    for (note, assist) in [("G4", 0.5f32), ("C5", 0.0), ("D4", 1.0), ("A5", 0.5), ("E4", 0.5), ("B3", 0.5)] {
+        // (a) Explore mode playing the note (user embouchure), then Play mode
+        let mut e = engine_with(&[]).unwrap();
+        let (keys, _) = fingering(&e, note);
+        press(&mut e, &keys);
+        e.set_param(Param::PlayerAssist as u32, assist);
+        e.set_param(Param::LipForce as u32, 1.6);
+        e.snap_params();
+        e.snap_pads();
+        run(&mut e, 3.0, 1.0);
+        e.set_param(Param::AutoPlayer as u32, 1.0);
+        let ta = time_to_lock(&mut e, 3.0);
+        // (b) Play mode first, silent, then the note is blown
+        let mut e = engine_with(&[]).unwrap();
+        e.set_param(Param::AutoPlayer as u32, 1.0);
+        run(&mut e, 0.0, 0.5);
+        let (keys, _) = fingering(&e, note);
+        press(&mut e, &keys);
+        e.set_param(Param::LungPressure as u32, 3.5);
+        let tb = time_to_lock(&mut e, 3.0);
+        // (c) a note change while blowing
+        let (k2, _) = fingering(&e, "E5");
+        press(&mut e, &k2);
+        e.process(128);
+        let tc = time_to_lock(&mut e, 3.0);
+        // (d) a detuned setup (cold air ≈ −20 ¢): "locked" means stable in register, not in tune
+        let mut e = engine_with(&[]).unwrap();
+        e.set_param(Param::AutoPlayer as u32, 1.0);
+        e.set_param(Param::Temperature as u32, 10.0);
+        e.snap_params();
+        let (keys, _) = fingering(&e, note);
+        press(&mut e, &keys);
+        e.set_param(Param::LungPressure as u32, 3.5);
+        let td = time_to_lock(&mut e, 3.0);
+        // (e) Play → Explore → Play: nothing learnt in the first session delays the second
+        e.set_param(Param::AutoPlayer as u32, 0.0);
+        run(&mut e, 3.5, 0.3);
+        e.set_param(Param::AutoPlayer as u32, 1.0);
+        let te = time_to_lock(&mut e, 3.0);
+        eprintln!("{note}: locked after switch-on {ta:.2} s, after attack {tb:.2} s, after note change {tc:.2} s, detuned {td:.2} s, re-entry {te:.2} s");
+        assert!(ta < 1.0 && tb < 1.0 && tc < 1.0 && td < 1.0 && te < 1.0, "{note}: {ta} {tb} {tc} {td} {te}");
+    }
+}

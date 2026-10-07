@@ -297,8 +297,12 @@ await page.evaluateOnNewDocument(() => { localStorage.setItem('saxsim.tour.v1', 
       // voicing close-up: on by default (≥ 1024 px) in Play mode, renders, toggles from Layers
       const insetOn = await page.evaluate(() => !document.getElementById('inset').hidden && window.__sax.inset.enabled);
       // a first note (G4), settled
+      const tG4 = Date.now();
       await page.keyboard.down('KeyB');
-      await page.waitForFunction(() => window.__sax.ap.status === 'locked', { timeout: 8000 }).catch(() => {});
+      // until the close-up itself holds G4 as the settled note (it records notes when they lock)
+      const g4ok = await page.waitForFunction(() => window.__sax.inset.history.cur === 'G4', { timeout: 10000 }).then(() => true, () => false);
+      const g4ms = Date.now() - tG4;
+      const g4st = await page.evaluate(() => ({ status: window.__sax.ap.status, f: +window.__sax.engine.telemetry.frequency.toFixed(1), inset: window.__sax.inset.history, visible: window.__sax.inset.visible }));
       await wait(400);
       await page.keyboard.up('KeyB'); await wait(300);
       const lab0 = await page.evaluate(() => document.querySelector('.inset-labels').textContent);
@@ -317,8 +321,9 @@ await page.evaluateOnNewDocument(() => { localStorage.setItem('saxsim.tour.v1', 
       await page.waitForFunction(() => window.__sax.inset.lastProbe, { timeout: 5000 }).catch(() => {});
       const probe = await page.evaluate(() => window.__sax.inset.lastProbe);
       check('play: voicing close-up is on and renders (non-empty pixels)', insetOn && !!probe && probe.distinct >= 4 && probe.nonBlack >= 5, JSON.stringify(probe));
+      const hist = await page.evaluate(() => window.__sax.inset.history);
       check('play: voicing close-up delta labels update between two notes', /G4 → G#6/.test(lab1.title) && lab1.rows >= 1 && lab1.text !== lab0 && /→/.test(lab1.text),
-        `${lab1.title}: ${lab1.text.slice(0, 140)}`);
+        `${lab1.title}: ${lab1.text.slice(0, 140)} · G4 ${g4ok ? `recorded after ${g4ms} ms` : `NOT recorded in 10 s`} (${JSON.stringify(g4st)}) · history now ${JSON.stringify(hist)}`);
       await page.click('#layers-btn'); await page.click('[data-toggle="inset"]'); await wait(150);
       const off = await page.evaluate(() => document.getElementById('inset').hidden);
       await page.click('[data-toggle="inset"]'); await wait(150);
@@ -366,7 +371,10 @@ await page.evaluateOnNewDocument(() => { localStorage.setItem('saxsim.tour.v1', 
     const distinct = new Set(s1.map((x) => x.map((v) => v.toFixed(2)).join(','))).size;
     check('play: the player\'s voicing (anatomy) changes between notes', distinct >= 3 && dist(s1[0], s1[s1.length - 1]) > 0.1,
       `${distinct} distinct voicings over ${s1.length} notes; C4 → last Δmax ${dist(s1[0], s1[s1.length - 1]).toFixed(2)}; source ${await page.evaluate(() => window.__sax.ap.source)}`);
-    // a different mouthpiece: high baffle, open tip (the player adapts; the setup is the user's)
+    // a setup OUTSIDE the ranges the auto player was tuned for (data auto_player.adaptation.validity:
+    // tip ≤ 2.5 mm, baffle ≤ 0.6) gets the gentle note; locking is not guaranteed there (engine repro:
+    // render --fingering C4 --auto --set baffle_height=0.9 --set tip_opening=2.6 --seed 8 → stuck at
+    // 460 Hz), so the in-register checks below use the brightest setup INSIDE the tuned ranges
     await page.evaluate(() => { window.__sax.state.set(15, 0.9, 'drag'); window.__sax.state.set(13, 2.6, 'drag'); });
     const owned0 = await page.evaluate(() => window.__sax.ap.mask);
     // the bar refreshes inside rendered frames (15 Hz): wait for it rather than a fixed delay
@@ -378,18 +386,37 @@ await page.evaluateOnNewDocument(() => { localStorage.setItem('saxsim.tour.v1', 
     seen.noteAfterMs = noteMs;
     check('play: setup outside the auto player\'s tuned ranges gets a gentle note (from the data)', !n0.shown && n1.shown && /outside what the auto player was tuned for/.test(n1.text) && /baffle/.test(n1.text),
       `default setup: ${n0.shown ? `shown "${n0.text}"` : 'hidden'}; bright setup: ${n1.shown ? 'shown' : 'hidden'} "${n1.text}"; ${JSON.stringify(seen)}`);
-    await playSet('high baffle + open tip');
-    check('play: mouthpiece changes stay the user\'s (no take-over)', owned0 === 0 && await page.evaluate(() => window.__sax.ap.mask) === 0 && Math.abs(await page.evaluate(() => window.__sax.state.get(15)) - 0.9) < 1e-6);
+    // brightest setup the auto player was tuned for: high baffle, open tip (the player adapts)
+    await page.evaluate(() => { window.__sax.state.set(15, 0.6, 'drag'); window.__sax.state.set(13, 2.5, 'drag'); });
+    await page.waitForFunction(() => document.getElementById('ap-setup').hidden, { timeout: 10000 }).catch(() => {});
+    const n2 = await noteShown();
+    check('play: the note goes away inside the tuned ranges', !n2.shown, n2.shown ? `still shown: "${n2.text}"` : 'hidden at baffle 0.6, tip 2.5 mm');
+    await playSet('bright mouthpiece: baffle 0.6, tip 2.5 mm');
+    check('play: mouthpiece changes stay the user\'s (no take-over)', owned0 === 0 && await page.evaluate(() => window.__sax.ap.mask) === 0 && Math.abs(await page.evaluate(() => window.__sax.state.get(15)) - 0.6) < 1e-6);
     await page.evaluate(() => { window.__sax.state.set(15, 0.3, 'test'); window.__sax.state.set(13, 1.9, 'test'); });
     // tuning hint: a mouthpiece pushed far onto the cork detunes every note beyond what the lip can
     // trim → "Instrument runs … sharp — pull the mouthpiece out …"; one click moves it
+    // (insertion is the only setting outside the tuned ranges here: tip/baffle are back at default)
     await page.evaluate(() => window.__sax.state.set(18, 19, 'drag'));
-    for (const k of ['KeyB', 'KeyQ', 'KeyT', 'KeyE']) { await page.keyboard.down(k); await wait(2600); await page.keyboard.up(k); await wait(350); }
-    const th = await page.evaluate(() => { const b = document.getElementById('ap-tune'); return { shown: !b.hidden, text: b.textContent, hint: window.__sax.ap.tuningHint() }; });
-    if (th.shown) await page.click('#ap-tune');
+    // play notes until 3 have been sampled for THIS setup (the cork change reset the samples)
+    const tStart = Date.now();
+    const seq = ['KeyB', 'KeyQ', 'KeyT', 'KeyE', 'KeyN', 'KeyW', 'KeyC', 'KeyR'];
+    let played = 0;
+    for (const k of seq) {
+      if (await page.evaluate(() => window.__sax.ap.tuningSamples) >= 3) break;
+      await page.keyboard.down(k);
+      await page.waitForFunction((n) => window.__sax.ap.tuningSamples > n, { timeout: 4000 }, await page.evaluate(() => window.__sax.ap.tuningSamples)).catch(() => {});
+      await wait(200);
+      await page.keyboard.up(k); await wait(350);
+      played++;
+    }
+    await page.waitForFunction(() => !document.getElementById('ap-tune').hidden, { timeout: 5000 }).catch(() => {});
+    const th = await page.evaluate(() => { const b = document.getElementById('ap-tune'); return { shown: !b.hidden, text: b.textContent, debug: window.__sax.ap.tuningDebug() }; });
+    // click the element that is there now (the bar re-renders at 15 Hz; no coordinate race)
+    if (th.shown) await page.$eval('#ap-tune', (b) => b.click());
     const ins = await page.evaluate(() => window.__sax.state.get(18));
     check('play: tuning hint for a detuned setup, one click moves the mouthpiece', th.shown && /sharp/.test(th.text) && ins < 19 - 1,
-      `"${th.text}" → insertion 19 → ${ins.toFixed(1)} mm`);
+      `"${th.text}" → insertion 19 → ${ins.toFixed(1)} mm; ${played} notes in ${((Date.now() - tStart) / 1000).toFixed(1)} s; mean ${th.debug.mean} ¢ (threshold ±${th.debug.threshold}, ≥ ${th.debug.minNotes} notes); log ${JSON.stringify(th.debug.log)}`);
     await page.evaluate(() => window.__sax.state.set(18, 10, 'test'));
     // grab to take over: dragging the tongue sets its mask bits + chip; reset clears them
     await camTo('player');

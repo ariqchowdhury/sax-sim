@@ -364,7 +364,12 @@ function main(): void {
   const modeBtns = document.querySelectorAll<HTMLButtonElement>('[data-mode]');
   const vol = $<HTMLInputElement>('vol-range'), volOut = $<HTMLOutputElement>('vol-out');
   const apStatus = $('ap-status'), apDoing = $('ap-doing'), apOwned = $('ap-owned'), apTune = $<HTMLButtonElement>('ap-tune');
-  apTune.addEventListener('click', () => ap.applyTuning());
+  // apply on pointer-down: the bar re-renders at 15 Hz and can shift between down and up (a lost
+  // click); keyboard activation still arrives as a click. Applies the correction shown on the button.
+  let tuneDown = false;
+  const applyTune = (): void => { const mm = Number(apTune.dataset.mm); if (Number.isFinite(mm)) ap.applyTuning(mm); apTune.hidden = true; };
+  apTune.addEventListener('pointerdown', (e) => { if (e.button === 0) { tuneDown = true; applyTune(); } });
+  apTune.addEventListener('click', () => { if (tuneDown) { tuneDown = false; return; } applyTune(); });
   const apSetup = $('ap-setup');
   const dynName = (v: number): string => (v < 0.12 ? 'pp' : v < 0.3 ? 'p' : v < 0.45 ? 'mp' : v < 0.6 ? 'mf' : v < 0.8 ? 'f' : 'ff');
   const syncVol = (): void => {
@@ -564,7 +569,7 @@ function main(): void {
       if (note) set(apSetup, note);
       const hint = ap.tuningHint();
       apTune.hidden = !hint;
-      if (hint) set(apTune, `${hint.text} · apply`);
+      if (hint) { set(apTune, `${hint.text} · apply`); apTune.dataset.mm = String(hint.mm); }
     }
     if (kb.isBlowing !== wasBlowing) { wasBlowing = kb.isBlowing; blowBtn.classList.toggle('active', wasBlowing); }
     if (recorder.recording) { const s = Math.floor((performance.now() - recStart) / 1000); set($('rec-time'), `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`); }

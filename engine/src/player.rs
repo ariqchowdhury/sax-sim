@@ -695,6 +695,14 @@ pub const AUTO_TRIM_DEADBAND: f64 = 6.0;
 pub const AUTO_TRIM_MAX: f64 = 0.6;
 /// the lip may relax by at most this much for pitch (a looser lip loses the register)
 pub const AUTO_TRIM_MIN: f64 = -0.35;
+pub const AUTO_TRIM_MIN_LOW: f64 = -0.15;
+/// register slip (auto mode): a note that leaves its register for AUTO_SLIP_AFTER (s) after it
+/// had locked gets the last controls it locked with back at once (trims, lock and dynamics easing
+/// frozen) plus a re-tongue, held for AUTO_RESTORE_HOLD (s); only after AUTO_RESTORE_TRIES such
+/// restarts does the player explore (register lock + lip rescue)
+pub const AUTO_SLIP_AFTER: f64 = 0.08;
+pub const AUTO_RESTORE_HOLD: f64 = 0.5;
+pub const AUTO_RESTORE_TRIES: u32 = 3;
 /// built-in voicing: lip force per mm of tip opening beyond 1.9 mm, per group (low, mid, palm, alt)
 pub const AUTO_LIP_PER_TIP: [f64; 4] = [0.4, 0.7, 1.0, 1.0];
 /// register rescue (auto mode): a note sounding below its register gets a firmer lip (up to
@@ -766,6 +774,13 @@ pub struct AutoState {
     cap_lost: f64,
     fail_t: f64,
     prev_gate: bool,
+    /// last controls the current note locked with, its trim, slip timer, restore hold/count
+    good: Option<[f64; N_CTL]>,
+    good_trim: f64,
+    slip_t: f64,
+    restoring: f64,
+    restores: u32,
+    prev_cents: f64,
 }
 
 impl AutoState {
@@ -1089,9 +1104,15 @@ impl Player {
             let e = if cents > AUTO_TRIM_DEADBAND { cents - AUTO_TRIM_DEADBAND } else if cents < -AUTO_TRIM_DEADBAND { cents + AUTO_TRIM_DEADBAND } else { 0.0 };
             // normalise the gain by the group's sensitivity (table) — default 40 ¢/N
             let sens = self.table.as_ref().map(|t| t.lip_trim[grp]).filter(|x| x.is_finite() && x.abs() > 1.0).unwrap_or(40.0);
-            self.auto.trim = (self.auto.trim - AUTO_TRIM_GAIN * 40.0 / sens * e * dt).clamp(AUTO_TRIM_MIN, AUTO_TRIM_MAX);
+            // (gain normalised by the sensitivity, but at most ×1.5: on the low notes (≈13 ¢/N)
+            // a fast lip drop unseats the fundamental; and there the lip relaxes by ≤ 0.15 N)
+            let lo = if grp == 0 { AUTO_TRIM_MIN_LOW } else { AUTO_TRIM_MIN };
+            self.auto.trim = (self.auto.trim - AUTO_TRIM_GAIN * (40.0 / sens).min(1.5) * e * dt).clamp(lo, AUTO_TRIM_MAX);
         }
         if voice != self.auto.last_voice {
+            self.auto.good = None;
+            self.auto.restores = 0;
+            self.auto.restoring = 0.0;
             self.auto.trim = 0.0;
             self.auto.rescue = 0.0;
             self.auto.low_t = 0.0;
@@ -1111,7 +1132,41 @@ impl Player {
         };
         let wrong = if off < -300.0 { 1.0 } else if off > 300.0 { -1.0 } else { 0.0 };
         let mut rescue_tongue = 0.0;
-        if gate && wrong != 0.0 && tongue < 0.2 && self.auto.since > 0.2 && reg < 3 {
+        // slip back to the last controls that locked (what a player does: go back to what worked)
+        let slipped = gate && wrong != 0.0 && tongue < 0.2 && reg < 3 && self.auto.good.is_some();
+        if slipped && self.auto.restoring <= 0.0 && self.auto.restores < AUTO_RESTORE_TRIES {
+            self.auto.slip_t += dt;
+            if self.auto.slip_t > AUTO_SLIP_AFTER {
+                self.auto.restoring = AUTO_RESTORE_HOLD;
+                self.auto.restores += 1;
+                // the dynamic excursion that lost the register is not tried again: after the
+                // hold the player eases from mf toward at most 0.7 of it
+                let reach = self.auto.dyn_reach();
+                if reach > 0.05 {
+                    self.auto.cap_lost = self.auto.cap_lost.max(1.0 - 0.7 * reach);
+                    self.auto.boost = 1.0;
+                }
+                self.auto.slip_t = 0.0;
+                self.auto.dip_t = ALT_DIP_TIME;
+                self.auto.trim = self.auto.good_trim;
+                self.auto.rescue = 0.0;
+                self.auto.low_t = 0.0;
+                self.adapt = 0.0;
+                if let Some(g) = self.auto.good {
+                    self.auto.ramp = g;
+                }
+            }
+        } else if !slipped {
+            self.auto.slip_t = 0.0;
+        }
+        let restoring = self.auto.restoring > 0.0;
+        if restoring {
+            self.auto.restoring -= dt;
+            if let Some(g) = self.auto.good {
+                tgt = g;
+            }
+        }
+        if !restoring && gate && wrong != 0.0 && tongue < 0.2 && self.auto.since > 0.2 && reg < 3 && (self.auto.good.is_none() || self.auto.restores >= AUTO_RESTORE_TRIES) {
             self.auto.low_t += dt;
             let (lo, hi) = (-AUTO_RESCUE_LIP_DOWN, AUTO_RESCUE_LIP);
             self.auto.rescue = (self.auto.rescue + wrong * AUTO_RESCUE_RATE * dt).clamp(lo, hi);
@@ -1127,10 +1182,24 @@ impl Player {
             self.auto.dip_t -= dt;
             rescue_tongue = 1.0;
         }
-        if self.auto.rescue < 0.0 {
-            tgt[ctl::LUNG_PRESSURE] *= 1.0 + 0.3 * self.auto.rescue;
+        if !restoring {
+            if self.auto.rescue < 0.0 {
+                tgt[ctl::LUNG_PRESSURE] *= 1.0 + 0.3 * self.auto.rescue;
+            }
+            tgt[ctl::LIP_FORCE] += self.auto.trim + self.auto.rescue;
         }
-        tgt[ctl::LIP_FORCE] += self.auto.trim + self.auto.rescue;
+        // remember the controls the note first locked with (before the user mask): the most
+        // robust point of the attack — later ones drift toward the edge of the regime (dynamics
+        // easing, trims), and restoring an edge state only slips again
+        if gate && !restoring && self.auto.state == STATE_LOCKED && in_reg && tongue < 0.2 && freq > 0.0 {
+            if self.auto.good.is_none() {
+                self.auto.good = Some(tgt);
+                self.auto.good_trim = self.auto.trim;
+            }
+            if self.auto.good_t > 0.3 {
+                self.auto.restores = 0;
+            }
+        }
         // --- user-owned controls, ranges, note-change ramps
         for c in 0..N_CTL {
             if owns(c) {
@@ -1159,11 +1228,15 @@ impl Player {
         // --- dynamics onset (table voicings)
         if gate && !self.auto.prev_gate {
             self.auto.boost = 1.0;
+            self.auto.good = None;
+            self.auto.restores = 0;
         }
         self.auto.prev_gate = gate;
         let sounding_ok = if self.current.is_some() { in_reg } else { freq > 0.0 };
         if gate && tongue < 0.2 && tongue_out < 0.5 {
-            if sounding_ok && self.auto.since > 0.1 {
+            if self.auto.restoring > 0.0 {
+                // (restoring the locked controls: no easing)
+            } else if sounding_ok && self.auto.since > 0.1 {
                 self.auto.boost *= 1.0 - (dt / DYN_RELAX_TAU).min(1.0);
                 self.auto.fail_t = 0.0;
             } else if self.auto.dyn_reach() > 0.15 && (d_user - 0.5).abs() > 0.05 {
@@ -1179,7 +1252,10 @@ impl Player {
         self.auto.since += dt;
         if gate && tongue < 0.2 && tongue_out < 0.5 {
             // (no recognised fingering: no pitch target — sounding is all we can check)
-            let ok = if self.current.is_some() { in_reg && cents.abs() < 30.0 } else { freq > 0.0 };
+            // locked = a stable note in its register (tuning is the trims' business: a detuned
+            // setup — cold air, cork position — must not keep the state at "settling")
+            let steady = (cents - self.auto.prev_cents).abs() < 25.0;
+            let ok = if self.current.is_some() { in_reg && steady } else { freq > 0.0 };
             if ok {
                 self.auto.good_t += dt;
                 self.auto.bad_t = 0.0;
@@ -1188,6 +1264,7 @@ impl Player {
                 self.auto.good_t = 0.0;
             }
         }
+        self.auto.prev_cents = cents;
         self.auto.out_of_range = out_of_range;
         self.auto.state = if !gate {
             STATE_IDLE
@@ -1209,9 +1286,9 @@ impl Player {
     /// Leave auto mode (next activation starts its ramps from the targets).
     pub fn auto_off(&mut self) {
         if self.auto.on {
-            self.auto.on = false;
-            self.auto.ramp_init = false;
-            self.auto.state = STATE_IDLE;
+            // forget everything learnt in this Play session (trims, first-lock memory, dynamic
+            // caps, timers): the next switch-on starts fresh
+            self.auto = AutoState { voice: self.auto.voice, matched: self.auto.matched, ..Default::default() };
             self.out = PlayerOffsets { pressure_scale: 1.0, ..Default::default() };
         }
     }
