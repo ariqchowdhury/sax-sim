@@ -8,10 +8,14 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$HERE"
-cargo build --profile wasm --target wasm32-unknown-unknown --lib
-# RUSTFLAGS replaces .cargo/config.toml's rustflags, so restate +simd128; separate target dir
-# so the two builds don't invalidate each other.
-RUSTFLAGS="-C target-feature=+simd128,+relaxed-simd" \
+# Strip local absolute paths (home dir, toolchain, cargo registry, checkout) from the panic/debug
+# strings Rust embeds in the binary, since the .wasm files are committed and published.
+# RUSTFLAGS replaces .cargo/config.toml's rustflags, so each build restates its SIMD features.
+REMAP="--remap-path-prefix=$HOME=/home --remap-path-prefix=$ROOT=/sax_sim --remap-path-prefix=$HOME/.rustup=/rustup --remap-path-prefix=$HOME/.cargo/registry/src=/cargo"  # rustc applies the last matching prefix
+RUSTFLAGS="-C target-feature=+simd128 $REMAP" \
+  cargo build --profile wasm --target wasm32-unknown-unknown --lib
+# Separate target dir so the two builds don't invalidate each other.
+RUSTFLAGS="-C target-feature=+simd128,+relaxed-simd $REMAP" \
   cargo build --profile wasm --target wasm32-unknown-unknown --lib --target-dir "$HERE/target/relaxed"
 mkdir -p "$ROOT/web/public"
 cp "$HERE/target/wasm32-unknown-unknown/wasm/sax_engine.wasm" "$ROOT/web/public/engine.wasm"
