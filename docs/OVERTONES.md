@@ -152,6 +152,41 @@ some players find particular partials on particular low notes much easier than o
 - If one low fingering won't give you its 5th partial, try the neighbouring low note: the
   resonance that helps is a property of the instrument and changes from note to note.
 
+## Neck-and-mouthpiece bends
+
+Playing on the mouthpiece and neck alone is a common voicing exercise, and the simulator
+supports it as a stripped-down air column (mouthpiece + 0.17 m neck, no body). With a neutral
+mouth and normal embouchure it sounds about concert G4 (388 Hz in the model; real alto necks are
+usually quoted around concert G4–A♭4).
+
+What moved the pitch, from about 800 settings:
+
+| What changes | Pitch range of the neck tone |
+|---|---|
+| Tongue, jaw, throat only (normal lip, normal air) | about −50 to +85 cents |
+| Lip force and mouthpiece take-in only (neutral tongue) | about −65 to +55 cents |
+| Loose lip + more mouthpiece + gentler air + high tongue, together | down to about −600 cents (a tritone) |
+
+So in the model, large downward bends happen only when the embouchure lets the reed give and the
+tongue is high at the same time: the loose reed stops pinning the pitch to the neck's resonance,
+and the vocal tract can pull it down. Neither alone does much.
+
+Two cautions:
+
+- **The model probably understates tongue-only bends.** Its vocal tract cannot make a strong
+  resonance below about 800 Hz (the same limitation behind the overtone gap above), and a neck
+  bend from 390 Hz downward needs exactly that. Real players commonly bend a neck tone down
+  several semitones; treat the model's "tongue alone ≈ one semitone" as a lower bound.
+- **Teachers usually want the bend to come from voicing, not from dropping the jaw or biting.**
+  The model agrees that the lip alone does little; what it adds is that the lip has to stay
+  loose enough to let the tongue work.
+
+As practice, the neck is a good companion to overtones: the overtone series trains you to
+*select* a resonance with the tongue, and neck bends train you to *move* the pitch with it,
+without the full horn's strong resonances fighting back. Check the starting pitch and each bent
+pitch with a tuner, aim for steady bends in semitone steps, and keep the sound full rather than
+pinched.
+
 ## Trying it in the simulator
 
 1. Set **Player assist to 0**. Otherwise the player model "helps" the low Bb fingering back to
